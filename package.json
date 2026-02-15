@@ -1,0 +1,29 @@
+{
+  "name": "ai-code-auditor",
+  "version": "0.1.0",
+  "description": "Multi-agent AI code quality auditor CLI",
+  "type": "module",
+  "bin": {
+    "code-auditor": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "test": "bun test",
+    "audit": "bun run src/cli.ts src/"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "keywords": [
+    "code-quality",
+    "ai",
+    "multi-agent",
+    "cli",
+    "code-review"
+  ],
+  "author": "",
+  "license": "MIT"
+}
