@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { PLAN_LIMITS } from '@/lib/stripe/config'
 import bcrypt from 'bcryptjs'
+import { auditRateLimit } from '@/lib/rate-limit'
 
 interface AuditRequest {
   repo?: string
@@ -37,25 +38,50 @@ export async function POST(request: NextRequest) {
 
     const apiKey = authHeader.substring(7) // Remove 'Bearer '
 
-    // Hash the provided key and find it in database
-    const keyHash = await bcrypt.hash(apiKey, 10)
-
-    // For demo, we'll find by a simple comparison
-    // In production, you'd hash on creation and compare hashes
-    const apiKeyRecord = await db.apiKey.findFirst({
-      where: {
-        // Note: This is simplified. In production, hash the key on creation
-        // and store only the hash, then compare hashes
-      },
+    // Fetch all API keys and compare hashes (since bcrypt hashes can't be searched)
+    const apiKeys = await db.apiKey.findMany({
       include: {
         team: true,
       },
     })
 
+    let apiKeyRecord = null
+
+    // Compare the provided key against each stored hash
+    for (const key of apiKeys) {
+      const isValid = await bcrypt.compare(apiKey, key.keyHash)
+      if (isValid) {
+        apiKeyRecord = key
+        break
+      }
+    }
+
     if (!apiKeyRecord) {
       return NextResponse.json(
         { error: 'Invalid API key' },
         { status: 401 }
+      )
+    }
+
+    // Rate limiting (10 requests per minute per API key)
+    const { success, limit, remaining, reset } = await auditRateLimit.limit(apiKeyRecord.id)
+
+    if (!success) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          limit,
+          remaining,
+          reset: new Date(reset).toISOString(),
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': limit.toString(),
+            'X-RateLimit-Remaining': remaining.toString(),
+            'X-RateLimit-Reset': reset.toString(),
+          },
+        }
       )
     }
 

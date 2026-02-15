@@ -3,8 +3,20 @@ import { stripe } from '@/lib/stripe/config'
 import { db } from '@/lib/db'
 import { mapStripePlanToPrisma } from '@/lib/stripe/helpers'
 import Stripe from 'stripe'
+import { webhookRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting (100 requests per minute globally)
+  const identifier = 'stripe-webhook' // Global rate limit
+  const { success, limit, remaining, reset } = await webhookRateLimit.limit(identifier)
+
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded' },
+      { status: 429 }
+    )
+  }
+
   const body = await request.text()
   const signature = request.headers.get('stripe-signature')
 
@@ -24,9 +36,15 @@ export async function POST(request: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET!
     )
   } catch (error) {
-    console.error('Webhook signature verification failed:', error)
+    // Log details server-side only
+    console.error('[STRIPE_WEBHOOK_ERROR]', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    })
+
+    // Return generic error to client (prevent timing attacks)
     return NextResponse.json(
-      { error: 'Invalid signature' },
+      { error: 'Bad request' },
       { status: 400 }
     )
   }
