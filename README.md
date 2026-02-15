@@ -22,6 +22,8 @@ AI Code Auditor uses **5 parallel specialized agents** to provide deep, context-
 - **Markdown export** - Save reports for documentation and PRs
 - **Chunk-based processing** - Handle large codebases efficiently
 - **Language support** - TypeScript, JavaScript, Python, Go, Rust, Java, C/C++
+- **Binary distribution** - No runtime dependencies, works without Bun
+- **Easy installation** - One-line install script for macOS and Linux
 
 ### Web Dashboard (NEW!)
 - **Team collaboration** - Share audit results across your team
@@ -35,6 +37,24 @@ See [web/README.md](web/README.md) for dashboard setup instructions.
 
 ## Installation
 
+### Option 1: Install Binary (Recommended)
+
+Download and install the pre-built binary for your platform:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yourusername/ai-code-auditor/main/install.sh | bash
+```
+
+This will:
+- Auto-detect your OS and architecture
+- Download the appropriate binary
+- Install to `~/.code-auditor/bin/`
+- Guide you through adding it to your PATH
+
+### Option 2: Build from Source
+
+If you have Bun installed:
+
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/ai-code-auditor.git
@@ -42,11 +62,33 @@ cd ai-code-auditor
 
 # Install dependencies
 bun install
+
+# Build binary for your platform
+bun run build:darwin-arm64   # macOS Apple Silicon
+bun run build:darwin-x64     # macOS Intel
+bun run build:linux-x64      # Linux x86_64
+bun run build:linux-arm64    # Linux ARM64
+bun run build:all            # All platforms
+
+# Binary will be in dist/
+./dist/code-auditor-darwin-arm64 --version
+```
+
+### Option 3: Run from Source
+
+```bash
+git clone https://github.com/yourusername/ai-code-auditor.git
+cd ai-code-auditor
+bun install
 ```
 
 ## Setup
 
-Set your Anthropic API key as an environment variable:
+### 1. Get an Anthropic API Key
+
+Sign up at [console.anthropic.com](https://console.anthropic.com/) and create an API key.
+
+Set it as an environment variable:
 
 ```bash
 export ANTHROPIC_API_KEY='sk-ant-...'
@@ -59,45 +101,89 @@ echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.zshrc
 source ~/.zshrc
 ```
 
+### 2. (Optional) Login to Dashboard
+
+If you want to sync audit results to the web dashboard:
+
+```bash
+code-auditor login
+```
+
+This will prompt you for your dashboard API key and save it locally.
+
 ## Usage
 
 ### Basic Usage
 
+Using installed binary:
+
 ```bash
+# Show version
+code-auditor --version
+
+# Show help
+code-auditor --help
+
 # Audit a single file
-bun run src/cli.ts src/main.ts
+code-auditor src/main.ts
 
 # Audit an entire directory
-bun run src/cli.ts src/
+code-auditor src/
 
 # Self-audit (analyze the auditor's own code)
+code-auditor src/
+```
+
+Running from source:
+
+```bash
+# Audit a file or directory
 bun run src/cli.ts src/
+
+# Show help
+bun run src/cli.ts --help
+```
+
+### Dashboard Integration
+
+```bash
+# Login once
+code-auditor login
+
+# Run audits - results automatically sync to dashboard
+code-auditor src/
+
+# Logout
+code-auditor logout
 ```
 
 ### Save Report to File
 
 ```bash
 # Save markdown report
-bun run src/cli.ts src/ --output report.md
+code-auditor src/ --output report.md
 
 # Use in CI/CD pipeline
-bun run src/cli.ts src/ --output audit-report-$(date +%Y%m%d).md
+code-auditor src/ --output audit-report-$(date +%Y%m%d).md
 ```
 
 ### Advanced Options
 
 ```bash
 # Use a different Claude model
-bun run src/cli.ts src/ --model claude-opus-4-6
+code-auditor src/ --model claude-opus-4-6
 
 # Adjust token limit per chunk
-bun run src/cli.ts src/ --max-tokens 150000
+code-auditor src/ --max-tokens 150000
 
 # Disable parallel processing (sequential)
-bun run src/cli.ts src/ --no-parallel
+code-auditor src/ --no-parallel
+
+# Show version
+code-auditor --version
 
 # Show help
-bun run src/cli.ts --help
+code-auditor --help
 ```
 
 ## Configuration

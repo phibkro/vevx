@@ -80,9 +80,39 @@ export async function callClaude(
         }
 
         // For other API errors, provide detailed message
+        if (error.status === 401) {
+          throw new Error(
+            `Invalid Anthropic API key (401 Unauthorized)\n\n` +
+            `Your ANTHROPIC_API_KEY is invalid or expired.\n` +
+            `Get a new key at: https://console.anthropic.com/settings/keys\n` +
+            `Then set it with: export ANTHROPIC_API_KEY='your-new-key'`
+          );
+        }
+
+        if (error.status === 429) {
+          throw new Error(
+            `Rate limit exceeded (429)\n\n` +
+            `You've hit the API rate limit or quota.\n` +
+            `Check your usage at: https://console.anthropic.com/settings/usage\n` +
+            `Consider upgrading your plan for higher limits.`
+          );
+        }
+
+        // Generic API error
         throw new Error(
           `Anthropic API error (${error.status}): ${error.message}\n` +
-            (error.status === 401 ? "Check your ANTHROPIC_API_KEY" : "")
+          `Check the API status: https://status.anthropic.com/`
+        );
+      }
+
+      // For network errors, provide helpful message
+      if (lastError.message.includes("fetch") || lastError.message.includes("network")) {
+        throw new Error(
+          `Network error: Cannot reach Anthropic API\n\n` +
+          `Please check:\n` +
+          `  1. Your internet connection\n` +
+          `  2. Firewall or proxy settings\n` +
+          `  3. API status: https://status.anthropic.com/`
         );
       }
 

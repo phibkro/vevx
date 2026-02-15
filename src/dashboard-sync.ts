@@ -1,4 +1,5 @@
 import type { AuditReport } from "./report/synthesizer.ts";
+import { getApiKey } from "./auth.ts";
 
 interface DashboardConfig {
   apiKey: string;
@@ -47,13 +48,14 @@ export async function syncToDashboard(
   report: AuditReport,
   durationMs: number
 ): Promise<DashboardResponse | null> {
-  const apiKey = process.env.CODE_AUDITOR_API_KEY;
-  const apiUrl = process.env.CODE_AUDITOR_API_URL || "https://code-auditor.com";
+  const authConfig = getApiKey();
 
-  if (!apiKey) {
+  if (!authConfig) {
     // Silently skip if no API key configured
     return null;
   }
+
+  const { apiKey, apiUrl } = authConfig;
 
   try {
     const gitInfo = getGitInfo();
@@ -94,7 +96,19 @@ export async function syncToDashboard(
 
     if (!response.ok) {
       const error = await response.text();
-      console.error(`Failed to sync to dashboard: ${response.status} ${error}`);
+
+      if (response.status === 401) {
+        console.error("\n✗ Dashboard sync failed: Invalid API key");
+        console.error("  Your CODE_AUDITOR_API_KEY is invalid or expired.");
+        console.error("  Run 'code-auditor login' to reconfigure.\n");
+      } else if (response.status === 429) {
+        console.error("\n✗ Dashboard sync failed: Rate limit or monthly quota exceeded");
+        console.error("  View your plan at: https://code-auditor.com/team");
+        console.error("  Upgrade at: https://code-auditor.com/pricing\n");
+      } else {
+        console.error(`\n✗ Dashboard sync failed: ${response.status} ${error}\n`);
+      }
+
       return null;
     }
 

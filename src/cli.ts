@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 
 import { parseArgs } from "util";
-import { writeFileSync } from "fs";
+import { writeFileSync, readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { loadConfig, validateConfig, type Config } from "./config.ts";
 import { discoverFiles } from "./discovery.ts";
 import { createChunks, formatChunkSummary } from "./chunker.ts";
@@ -10,13 +12,35 @@ import { synthesizeReport } from "./report/synthesizer.ts";
 import { printReport } from "./report/terminal.ts";
 import { generateMarkdown } from "./report/markdown.ts";
 import { syncToDashboard } from "./dashboard-sync.ts";
+import { login, logout } from "./auth.ts";
+
+// Get version from package.json
+function getVersion(): string {
+  try {
+    // In compiled binary, use compile-time constant
+    if (typeof Bun !== "undefined" && Bun.main === import.meta.path) {
+      const pkgPath = resolve(dirname(fileURLToPath(import.meta.url)), "../package.json");
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      return pkg.version;
+    }
+    return "0.1.0"; // Fallback
+  } catch {
+    return "0.1.0"; // Fallback
+  }
+}
 
 const HELP_TEXT = `
 AI Code Auditor - Multi-agent code quality analysis tool
 
 USAGE:
   code-auditor <path> [options]
+  code-auditor login
+  code-auditor logout
   bun run src/cli.ts <path> [options]
+
+COMMANDS:
+  login               Save API key for dashboard syncing
+  logout              Remove saved API key
 
 ARGUMENTS:
   <path>              Path to file or directory to audit
@@ -26,10 +50,13 @@ OPTIONS:
   --model <name>      Claude model to use (default: claude-sonnet-4-5-20250929)
   --max-tokens <n>    Maximum tokens per chunk (default: 100000)
   --no-parallel       Disable parallel processing
+  --version, -v       Show version number
   --help, -h          Show this help message
 
 ENVIRONMENT:
-  ANTHROPIC_API_KEY   Required. Your Anthropic API key
+  ANTHROPIC_API_KEY       Required. Your Anthropic API key
+  CODE_AUDITOR_API_KEY    Optional. Dashboard API key (or use 'login' command)
+  CODE_AUDITOR_API_URL    Optional. Dashboard URL (default: https://code-auditor.com)
 
 CONFIGURATION:
   Create a .code-auditor.json file in your project directory:
@@ -40,6 +67,9 @@ CONFIGURATION:
   }
 
 EXAMPLES:
+  # Login to dashboard
+  code-auditor login
+
   # Audit a single file
   code-auditor src/main.ts
 
@@ -59,6 +89,7 @@ interface CliArgs {
   model?: string;
   maxTokens?: number;
   parallel?: boolean;
+  version?: boolean;
   help?: boolean;
 }
 
@@ -73,6 +104,7 @@ function parseCliArgs(): CliArgs {
         model: { type: "string" },
         "max-tokens": { type: "string" },
         "no-parallel": { type: "boolean" },
+        version: { type: "boolean", short: "v" },
         help: { type: "boolean", short: "h" },
       },
       allowPositionals: true,
@@ -84,6 +116,7 @@ function parseCliArgs(): CliArgs {
       model: values.model as string | undefined,
       maxTokens: values["max-tokens"] ? parseInt(values["max-tokens"] as string, 10) : undefined,
       parallel: values["no-parallel"] ? false : undefined,
+      version: values.version as boolean | undefined,
       help: values.help as boolean | undefined,
     };
   } catch (error) {
@@ -97,8 +130,27 @@ function parseCliArgs(): CliArgs {
  * Main orchestration flow
  */
 async function main(): Promise<void> {
+  // Check for subcommands first (before parsing args)
+  const firstArg = process.argv[2];
+
+  if (firstArg === "login") {
+    await login();
+    return;
+  }
+
+  if (firstArg === "logout") {
+    logout();
+    return;
+  }
+
   // Parse CLI arguments
   const args = parseCliArgs();
+
+  // Show version
+  if (args.version) {
+    console.log(`AI Code Auditor v${getVersion()}`);
+    process.exit(0);
+  }
 
   // Show help
   if (args.help) {
@@ -134,10 +186,16 @@ async function main(): Promise<void> {
 
     // Validate API key early
     if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error(
-        "ANTHROPIC_API_KEY environment variable is not set.\n" +
-          "Please set it with: export ANTHROPIC_API_KEY='your-api-key'"
-      );
+      console.error("\n✗ Error: ANTHROPIC_API_KEY not configured\n");
+      console.error("To use AI Code Auditor, you need an Anthropic API key.\n");
+      console.error("Get your API key:");
+      console.error("  1. Sign up at https://console.anthropic.com/");
+      console.error("  2. Go to API Keys section");
+      console.error("  3. Create a new API key\n");
+      console.error("Then set it as an environment variable:");
+      console.error("  export ANTHROPIC_API_KEY='your-api-key-here'\n");
+      console.error("Or add it to your shell profile (~/.bashrc, ~/.zshrc, etc.)\n");
+      process.exit(1);
     }
 
     // Discovery phase
