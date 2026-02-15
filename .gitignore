@@ -77,3 +77,8 @@ Thumbs.db
 # Emacs backup files
 \#*
 .\#*
+
+# CLAUDE CODE
+# Personal settings only - keep plans and rules in git for team consistency
+.claude/settings.local.json
+.claude/memory/
