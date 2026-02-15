@@ -14,6 +14,7 @@ AI Code Auditor uses **5 parallel specialized agents** to provide deep, context-
 
 ## Features
 
+### CLI Tool
 - **Multi-agent analysis** - 5 specialized agents analyze code in parallel
 - **Weighted scoring** - Overall quality score based on configurable agent weights
 - **Prioritized findings** - Critical issues highlighted first
@@ -21,6 +22,16 @@ AI Code Auditor uses **5 parallel specialized agents** to provide deep, context-
 - **Markdown export** - Save reports for documentation and PRs
 - **Chunk-based processing** - Handle large codebases efficiently
 - **Language support** - TypeScript, JavaScript, Python, Go, Rust, Java, C/C++
+
+### Web Dashboard (NEW!)
+- **Team collaboration** - Share audit results across your team
+- **Historical tracking** - Track quality trends over time
+- **Automated syncing** - CLI results automatically sync to dashboard
+- **Team management** - Role-based access control
+- **Usage analytics** - Monitor team audit activity
+- **API key management** - Secure CLI authentication
+
+See [web/README.md](web/README.md) for dashboard setup instructions.
 
 ## Installation
 

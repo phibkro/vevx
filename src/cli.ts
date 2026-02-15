@@ -9,6 +9,7 @@ import { runAudit } from "./orchestrator.ts";
 import { synthesizeReport } from "./report/synthesizer.ts";
 import { printReport } from "./report/terminal.ts";
 import { generateMarkdown } from "./report/markdown.ts";
+import { syncToDashboard } from "./dashboard-sync.ts";
 
 const HELP_TEXT = `
 AI Code Auditor - Multi-agent code quality analysis tool
@@ -157,10 +158,12 @@ async function main(): Promise<void> {
     // Run multi-agent audit
     // Note: For now, we run on all files as a single batch
     // In future, could iterate through chunks if needed
+    const startTime = Date.now();
     const agentResults = await runAudit(files, {
       model: config.model,
       maxTokens: 4096, // Per-agent response limit
     });
+    const durationMs = Date.now() - startTime;
 
     // Synthesize report
     const report = synthesizeReport(args.path, agentResults);
@@ -173,6 +176,12 @@ async function main(): Promise<void> {
       const markdown = generateMarkdown(report);
       writeFileSync(config.outputPath, markdown, "utf-8");
       console.log(`\n✓ Report saved to: ${config.outputPath}\n`);
+    }
+
+    // Sync to dashboard if API key is configured
+    const dashboardResult = await syncToDashboard(report, durationMs);
+    if (dashboardResult) {
+      console.log(`\n📊 View in dashboard: ${dashboardResult.dashboardUrl}\n`);
     }
   } catch (error) {
     console.error("\n✗ Error:", error instanceof Error ? error.message : String(error));
