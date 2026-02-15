@@ -1,194 +1,182 @@
-# AI Code Audit
+# AI Code Auditor
 
-A multi-agent AI code quality analysis tool powered by Claude. Get comprehensive, actionable feedback on your code across 5 specialized dimensions: correctness, security, performance, maintainability, and edge case handling.
+Multi-agent AI code quality analysis tool powered by Claude. Get comprehensive, actionable feedback across 5 specialized dimensions: correctness, security, performance, maintainability, and edge cases.
 
-## Why AI Code Auditor?
+## Quick Start
 
-Traditional static analysis tools excel at syntax and basic patterns, but struggle with:
-- **Context-aware security analysis** - Understanding business logic vulnerabilities
-- **Performance bottleneck detection** - Identifying algorithmic inefficiencies
-- **Maintainability assessment** - Evaluating long-term code quality
-- **Edge case discovery** - Finding rare but critical failure modes
+```bash
+# Install dependencies
+bun install
 
-AI Code Audit uses **5 parallel specialized agents** to provide deep, context-aware analysis that goes beyond what traditional tools offer.
+# Build all packages
+bun run build
+
+# Run CLI audit
+cd apps/cli && bun run dev src/
+
+# Start web dashboard
+cd apps/web && bun run dev
+```
+
+## Project Structure
+
+This is a **Turborepo monorepo** with multiple packages:
+
+```
+ai-code-auditor/
+├── apps/
+│   ├── cli/              # CLI tool for code auditing
+│   ├── web/              # Next.js dashboard (team collaboration)
+│   └── action/           # GitHub Action
+├── packages/
+│   ├── core/             # Shared audit logic (agents, orchestrator)
+│   ├── types/            # Shared TypeScript types
+│   ├── api-client/       # Dashboard API client
+│   └── config/           # Shared TS config
+└── .claude/
+    └── plans/            # Project planning documents
+```
 
 ## Features
 
 ### CLI Tool
 - **Multi-agent analysis** - 5 specialized agents analyze code in parallel
-- **Weighted scoring** - Overall quality score based on configurable agent weights
+- **Weighted scoring** - Overall quality score based on configurable weights
 - **Prioritized findings** - Critical issues highlighted first
 - **Rich terminal output** - Color-coded, scannable reports
 - **Markdown export** - Save reports for documentation and PRs
-- **Chunk-based processing** - Handle large codebases efficiently
 - **Language support** - TypeScript, JavaScript, Python, Go, Rust, Java, C/C++
-- **Binary distribution** - No runtime dependencies, works without Bun
-- **Easy installation** - One-line install script for macOS and Linux
 
-### Web Dashboard (NEW!)
+### Web Dashboard
 - **Team collaboration** - Share audit results across your team
 - **Historical tracking** - Track quality trends over time
 - **Automated syncing** - CLI results automatically sync to dashboard
 - **Team management** - Role-based access control
-- **Usage analytics** - Monitor team audit activity
 - **API key management** - Secure CLI authentication
 
-See [web/README.md](web/README.md) for dashboard setup instructions.
+See [apps/web/README.md](apps/web/README.md) for dashboard setup.
 
-## Installation
+### GitHub Action
+- **Automatic PR comments** with quality reports
+- **Changed files detection** - Only audits PR diff
+- **Workflow failure** on critical issues (optional)
 
-### Option 1: Install Binary (Recommended)
+## Development
 
-Download and install the pre-built binary for your platform:
+### Prerequisites
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/yourusername/ai-code-audit/main/install.sh | bash
-```
+- [Bun](https://bun.sh/) 1.0+
+- Node.js 18+ (for deployment compatibility)
+- PostgreSQL (for web dashboard)
 
-This will:
-- Auto-detect your OS and architecture
-- Download the appropriate binary
-- Install to `~/.code-audit/bin/`
-- Guide you through adding it to your PATH
-
-### Option 2: Build from Source
-
-If you have Bun installed:
+### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/ai-code-audit.git
-cd ai-code-audit
+# Clone repository
+git clone https://github.com/yourusername/ai-code-auditor.git
+cd ai-code-auditor
 
-# Install dependencies
+# Install dependencies (all packages)
 bun install
 
-# Build binary for your platform
-bun run build:darwin-arm64   # macOS Apple Silicon
-bun run build:darwin-x64     # macOS Intel
-bun run build:linux-x64      # Linux x86_64
-bun run build:linux-arm64    # Linux ARM64
-bun run build:all            # All platforms
+# Set up environment variables
+cp apps/web/.env.example apps/web/.env
+# Edit apps/web/.env with your credentials
 
-# Binary will be in dist/
-./dist/code-audit-darwin-arm64 --version
+# Generate Prisma client
+cd apps/web && bun run db:generate
+
+# Build all packages
+cd ../.. && bun run build
 ```
 
-### Option 3: Run from Source
+### Common Tasks
 
 ```bash
-git clone https://github.com/yourusername/ai-code-audit.git
-cd ai-code-audit
-bun install
+# Build all packages
+bun run build
+
+# Build specific package
+cd apps/cli && bun run build
+cd apps/web && bun run build
+
+# Run CLI in development
+cd apps/cli && bun run dev <path>
+
+# Run web dashboard in development
+cd apps/web && bun run dev
+
+# Run tests
+bun run test
+
+# Run linter
+bun run lint
+
+# Clean all build artifacts
+bun run clean
 ```
 
-## Setup
+### Package Dependencies
 
-### 1. Get an Anthropic API Key
-
-Sign up at [console.anthropic.com](https://console.anthropic.com/) and create an API key.
-
-Set it as an environment variable:
-
-```bash
-export ANTHROPIC_API_KEY='sk-ant-...'
+```
+┌─────────┐
+│   CLI   │──┐
+└─────────┘  │
+             ├──> core ──> types
+┌─────────┐  │
+│   Web   │──┤
+└─────────┘  │
+             └──> api-client ──> types
+┌─────────┐
+│ Action  │──> core ──> types
+└─────────┘
 ```
 
-Or add it to your shell profile (`.bashrc`, `.zshrc`, etc.):
+## How It Works
+
+AI Code Auditor uses a **multi-agent architecture** with 5 specialized agents:
+
+### 1. Correctness (25%)
+Logic errors, type safety, null handling, API usage correctness
+
+### 2. Security (25%)
+SQL injection, XSS, auth issues, data exposure, crypto weaknesses
+
+### 3. Performance (15%)
+Algorithmic complexity, memory leaks, DB query efficiency, caching
+
+### 4. Maintainability (20%)
+Code complexity, documentation, error handling, test coverage
+
+### 5. Edge Cases (15%)
+Boundary conditions, race conditions, resource exhaustion, rare failures
+
+Each agent analyzes code independently and returns a score (0-10) with detailed findings. The **overall score** is a weighted average.
+
+## CLI Usage
 
 ```bash
-echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.zshrc
-source ~/.zshrc
-```
-
-### 2. (Optional) Login to Dashboard
-
-If you want to sync audit results to the web dashboard:
-
-```bash
-code-audit login
-```
-
-This will prompt you for your dashboard API key and save it locally.
-
-## Usage
-
-### Basic Usage
-
-Using installed binary:
-
-```bash
-# Show version
-code-audit --version
-
-# Show help
-code-audit --help
-
-# Audit a single file
+# Audit a file
 code-audit src/main.ts
 
-# Audit an entire directory
+# Audit a directory
 code-audit src/
 
-# Self-audit (analyze the auditor's own code)
-code-audit src/
-```
-
-Running from source:
-
-```bash
-# Audit a file or directory
-bun run src/cli.ts src/
-
-# Show help
-bun run src/cli.ts --help
-```
-
-### Dashboard Integration
-
-```bash
-# Login once
-code-audit login
-
-# Run audits - results automatically sync to dashboard
-code-audit src/
-
-# Logout
-code-audit logout
-```
-
-### Save Report to File
-
-```bash
-# Save markdown report
+# Save report to file
 code-audit src/ --output report.md
 
-# Use in CI/CD pipeline
-code-audit src/ --output audit-report-$(date +%Y%m%d).md
-```
-
-### Advanced Options
-
-```bash
-# Use a different Claude model
+# Use different model
 code-audit src/ --model claude-opus-4-6
 
-# Adjust token limit per chunk
-code-audit src/ --max-tokens 150000
-
-# Disable parallel processing (sequential)
-code-audit src/ --no-parallel
-
-# Show version
-code-audit --version
-
-# Show help
-code-audit --help
+# Dashboard integration
+code-audit login              # Login once
+code-audit src/               # Results auto-sync
+code-audit logout             # Logout
 ```
 
-## Configuration
+### Configuration
 
-Create a `.code-audit.json` file in your project directory for persistent settings:
+Create `.code-audit.json` in your project:
 
 ```json
 {
@@ -198,180 +186,23 @@ Create a `.code-audit.json` file in your project directory for persistent settin
 }
 ```
 
-CLI arguments override configuration file settings.
+## Web Dashboard
 
-## How It Works
+The Next.js dashboard provides team collaboration features:
 
-AI Code Auditor uses a **multi-agent architecture** with 5 specialized agents running in parallel:
+- **Authentication** - Clerk (GitHub OAuth + email)
+- **Database** - PostgreSQL via Prisma
+- **Payments** - Stripe (Free/Pro/Team tiers)
+- **Deployment** - Vercel
 
-### 1. Correctness Agent (25% weight)
-- Logic errors and incorrect algorithms
-- Type safety violations
-- Null/undefined handling
-- Off-by-one errors
-- API usage correctness
-
-### 2. Security Agent (25% weight)
-- SQL injection and XSS vulnerabilities
-- Authentication and authorization issues
-- Sensitive data exposure
-- Input validation problems
-- Cryptographic weaknesses
-
-### 3. Performance Agent (15% weight)
-- Algorithmic complexity issues
-- Memory leaks and excessive allocations
-- Database query inefficiencies
-- Unnecessary computation
-- Caching opportunities
-
-### 4. Maintainability Agent (20% weight)
-- Code complexity and readability
-- Documentation quality
-- Error handling patterns
-- Test coverage gaps
-- Code duplication
-
-### 5. Edge Cases Agent (15% weight)
-- Boundary condition handling
-- Rare failure modes
-- Concurrent access issues
-- Resource exhaustion scenarios
-- Input validation edge cases
-
-Each agent:
-1. Receives the code with line numbers
-2. Analyzes it from their specialized perspective
-3. Returns a score (0-10) and detailed findings
-4. Findings are prioritized by severity (critical, warning, info)
-
-The **overall score** is a weighted average across all agents, giving you a single quality metric while preserving individual dimension insights.
-
-## Example Output
-
-### Terminal Output
-
-```
-╔══════════════════════════════════════════════════════════╗
-║           AI Code Auditor - Multi-Agent Report           ║
-╚══════════════════════════════════════════════════════════╝
-
-Target: src/auth.ts
-Overall Score: 7.2/10 ⭐⭐⭐⭐
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 Agent Breakdown:
-
-✓ correctness     8.5/10  (weight: 25%)  [142ms]
-⚠ security        6.0/10  (weight: 25%)  [156ms]
-✓ performance     7.8/10  (weight: 15%)  [134ms]
-✓ maintainability 8.2/10  (weight: 20%)  [148ms]
-⚠ edge-cases      5.9/10  (weight: 15%)  [151ms]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔍 Findings Summary:
-
-🔴 Critical: 2
-🟡 Warnings: 5
-🔵 Info: 3
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🎯 Top Recommendations:
-
-1. SQL injection vulnerability in login query
-   → src/auth.ts:42
-   Use parameterized queries instead of string concatenation
-```
-
-### Markdown Report
-
-Reports saved with `--output` are formatted as clean markdown, perfect for:
-- Pull request comments
-- Documentation
-- Issue tracking
-- Code review records
-- CI/CD artifacts
-
-## Success Criteria
-
-This project meets the following Wave 3 success criteria:
-
-- ✅ Terminal output is colored, scannable, shows overall score
-- ✅ Critical findings highlighted in red
-- ✅ Markdown export (if --output flag) matches terminal content
-- ✅ Self-audit works: `bun run src/cli.ts src/` produces valid report
-- ✅ README provides clear usage instructions
-
-## Development
-
-### Project Structure
-
-```
-ai-code-audit/
-├── src/
-│   ├── agents/           # 5 specialized analysis agents
-│   │   ├── correctness.ts
-│   │   ├── security.ts
-│   │   ├── performance.ts
-│   │   ├── maintainability.ts
-│   │   ├── edge-cases.ts
-│   │   ├── types.ts
-│   │   └── index.ts
-│   ├── report/           # Report generation system
-│   │   ├── synthesizer.ts  # Aggregate results
-│   │   ├── terminal.ts     # Colored terminal output
-│   │   └── markdown.ts     # Markdown export
-│   ├── cli.ts            # CLI entry point
-│   ├── config.ts         # Configuration management
-│   ├── discovery.ts      # File discovery
-│   ├── chunker.ts        # Large codebase chunking
-│   ├── client.ts         # Anthropic API client
-│   └── orchestrator.ts   # Multi-agent orchestration
-├── .code-audit.json    # Optional configuration
-├── package.json
-└── README.md
-```
-
-### Running Tests
-
-```bash
-# Run the test suite
-bun test
-
-# Self-audit (best integration test)
-bun run src/cli.ts src/
-```
-
-### Adding New Agents
-
-To add a new analysis dimension:
-
-1. Create a new agent file in `src/agents/`
-2. Define the agent with `AgentDefinition` interface
-3. Add it to `src/agents/index.ts`
-4. Adjust weights to ensure they sum to 1.0
-
-## Limitations
-
-- **API costs** - Each audit makes 5 parallel API calls (one per agent)
-- **Token limits** - Very large files may need chunking (automatic)
-- **Language coverage** - Best results with TypeScript/JavaScript, good with others
-- **Context window** - Currently analyzes files as single batch (chunk support planned)
+Setup instructions: [apps/web/README.md](apps/web/README.md)
 
 ## GitHub Action
 
-Automatically audit code quality on every pull request! Add AI Code Auditor to your GitHub workflow for continuous quality monitoring.
-
-### Quick Setup
-
-Add to your repo at `.github/workflows/code-audit.yml`:
+Add to `.github/workflows/code-audit.yml`:
 
 ```yaml
 name: Code Quality Audit
-
 on: [pull_request]
 
 permissions:
@@ -388,58 +219,113 @@ jobs:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-Add your `ANTHROPIC_API_KEY` as a repository secret, and you're done!
+## Environment Variables
 
-### Features
+### CLI (`apps/cli`)
+```bash
+ANTHROPIC_API_KEY=sk-ant-...        # Required for analysis
+CODE_AUDITOR_API_KEY=...            # Optional for dashboard sync
+```
 
-- Automatic PR comments with quality reports
-- Deduplication (updates existing comments)
-- Changed files detection (only audits PR diff)
-- Optional workflow failure on critical issues
-- Minimum score enforcement
+### Web Dashboard (`apps/web`)
+```bash
+# Database
+DATABASE_URL=postgresql://...
 
-### Free Tier
+# Authentication (Clerk)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+CLERK_WEBHOOK_SECRET=whsec_...
 
-**Public repositories get unlimited free audits** with attribution.
+# Payments (Stripe)
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRO_PRICE_ID=price_...
+STRIPE_TEAM_PRICE_ID=price_...
 
-**Private repositories** require a Pro subscription ($29/mo).
+# Rate Limiting (Upstash Redis)
+UPSTASH_REDIS_REST_URL=https://...
+UPSTASH_REDIS_REST_TOKEN=...
+```
 
-### Full Documentation
+See `apps/web/.env.example` for complete list.
 
-See [GITHUB_ACTION.md](./GITHUB_ACTION.md) for complete documentation, examples, and configuration options.
+## Deployment
 
-## Roadmap
+### CLI Binary Distribution
 
-- [x] Multi-agent CLI tool
-- [x] GitHub Actions integration
-- [ ] Per-chunk analysis for large codebases
-- [ ] Custom agent configurations
-- [ ] VS Code extension
-- [ ] Caching and incremental analysis
-- [ ] Custom rule definitions
-- [ ] Team-wide configuration sharing
+```bash
+cd apps/cli
+
+# Build for specific platform
+bun run build:darwin-arm64   # macOS Apple Silicon
+bun run build:darwin-x64     # macOS Intel
+bun run build:linux-x64      # Linux x86_64
+bun run build:linux-arm64    # Linux ARM64
+
+# Build all platforms
+bun run build:binaries
+```
+
+Binaries output to `apps/cli/dist/`.
+
+### Web Dashboard (Vercel)
+
+```bash
+cd apps/web
+
+# Deploy to Vercel
+vercel
+
+# Or connect your GitHub repo to Vercel for automatic deployments
+```
+
+The monorepo is configured with `vercel.json` at the root for proper build settings.
+
+## Testing
+
+```bash
+# Run all tests
+bun run test
+
+# Web dashboard tests
+cd apps/web
+bun test                    # Unit tests (Vitest)
+bun run test:e2e           # E2E tests (Playwright)
+bun run test:coverage      # Coverage report
+```
 
 ## Contributing
 
-Contributions welcome! Please:
-
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run self-audit: `bun run src/cli.ts src/`
-5. Submit a pull request
+4. Run tests (`bun run test`)
+5. Commit (`git commit -m 'feat: add amazing feature'`)
+6. Push (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+## Project Plans
+
+Project planning documents are in `.claude/plans/`:
+- **active/** - Currently in progress
+- **archive/** - Completed plans
+- **backlog/** - Prioritized future work
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-Built with:
-- [Anthropic Claude](https://www.anthropic.com/claude) - AI model
-- [Bun](https://bun.sh/) - Fast JavaScript runtime
-- [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-typescript) - API client
+- [Anthropic Claude](https://www.anthropic.com/claude) - AI model powering analysis
+- [Bun](https://bun.sh/) - Fast JavaScript runtime and build tool
+- [Turborepo](https://turbo.build/) - High-performance build system
+- [Next.js](https://nextjs.org/) - React framework for web dashboard
+- [Prisma](https://www.prisma.io/) - Database ORM
 
 ---
 
-**Note:** This tool provides AI-generated insights. Always apply human judgment and verify critical findings before making changes.
+**Note:** This tool provides AI-generated insights. Always apply human judgment and verify critical findings.
