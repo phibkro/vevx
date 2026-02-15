@@ -1,0 +1,21 @@
+{
+  "name": "@code-auditor/action",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "bun build src/index.ts --outfile dist/action.js --target=node",
+    "dev": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@code-auditor/core": "workspace:*",
+    "@code-auditor/types": "workspace:*",
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^6.0.0",
+    "@octokit/rest": "^20.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.5"
+  }
+}

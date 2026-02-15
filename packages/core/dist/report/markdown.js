@@ -1,0 +1,148 @@
+import { agents } from "../agents/index";
+/**
+ * Generate star rating visual for markdown (out of 10)
+ */
+function getStarRating(score) {
+    const stars = Math.round(score / 2.5); // 0-10 → 0-4 stars
+    return "⭐".repeat(Math.max(0, stars));
+}
+/**
+ * Format duration in milliseconds to human readable
+ */
+function formatDuration(ms) {
+    if (ms < 1000)
+        return `${ms}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
+}
+/**
+ * Get emoji for severity
+ */
+function getSeverityEmoji(severity) {
+    switch (severity) {
+        case "critical":
+            return "🔴";
+        case "warning":
+            return "🟡";
+        case "info":
+            return "🔵";
+        default:
+            return "⚪";
+    }
+}
+/**
+ * Get status emoji for agent score
+ */
+function getStatusEmoji(score) {
+    return score >= 7 ? "✓" : "⚠️";
+}
+/**
+ * Generate markdown report from audit results
+ */
+export function generateMarkdown(report) {
+    const lines = [];
+    // Header
+    lines.push("# AI Code Auditor Report");
+    lines.push("");
+    lines.push(`**Target:** \`${report.target}\``);
+    lines.push(`**Date:** ${report.timestamp}`);
+    lines.push(`**Overall Score:** ${report.overallScore.toFixed(1)}/10 ${getStarRating(report.overallScore)}`);
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+    // Agent breakdown table
+    lines.push("## Agent Breakdown");
+    lines.push("");
+    lines.push("| Agent | Score | Weight | Duration |");
+    lines.push("|-------|-------|--------|----------|");
+    report.agentResults.forEach((result) => {
+        const agent = agents.find((a) => a.name === result.agent);
+        const weight = agent ? `${(agent.weight * 100).toFixed(0)}%` : "??%";
+        const status = getStatusEmoji(result.score);
+        lines.push(`| ${status} ${result.agent} | ${result.score.toFixed(1)}/10 | ${weight} | ${formatDuration(result.durationMs)} |`);
+    });
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+    // Findings summary
+    lines.push("## Findings Summary");
+    lines.push("");
+    lines.push(`- 🔴 **Critical:** ${report.criticalCount}`);
+    lines.push(`- 🟡 **Warnings:** ${report.warningCount}`);
+    lines.push(`- 🔵 **Info:** ${report.infoCount}`);
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+    // Top recommendations
+    if (report.topRecommendations.length > 0) {
+        lines.push("## Top Recommendations");
+        lines.push("");
+        report.topRecommendations.forEach((rec, index) => {
+            const recLines = rec.split("\n");
+            const firstLine = recLines[0] || "";
+            // Extract severity and title
+            let emoji = "⚪";
+            let severity = "";
+            if (firstLine.includes("[CRITICAL]")) {
+                emoji = "🔴";
+                severity = "CRITICAL";
+            }
+            else if (firstLine.includes("[WARNING]")) {
+                emoji = "🟡";
+                severity = "WARNING";
+            }
+            else if (firstLine.includes("[INFO]")) {
+                emoji = "🔵";
+                severity = "INFO";
+            }
+            const title = firstLine.replace(/^\[.*?\]\s*/, "");
+            lines.push(`### ${index + 1}. ${emoji} ${title}`);
+            // Extract location and suggestion from remaining lines
+            for (let i = 1; i < recLines.length; i++) {
+                const line = recLines[i].trim();
+                if (line.startsWith("→")) {
+                    const location = line.replace(/^→\s*/, "");
+                    lines.push(`**File:** \`${location}\``);
+                }
+                else if (line) {
+                    lines.push(`**Suggestion:** ${line}`);
+                }
+            }
+            lines.push("");
+        });
+        lines.push("---");
+        lines.push("");
+    }
+    // Detailed findings by agent
+    lines.push("## Detailed Findings");
+    lines.push("");
+    report.agentResults.forEach((result) => {
+        lines.push(`### ${result.agent}`);
+        lines.push("");
+        if (result.findings.length === 0) {
+            lines.push("✓ No issues found");
+            lines.push("");
+            return;
+        }
+        result.findings.forEach((finding) => {
+            const emoji = getSeverityEmoji(finding.severity);
+            const severityLabel = finding.severity.toUpperCase();
+            const location = finding.line ? `${finding.file}:${finding.line}` : finding.file;
+            lines.push(`#### ${emoji} ${severityLabel}: ${finding.title}`);
+            lines.push("");
+            lines.push(`- **File:** \`${location}\``);
+            if (finding.description) {
+                lines.push(`- **Description:** ${finding.description}`);
+            }
+            if (finding.suggestion) {
+                lines.push(`- **Suggestion:** ${finding.suggestion}`);
+            }
+            lines.push("");
+        });
+    });
+    lines.push("---");
+    lines.push("");
+    lines.push("*Generated by [AI Code Auditor](https://github.com/yourusername/ai-code-auditor)*");
+    lines.push("");
+    return lines.join("\n");
+}
+//# sourceMappingURL=markdown.js.map

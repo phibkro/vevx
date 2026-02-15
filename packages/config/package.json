@@ -1,0 +1,5 @@
+{
+  "name": "@code-auditor/config",
+  "version": "1.0.0",
+  "files": ["tsconfig.base.json"]
+}
