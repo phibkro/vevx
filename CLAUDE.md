@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI Code Auditor is a **multi-agent code quality analysis tool** built as a Turborepo monorepo. It uses 5 specialized AI agents (powered by Claude) to analyze code across different quality dimensions in parallel, then synthesizes a weighted overall quality score.
 
+**Development model**: This project uses **Agent Driven Development (ADD)** - AI agents orchestrated by Claude build and maintain the codebase. See `docs/agent-driven-development/` for the full orchestration plan.
+
 ## Monorepo Structure
 
 ```
@@ -17,7 +19,6 @@ ai-code-auditor/
 └── packages/
     ├── core/             # Multi-agent orchestration engine
     ├── types/            # Shared TypeScript types
-    ├── api-client/       # Dashboard API client for CLI
     └── config/           # Shared TypeScript config
 ```
 
@@ -64,8 +65,7 @@ bun run dev            # Watch mode
 **Build order enforced by Turborepo**:
 1. `packages/types` (no dependencies)
 2. `packages/core` (depends on types)
-3. `packages/api-client` (depends on types)
-4. `apps/cli`, `apps/web`, `apps/action` (depend on core/api-client)
+3. `apps/cli`, `apps/web`, `apps/action` (depend on core)
 
 ## Multi-Agent Architecture
 
@@ -289,3 +289,15 @@ bun run test                    # Run all tests
 - Environment variables configured in Vercel dashboard
 - Build command: `cd apps/web && bun run build`
 - Monorepo settings in `vercel.json` at root
+
+## Documentation
+
+**For AI agents**: Start with `docs/AGENT-GUIDE.md` - comprehensive reference for working on this project
+
+**For orchestration**: See `docs/agent-driven-development/` for Agent Driven Development methodology:
+- `README.md` - What is ADD, key principles
+- `PRIORITIZATION.md` - Complete orchestration plan with dependency graph
+- `SOFTWARE-PRACTICES.md` - Development practices for AI agent teams
+- `backlog/PLAN-*.md` - Detailed implementation plans for each feature
+
+**For architecture**: See `docs/ARCHITECTURE.md` for multi-agent system design
