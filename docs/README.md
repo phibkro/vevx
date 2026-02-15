@@ -34,14 +34,17 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines.
 
 ```
 ai-code-auditor/
-├── docs/                      # Project-wide documentation
+├── docs/                           # Project-wide documentation
+│   └── agent-driven-development/   # ADD methodology & plans
 ├── apps/
-│   ├── cli/docs/              # CLI-specific docs
-│   ├── web/docs/              # Web dashboard docs
-│   └── action/                # GitHub Action
+│   ├── cli/docs/                   # CLI-specific docs
+│   ├── web/docs/                   # Web dashboard docs
+│   └── action/                     # GitHub Action
 ├── packages/
-│   └── core/docs/             # Core package docs (agents, orchestrator)
-└── CLAUDE.md                  # AI assistant context (root level)
+│   └── core/                       # Multi-agent orchestration engine
+├── CLAUDE.md                       # AI assistant context (root level)
+└── .claude/
+    └── rules/                      # AI assistant rules & project constitution
 ```
 
-Documentation follows the principle of **colocation** - docs are kept close to what they document.
+Documentation follows **colocation** - docs live near what they document.
