@@ -7,3 +7,7 @@ dist/
 build/
 coverage/
 .code-auditor.json
+
+# Bun build artifacts
+*.bun-build
+.*.bun-build
