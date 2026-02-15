@@ -79,8 +79,13 @@ async function cleanupTestData() {
   })
 }
 
+// Define fixture types
+type TestFixtures = {
+  cleanDb: void
+}
+
 // Extend base test with custom fixtures
-export const test = base.extend({
+export const test = base.extend<TestFixtures>({
   // Auto-cleanup database before and after each test
   cleanDb: async ({}, use) => {
     // Clean up BEFORE test (in case previous test failed)

@@ -14,13 +14,10 @@ export function createMockRequest(
 ): NextRequest {
   const { method = 'GET', headers = {}, body } = options
 
-  const requestInit: RequestInit = {
+  const requestInit = {
     method,
     headers: new Headers(headers),
-  }
-
-  if (body) {
-    requestInit.body = typeof body === 'string' ? body : JSON.stringify(body)
+    body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
   }
 
   return new NextRequest(url, requestInit)

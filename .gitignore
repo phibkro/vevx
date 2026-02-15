@@ -11,3 +11,5 @@ coverage/
 # Bun build artifacts
 *.bun-build
 .*.bun-build
+.vercel
+.env*.local
