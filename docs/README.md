@@ -4,9 +4,8 @@ AI Code Auditor documentation index.
 
 ## Quick Links
 
-- **[Quick Start](QUICK-START.md)** - Get up and running (AI agents start here)
-- **[Architecture](ARCHITECTURE.md)** - Multi-agent system design
-- **[Development](DEVELOPMENT.md)** - Developer workflows and monorepo structure
+- **[Agent Guide](AGENT-GUIDE.md)** - Complete reference for AI agents (start here)
+- **[Architecture](ARCHITECTURE.md)** - Multi-agent product design
 - **[Agent Driven Development](agent-driven-development/)** - How AI agents build this project
 
 ## Agent Driven Development (ADD)

@@ -1,12 +1,12 @@
-# Quick Start for AI Agents
+# Agent Guide
 
-Fast onboarding guide for AI assistants working on this project.
+Complete reference for AI agents working on this project.
 
 ## What This Is
 
 AI Code Auditor is a **multi-agent code quality tool**. Five specialized AI agents analyze code in parallel across different quality dimensions (correctness, security, performance, maintainability, edge cases), then synthesize results into a comprehensive report.
 
-**Development model**: This project uses **Agent Driven Development (ADD)** - AI agents orchestrated by Claude build and maintain the codebase. See [docs/agent-driven-development/](./agent-driven-development/) for the full orchestration plan.
+**Development model**: This project uses **Agent Driven Development (ADD)** - AI agents orchestrated by Claude build and maintain the codebase. See [agent-driven-development/](./agent-driven-development/) for the full orchestration plan.
 
 ## First Steps
 
@@ -63,16 +63,26 @@ bun test
 # Build (respects dependency order)
 bun run build                   # All packages
 cd apps/cli && bun run build    # Just CLI
+cd apps/web && bun run build    # Just web
 
 # Test
 bun test                        # All tests
 cd apps/web && bun test         # Web unit tests
 cd apps/web && bun run test:e2e # Web e2e tests
+cd apps/web && bun run test:coverage # Coverage report
+
+# Lint
+bun run lint                    # All packages
 
 # Development
 cd apps/cli && bun run dev <path>   # Run CLI
 cd apps/web && bun run dev          # Run dashboard
 cd packages/core && bun run dev     # Watch mode for core
+
+# Database (apps/web)
+cd apps/web && bun run db:generate  # After schema changes
+cd apps/web && bun run db:push      # Push schema (dev only)
+cd apps/web && bun run db:studio    # Open Prisma Studio
 ```
 
 ## Key Concepts
@@ -102,38 +112,67 @@ Terminal | Markdown | Dashboard
 
 **Key decision**: `Promise.allSettled` (not `Promise.all`) ensures failed agents don't abort entire audit
 
-### Platform Compatibility
+### Platform-Specific Code (CRITICAL)
 
 **Two discovery implementations**:
-- `discovery.ts` - Bun-specific (CLI uses)
-- `discovery-node.ts` - Node.js compatible (GitHub Action uses)
+- `discovery.ts` - Bun-specific (uses `import { Glob } from "bun"`)
+- `discovery-node.ts` - Node.js compatible (uses `glob` package)
 
-This is because GitHub Actions run in Node.js, not Bun.
+**Why**: GitHub Actions run in Node.js, not Bun. The CLI uses Bun's native APIs for performance.
 
-## Making Changes
+**Important**: When modifying file discovery, update BOTH files to maintain compatibility.
 
-### Adding a New Agent
+## Adding Features
 
-1. Create `packages/core/src/agents/my-agent.ts`
+### New Agent (packages/core)
+1. Create `packages/core/src/agents/<name>.ts`
 2. Export from `packages/core/src/agents/index.ts`
-3. **Adjust all agent weights** to sum to 1.0
+3. **Adjust ALL agent weights** to sum to 1.0
 4. Add tests
 5. Update README.md
 
-See `packages/core/docs/ADDING-AGENTS.md` for details.
-
-### Adding API Endpoint
-
+### New API Endpoint (apps/web)
 1. Create `apps/web/app/api/<path>/route.ts`
-2. Add rate limiting (if public)
+2. Add rate limiting if public
 3. Validate input with Zod
 4. Add tests in `apps/web/test/api/`
 
-### Updating Database Schema
-
+### Database Schema Change (apps/web)
 1. Edit `apps/web/prisma/schema.prisma`
 2. Run `cd apps/web && bun run db:generate`
-3. Rebuild packages that import Prisma types
+3. Rebuild packages importing Prisma types
+
+## Environment Variables
+
+### CLI (apps/cli)
+```bash
+ANTHROPIC_API_KEY=sk-ant-...        # Required for analysis
+CODE_AUDITOR_API_KEY=...            # Optional (dashboard sync)
+CODE_AUDITOR_API_URL=...            # Optional (default: production)
+```
+
+### Web Dashboard (apps/web)
+See `apps/web/.env.example` for complete list. Key variables:
+
+```bash
+# Database
+DATABASE_URL=postgresql://...
+
+# Authentication (Clerk)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+CLERK_WEBHOOK_SECRET=whsec_...
+
+# Payments (Stripe)
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRO_PRICE_ID=price_...
+STRIPE_TEAM_PRICE_ID=price_...
+
+# Rate Limiting (Upstash Redis)
+UPSTASH_REDIS_REST_URL=https://...
+UPSTASH_REDIS_REST_TOKEN=...
+```
 
 ## Build System
 
@@ -161,46 +200,63 @@ bun run build  # Rebuilds all in correct order
 - Playwright for web dashboard
 - Run: `cd apps/web && bun run test:e2e`
 
-## Debugging
+## Troubleshooting
 
-**CLI issues**:
+### Build Failures
+
+**Error**: `Cannot find module '@code-auditor/core'`
 ```bash
-cd apps/cli
-bun run dev <path> --model claude-opus-4-6
+# Fix: Build dependencies first
+cd packages/core && bun run build
 ```
 
-**Build failures**:
+**Error**: `Module '@prisma/client' has no exported member 'X'`
 ```bash
-# Clean and rebuild
-bun run clean && bun run build
-
-# Rebuild Prisma client if needed
+# Fix: Regenerate Prisma client
 cd apps/web && bun run db:generate
 ```
 
-**Test failures with mocking**:
+**General build issues**:
+```bash
+# Clean and rebuild everything
+bun run clean && bun run build
+```
+
+### Test Failures
+
+**Vitest mocking errors with `db`**:
 - Use async factory functions in `vi.mock()`
 - See existing tests for patterns
+
+**TypeScript errors in tests**:
+```bash
+# Rebuild all packages in correct order
+bun run build
+```
+
+### Runtime Errors
+
+**Error**: `ANTHROPIC_API_KEY not configured`
+```bash
+# Fix: Set environment variable
+export ANTHROPIC_API_KEY='your-key'
+```
+
+**Error**: `Dynamic server usage: Route couldn't be rendered statically`
+- This is expected for API routes using `headers()` - not an error
 
 ## Important Constraints
 
 1. **Agent weights must sum to 1.0**
-2. **CLI uses Bun APIs** (discovery.ts excluded from Action build)
-3. **Web uses Server Components** by default
+2. **CLI uses Bun APIs** - `discovery.ts` excluded from Action build
+3. **Web uses Server Components** by default - add `"use client"` only when needed
 4. **All public APIs need rate limiting**
-5. **API keys are bcrypt hashed** (never plain)
-
-## Getting Help
-
-1. **Read CLAUDE.md first** - Most comprehensive guidance
-2. **Check docs/** - Architecture, development, deployment
-3. **Read existing code** - Patterns are established
-4. **Ask questions** - Better than guessing
+5. **API keys are bcrypt hashed** - never store plain text
 
 ## Next Steps
 
-After reading this:
-1. Read `CLAUDE.md` for complete context
-2. Read `docs/ARCHITECTURE.md` for technical deep dive
-3. Read `docs/DEVELOPMENT.md` for development workflows
-4. Pick a task and start coding!
+After reading this guide:
+1. Read `CLAUDE.md` for complete project context
+2. Read `docs/ARCHITECTURE.md` for deep dive on product design
+3. Check `docs/agent-driven-development/` for orchestration plans
+4. Pick a task from PRIORITIZATION.md and start coding!
