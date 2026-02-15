@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     const team = apiKeyRecord.team
 
     // Check plan limits
-    const planLimits = PLAN_LIMITS[team.plan]
+    const planLimits = PLAN_LIMITS[team.plan as keyof typeof PLAN_LIMITS]
 
     if (planLimits.auditsPerMonth > 0) {
       // Count audits this month

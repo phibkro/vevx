@@ -1,6 +1,5 @@
 import { stripe, STRIPE_PRODUCTS } from './config'
 import { db } from '@/lib/db'
-import { Plan } from '@prisma/client'
 
 export async function createCustomer(email: string, name?: string) {
   return await stripe.customers.create({
@@ -77,7 +76,7 @@ export async function createPortalSession(customerId: string, returnUrl: string)
   })
 }
 
-export function mapStripePlanToPrisma(stripeProductId: string): Plan {
+export function mapStripePlanToPrisma(stripeProductId: string): 'FREE' | 'PRO' | 'TEAM' | 'ENTERPRISE' {
   // This should match your actual Stripe product IDs
   if (stripeProductId.includes('team')) return 'TEAM'
   if (stripeProductId.includes('pro')) return 'PRO'

@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@code-auditor/types": "workspace:*",
-    "@anthropic-ai/sdk": "^0.32.1"
+    "@anthropic-ai/sdk": "^0.32.1",
+    "glob": "^10.3.10"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",

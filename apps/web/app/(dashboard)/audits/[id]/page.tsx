@@ -38,20 +38,21 @@ export default async function AuditDetailPage({ params }: PageProps) {
   }
 
   // Group findings by agent
-  const findingsByAgent = audit.findings.reduce((acc, finding) => {
+  type Finding = typeof audit.findings[number]
+  const findingsByAgent = audit.findings.reduce((acc: Record<string, Finding[]>, finding: Finding) => {
     if (!acc[finding.agent]) {
       acc[finding.agent] = []
     }
     acc[finding.agent].push(finding)
     return acc
-  }, {} as Record<string, typeof audit.findings>)
+  }, {} as Record<string, Finding[]>)
 
   // Calculate agent scores (simplified - in reality, use same logic as CLI)
   const agentScores = Object.keys(findingsByAgent).map(agent => {
-    const findings = findingsByAgent[agent]
-    const critical = findings.filter(f => f.severity === 'CRITICAL').length
-    const warning = findings.filter(f => f.severity === 'WARNING').length
-    const info = findings.filter(f => f.severity === 'INFO').length
+    const findings: Finding[] = findingsByAgent[agent]
+    const critical = findings.filter((f: Finding) => f.severity === 'CRITICAL').length
+    const warning = findings.filter((f: Finding) => f.severity === 'WARNING').length
+    const info = findings.filter((f: Finding) => f.severity === 'INFO').length
 
     // Simple scoring: 100 - (critical * 10 + warning * 5 + info * 1)
     const score = Math.max(0, 100 - (critical * 10 + warning * 5 + info * 1))
@@ -187,7 +188,7 @@ export default async function AuditDetailPage({ params }: PageProps) {
             <p className="text-center text-gray-500 py-8">No findings</p>
           ) : (
             <div className="space-y-4">
-              {audit.findings.map(finding => (
+              {audit.findings.map((finding: Finding) => (
                 <div key={finding.id} className="border rounded-lg p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">

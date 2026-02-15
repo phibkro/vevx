@@ -1,5 +1,6 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
+import type { Prisma } from '@prisma/client'
 
 export async function getCurrentUser() {
   const { userId } = await auth()
@@ -29,7 +30,7 @@ export async function getCurrentUser() {
     }
 
     // Create user and team in a transaction
-    user = await db.$transaction(async (tx) => {
+    user = await db.$transaction(async (tx: Prisma.TransactionClient) => {
       // Upsert the user (in case they were created between our check and now)
       const newUser = await tx.user.upsert({
         where: { clerkId: userId },

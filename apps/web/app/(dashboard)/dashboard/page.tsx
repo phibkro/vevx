@@ -26,28 +26,30 @@ async function getTeamStats(teamId: string) {
     },
   })
 
+  type Audit = typeof audits[number]
+
   const totalAudits = audits.length
   const averageScore = audits.length > 0
-    ? audits.reduce((sum, audit) => sum + audit.overallScore, 0) / audits.length
+    ? audits.reduce((sum: number, audit: Audit) => sum + audit.overallScore, 0) / audits.length
     : 0
 
-  const totalCritical = audits.reduce((sum, audit) => sum + audit.criticalCount, 0)
+  const totalCritical = audits.reduce((sum: number, audit: Audit) => sum + audit.criticalCount, 0)
 
   // Calculate trend (comparing last 7 days vs previous 7 days)
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-  const recentAudits = audits.filter(a => a.createdAt >= sevenDaysAgo)
+  const recentAudits = audits.filter((a: Audit) => a.createdAt >= sevenDaysAgo)
   const previousAudits = audits.filter(
-    a => a.createdAt < sevenDaysAgo && a.createdAt >= thirtyDaysAgo
+    (a: Audit) => a.createdAt < sevenDaysAgo && a.createdAt >= thirtyDaysAgo
   )
 
   const recentAvg = recentAudits.length > 0
-    ? recentAudits.reduce((sum, audit) => sum + audit.overallScore, 0) / recentAudits.length
+    ? recentAudits.reduce((sum: number, audit: Audit) => sum + audit.overallScore, 0) / recentAudits.length
     : 0
 
   const previousAvg = previousAudits.length > 0
-    ? previousAudits.reduce((sum, audit) => sum + audit.overallScore, 0) / previousAudits.length
+    ? previousAudits.reduce((sum: number, audit: Audit) => sum + audit.overallScore, 0) / previousAudits.length
     : 0
 
   let trend: 'up' | 'down' | 'stable' = 'stable'
@@ -158,7 +160,7 @@ export default async function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stats.recentAudits.map((audit) => (
+                {stats.recentAudits.map((audit: typeof stats.recentAudits[number]) => (
                   <TableRow key={audit.id}>
                     <TableCell className="font-medium">
                       {audit.repo || 'Unknown'}

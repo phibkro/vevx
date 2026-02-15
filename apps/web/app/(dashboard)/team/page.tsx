@@ -21,6 +21,8 @@ export default async function TeamPage() {
     },
   })
 
+  type Member = typeof members[number]
+
   // Get audit count for current month
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -34,7 +36,7 @@ export default async function TeamPage() {
     },
   })
 
-  const planLimits = PLAN_LIMITS[team.plan]
+  const planLimits = PLAN_LIMITS[team.plan as keyof typeof PLAN_LIMITS]
 
   return (
     <div className="space-y-8">
@@ -146,7 +148,7 @@ export default async function TeamPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((member) => (
+              {members.map((member: Member) => (
                 <TableRow key={member.id}>
                   <TableCell className="font-medium">
                     {member.user.name || 'Unknown'}

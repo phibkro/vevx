@@ -1,18 +1,79 @@
-node_modules/
-.DS_Store
-*.log
-.env
-.env.local
-build/
-coverage/
-.code-auditor.json
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Bun build artifacts
-*.bun-build
-.*.bun-build
-.vercel
-.env*.local
+# DEPENDENCIES
+node_modules/
+.pnp
+.pnp.js
+package-lock.json
+yarn.lock
+.yarn/
+
+# TESTING
+coverage/
+*.lcov
+.nyc_output
+test-results/
+playwright-report/
+
+# NEXT.JS
+.next/
+out/
+next-env.d.ts
+
+# BUILD & DIST
+build/
+dist/
+generated/
+*.tsbuildinfo
 
 # Keep dist/action.js for GitHub Actions (required for action distribution)
 # CLI binaries are built on-demand and should not be committed
+!dist/action.js
 dist/code-audit-*
+
+# ENV FILES
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Project-specific
+.code-auditor.json
+
+# TURBO
+.turbo/
+
+# LOGS
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# MISC
+.idea
+.cache/
+.nuxt/
+tmp/
+temp/
+.docusaurus
+
+# Bun
+*.bun-build
+.*.bun-build
+
+# MAC/WINDOWS
+.DS_Store
+._*
+Thumbs.db
+*.pem
+
+# DEPLOYMENT
+.vercel
+
+# Emacs backup files
+\#*
+.\#*

@@ -19,6 +19,8 @@ export default async function ApiKeysPage() {
     },
   })
 
+  type ApiKey = typeof apiKeys[number]
+
   return (
     <div className="space-y-8">
       <NewApiKeyDialog />
@@ -60,7 +62,7 @@ export default async function ApiKeysPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {apiKeys.map((key) => (
+                {apiKeys.map((key: ApiKey) => (
                   <TableRow key={key.id}>
                     <TableCell className="font-medium font-mono text-sm">
                       {key.name}

@@ -55,7 +55,7 @@ export default async function AuditsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {audits.map((audit) => (
+                {audits.map((audit: typeof audits[number]) => (
                   <TableRow key={audit.id}>
                     <TableCell className="text-gray-500">
                       {formatDate(audit.createdAt)}
