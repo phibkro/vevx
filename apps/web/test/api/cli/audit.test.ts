@@ -86,6 +86,13 @@ import { auditRateLimit } from '@/lib/rate-limit'
 describe('API Key Authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Re-setup rate limit mock to always succeed by default
+    ;(auditRateLimit.limit as any).mockResolvedValue({
+      success: true,
+      limit: 10,
+      remaining: 9,
+      reset: Date.now() + 60000,
+    })
   })
 
   test('valid API key authenticates successfully', async () => {
@@ -142,8 +149,8 @@ describe('API Key Authentication', () => {
     expect(data).toHaveProperty('dashboardUrl')
 
     // Verify bcrypt.compare was used (implicitly - the hash matched)
-    expect;(db.apiKey.findMany).toHaveBeenCalled()
-    expect;(db.apiKey.update).toHaveBeenCalledWith({
+    expect(db.apiKey.findMany).toHaveBeenCalled()
+    expect(db.apiKey.update).toHaveBeenCalledWith({
       where: { id: apiKey.id },
       data: { lastUsed: expect.any(Date) },
     })
@@ -270,7 +277,7 @@ describe('API Key Authentication', () => {
 
     await POST(request)
 
-    expect;(db.apiKey.update).toHaveBeenCalledWith({
+    expect(db.apiKey.update).toHaveBeenCalledWith({
       where: { id: apiKey.id },
       data: { lastUsed: expect.any(Date) },
     })
@@ -426,6 +433,13 @@ describe('Rate Limiting', () => {
 describe('Audit Creation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Re-setup rate limit mock to always succeed by default
+    ;(auditRateLimit.limit as any).mockResolvedValue({
+      success: true,
+      limit: 10,
+      remaining: 9,
+      reset: Date.now() + 60000,
+    })
   })
 
   test('creates audit with findings successfully', async () => {
@@ -487,7 +501,7 @@ describe('Audit Creation', () => {
 
     expect(response.status).toBe(200)
     expect(data.auditId).toBe('audit-with-findings')
-    expect;(db.audit.create).toHaveBeenCalledWith({
+    expect(db.audit.create).toHaveBeenCalledWith({
       data: {
         teamId: team.id,
         repo: 'test/repo',

@@ -8,6 +8,7 @@ test.describe('Rate Limiting', () => {
     const apiKey = await createTestApiKey(team.id, user.id)
 
     const auditData = {
+      repo: 'test/rate-limit',
       overallScore: 8.5,
       criticalCount: 0,
       warningCount: 0,
@@ -57,6 +58,7 @@ test.describe('Rate Limiting', () => {
     const apiKey2 = await createTestApiKey(team2.id, user2.id)
 
     const auditData = {
+      repo: 'test/rate-limit',
       overallScore: 8.5,
       criticalCount: 0,
       warningCount: 0,

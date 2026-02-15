@@ -65,18 +65,21 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 
 // Mock Svix Webhook - verify signatures properly in tests
-vi.mock('svix', () => ({
-  Webhook: vi.fn().mockImplementation((secret: string) => ({
-    verify: vi.fn((payload: string, headers: Record<string, string>) => {
-      // Simple validation - check if headers exist and signature looks valid
-      if (!headers['svix-signature'] || headers['svix-signature'] === 'v1,invalidsignature') {
-        throw new Error('Invalid signature')
+vi.mock('svix', () => {
+  return {
+    Webhook: class {
+      constructor(secret: string) {}
+      verify(payload: string, headers: Record<string, string>) {
+        // Simple validation - check if headers exist and signature looks valid
+        if (!headers['svix-signature'] || headers['svix-signature'] === 'v1,invalidsignature') {
+          throw new Error('Invalid signature')
+        }
+        // Parse and return the payload for valid signatures
+        return JSON.parse(payload)
       }
-      // Parse and return the payload for valid signatures
-      return JSON.parse(payload)
-    }),
-  })),
-}))
+    }
+  }
+})
 
 import { db } from '@/lib/db'
 

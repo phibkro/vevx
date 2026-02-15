@@ -106,7 +106,7 @@ describe('Stripe Webhook Signature Verification', () => {
     ;(stripe.webhooks.constructEvent as any).mockReturnValue(payload as any)
 
     const team = createTestTeam()
-    vi.mocked;(db.team.update as any).mockResolvedValue(team)
+    ;(db.team.update as any).mockResolvedValue(team)
 
     const request = createMockRequest('http://localhost/api/webhooks/stripe', {
       method: 'POST',
@@ -224,7 +224,7 @@ describe('Stripe Webhook Event Processing', () => {
     ;(stripe.webhooks.constructEvent as any).mockReturnValue(payload as any)
 
     const team = createTestTeam({ id: 'team-123' })
-    vi.mocked;(db.team.update as any).mockResolvedValue(team)
+    ;(db.team.update as any).mockResolvedValue(team)
 
     const signature = generateStripeSignature(payloadString, secret)
 
@@ -240,7 +240,7 @@ describe('Stripe Webhook Event Processing', () => {
     const response = await POST(request)
 
     expect(response.status).toBe(200)
-    expect;(db.team.update).toHaveBeenCalledWith({
+    expect(db.team.update).toHaveBeenCalledWith({
       where: { id: 'team-123' },
       data: {
         stripeCustomerId: 'cus_test_new',
@@ -268,8 +268,8 @@ describe('Stripe Webhook Event Processing', () => {
     ;(stripe.webhooks.constructEvent as any).mockReturnValue(payload as any)
 
     const team = createTestTeam({ stripeCustomerId: 'cus_existing' })
-    vi.mocked;(db.team.findUnique as any).mockResolvedValue(team)
-    vi.mocked;(db.team.update as any).mockResolvedValue(team)
+    ;(db.team.findUnique as any).mockResolvedValue(team)
+    ;(db.team.update as any).mockResolvedValue(team)
 
     const signature = generateStripeSignature(payloadString, secret)
 
@@ -285,10 +285,10 @@ describe('Stripe Webhook Event Processing', () => {
     const response = await POST(request)
 
     expect(response.status).toBe(200)
-    expect;(db.team.findUnique).toHaveBeenCalledWith({
+    expect(db.team.findUnique).toHaveBeenCalledWith({
       where: { stripeCustomerId: 'cus_existing' },
     })
-    expect;(db.team.update).toHaveBeenCalledWith({
+    expect(db.team.update).toHaveBeenCalledWith({
       where: { id: team.id },
       data: {
         plan: 'PRO',
@@ -311,8 +311,8 @@ describe('Stripe Webhook Event Processing', () => {
       stripeCustomerId: 'cus_cancelled',
       plan: 'PRO',
     })
-    vi.mocked;(db.team.findUnique as any).mockResolvedValue(team)
-    vi.mocked;(db.team.update as any).mockResolvedValue({ ...team, plan: 'FREE' })
+    ;(db.team.findUnique as any).mockResolvedValue(team)
+    ;(db.team.update as any).mockResolvedValue({ ...team, plan: 'FREE' })
 
     const signature = generateStripeSignature(payloadString, secret)
 
@@ -328,7 +328,7 @@ describe('Stripe Webhook Event Processing', () => {
     const response = await POST(request)
 
     expect(response.status).toBe(200)
-    expect;(db.team.update).toHaveBeenCalledWith({
+    expect(db.team.update).toHaveBeenCalledWith({
       where: { id: team.id },
       data: {
         plan: 'FREE',
@@ -348,7 +348,7 @@ describe('Stripe Webhook Event Processing', () => {
     ;(stripe.webhooks.constructEvent as any).mockReturnValue(payload as any)
 
     const team = createTestTeam()
-    vi.mocked;(db.team.update as any).mockResolvedValue(team)
+    ;(db.team.update as any).mockResolvedValue(team)
 
     const signature = generateStripeSignature(payloadString, secret)
 
