@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# AI Code Auditor - Installation Script
+# AI Code Audit - Installation Script
 # Downloads and installs the appropriate binary for your platform
 
 VERSION="latest"
-INSTALL_DIR="$HOME/.code-auditor/bin"
-BINARY_NAME="code-auditor"
-BASE_URL="https://github.com/yourusername/ai-code-auditor/releases/download"
+INSTALL_DIR="$HOME/.code-audit/bin"
+BINARY_NAME="code-audit"
+BASE_URL="https://github.com/yourusername/ai-code-audit/releases/download"
 
 # Colors for output
 RED='\033[0;31m'
@@ -65,7 +65,7 @@ detect_arch() {
 # Main installation
 main() {
   echo ""
-  info "AI Code Auditor - Installation"
+  info "AI Code Audit - Installation"
   echo ""
 
   # Detect platform
@@ -76,7 +76,7 @@ main() {
   info "Detected platform: ${PLATFORM}"
 
   # Set binary name based on platform
-  BINARY_FILE="code-auditor-${PLATFORM}"
+  BINARY_FILE="code-audit-${PLATFORM}"
   DOWNLOAD_URL="${BASE_URL}/${VERSION}/${BINARY_FILE}"
 
   # Create installation directory
@@ -115,7 +115,7 @@ main() {
   if [[ ":$PATH:" == *":${INSTALL_DIR}:"* ]]; then
     success "${INSTALL_DIR} is already in your PATH"
     echo ""
-    info "You can now run: code-auditor --help"
+    info "You can now run: code-audit --help"
   else
     warn "${INSTALL_DIR} is not in your PATH"
     echo ""
@@ -126,18 +126,18 @@ main() {
     SHELL_NAME=$(basename "$SHELL")
     case "$SHELL_NAME" in
       bash)
-        echo "  echo 'export PATH=\"\$HOME/.code-auditor/bin:\$PATH\"' >> ~/.bashrc"
+        echo "  echo 'export PATH=\"\$HOME/.code-audit/bin:\$PATH\"' >> ~/.bashrc"
         echo "  source ~/.bashrc"
         ;;
       zsh)
-        echo "  echo 'export PATH=\"\$HOME/.code-auditor/bin:\$PATH\"' >> ~/.zshrc"
+        echo "  echo 'export PATH=\"\$HOME/.code-audit/bin:\$PATH\"' >> ~/.zshrc"
         echo "  source ~/.zshrc"
         ;;
       fish)
-        echo "  fish_add_path \$HOME/.code-auditor/bin"
+        echo "  fish_add_path \$HOME/.code-audit/bin"
         ;;
       *)
-        echo "  export PATH=\"\$HOME/.code-auditor/bin:\$PATH\""
+        echo "  export PATH=\"\$HOME/.code-audit/bin:\$PATH\""
         ;;
     esac
 
@@ -148,8 +148,8 @@ main() {
   echo ""
   info "Next steps:"
   echo "  1. Set your Anthropic API key: export ANTHROPIC_API_KEY='your-key'"
-  echo "  2. (Optional) Login to dashboard: code-auditor login"
-  echo "  3. Run your first audit: code-auditor /path/to/code"
+  echo "  2. (Optional) Login to dashboard: code-audit login"
+  echo "  3. Run your first audit: code-audit /path/to/code"
   echo ""
 }
 

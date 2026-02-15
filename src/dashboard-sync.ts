@@ -100,7 +100,7 @@ export async function syncToDashboard(
       if (response.status === 401) {
         console.error("\n✗ Dashboard sync failed: Invalid API key");
         console.error("  Your CODE_AUDITOR_API_KEY is invalid or expired.");
-        console.error("  Run 'code-auditor login' to reconfigure.\n");
+        console.error("  Run 'code-audit login' to reconfigure.\n");
       } else if (response.status === 429) {
         console.error("\n✗ Dashboard sync failed: Rate limit or monthly quota exceeded");
         console.error("  View your plan at: https://code-auditor.com/team");

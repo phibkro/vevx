@@ -21,19 +21,19 @@ const DEFAULT_CONFIG: Config = {
 };
 
 /**
- * Load configuration from .code-auditor.json if it exists, merge with defaults and CLI args
+ * Load configuration from .code-audit.json if it exists, merge with defaults and CLI args
  */
 export function loadConfig(cliArgs: Partial<Config> = {}): Config {
   let fileConfig: ConfigFile = {};
 
   try {
-    const configPath = resolve(process.cwd(), ".code-auditor.json");
+    const configPath = resolve(process.cwd(), ".code-audit.json");
     const configContent = readFileSync(configPath, "utf-8");
     fileConfig = JSON.parse(configContent);
   } catch (error) {
     // Config file is optional, ignore if not found
     if (error instanceof Error && !error.message.includes("ENOENT")) {
-      console.warn(`Warning: Failed to parse .code-auditor.json: ${error.message}`);
+      console.warn(`Warning: Failed to parse .code-audit.json: ${error.message}`);
     }
   }
 

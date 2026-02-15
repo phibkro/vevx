@@ -1,4 +1,4 @@
-# AI Code Auditor
+# AI Code Audit
 
 A multi-agent AI code quality analysis tool powered by Claude. Get comprehensive, actionable feedback on your code across 5 specialized dimensions: correctness, security, performance, maintainability, and edge case handling.
 
@@ -10,7 +10,7 @@ Traditional static analysis tools excel at syntax and basic patterns, but strugg
 - **Maintainability assessment** - Evaluating long-term code quality
 - **Edge case discovery** - Finding rare but critical failure modes
 
-AI Code Auditor uses **5 parallel specialized agents** to provide deep, context-aware analysis that goes beyond what traditional tools offer.
+AI Code Audit uses **5 parallel specialized agents** to provide deep, context-aware analysis that goes beyond what traditional tools offer.
 
 ## Features
 
@@ -42,13 +42,13 @@ See [web/README.md](web/README.md) for dashboard setup instructions.
 Download and install the pre-built binary for your platform:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourusername/ai-code-auditor/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yourusername/ai-code-audit/main/install.sh | bash
 ```
 
 This will:
 - Auto-detect your OS and architecture
 - Download the appropriate binary
-- Install to `~/.code-auditor/bin/`
+- Install to `~/.code-audit/bin/`
 - Guide you through adding it to your PATH
 
 ### Option 2: Build from Source
@@ -57,8 +57,8 @@ If you have Bun installed:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ai-code-auditor.git
-cd ai-code-auditor
+git clone https://github.com/yourusername/ai-code-audit.git
+cd ai-code-audit
 
 # Install dependencies
 bun install
@@ -71,14 +71,14 @@ bun run build:linux-arm64    # Linux ARM64
 bun run build:all            # All platforms
 
 # Binary will be in dist/
-./dist/code-auditor-darwin-arm64 --version
+./dist/code-audit-darwin-arm64 --version
 ```
 
 ### Option 3: Run from Source
 
 ```bash
-git clone https://github.com/yourusername/ai-code-auditor.git
-cd ai-code-auditor
+git clone https://github.com/yourusername/ai-code-audit.git
+cd ai-code-audit
 bun install
 ```
 
@@ -106,7 +106,7 @@ source ~/.zshrc
 If you want to sync audit results to the web dashboard:
 
 ```bash
-code-auditor login
+code-audit login
 ```
 
 This will prompt you for your dashboard API key and save it locally.
@@ -119,19 +119,19 @@ Using installed binary:
 
 ```bash
 # Show version
-code-auditor --version
+code-audit --version
 
 # Show help
-code-auditor --help
+code-audit --help
 
 # Audit a single file
-code-auditor src/main.ts
+code-audit src/main.ts
 
 # Audit an entire directory
-code-auditor src/
+code-audit src/
 
 # Self-audit (analyze the auditor's own code)
-code-auditor src/
+code-audit src/
 ```
 
 Running from source:
@@ -148,47 +148,47 @@ bun run src/cli.ts --help
 
 ```bash
 # Login once
-code-auditor login
+code-audit login
 
 # Run audits - results automatically sync to dashboard
-code-auditor src/
+code-audit src/
 
 # Logout
-code-auditor logout
+code-audit logout
 ```
 
 ### Save Report to File
 
 ```bash
 # Save markdown report
-code-auditor src/ --output report.md
+code-audit src/ --output report.md
 
 # Use in CI/CD pipeline
-code-auditor src/ --output audit-report-$(date +%Y%m%d).md
+code-audit src/ --output audit-report-$(date +%Y%m%d).md
 ```
 
 ### Advanced Options
 
 ```bash
 # Use a different Claude model
-code-auditor src/ --model claude-opus-4-6
+code-audit src/ --model claude-opus-4-6
 
 # Adjust token limit per chunk
-code-auditor src/ --max-tokens 150000
+code-audit src/ --max-tokens 150000
 
 # Disable parallel processing (sequential)
-code-auditor src/ --no-parallel
+code-audit src/ --no-parallel
 
 # Show version
-code-auditor --version
+code-audit --version
 
 # Show help
-code-auditor --help
+code-audit --help
 ```
 
 ## Configuration
 
-Create a `.code-auditor.json` file in your project directory for persistent settings:
+Create a `.code-audit.json` file in your project directory for persistent settings:
 
 ```json
 {
@@ -310,7 +310,7 @@ This project meets the following Wave 3 success criteria:
 ### Project Structure
 
 ```
-ai-code-auditor/
+ai-code-audit/
 ├── src/
 │   ├── agents/           # 5 specialized analysis agents
 │   │   ├── correctness.ts
@@ -330,7 +330,7 @@ ai-code-auditor/
 │   ├── chunker.ts        # Large codebase chunking
 │   ├── client.ts         # Anthropic API client
 │   └── orchestrator.ts   # Multi-agent orchestration
-├── .code-auditor.json    # Optional configuration
+├── .code-audit.json    # Optional configuration
 ├── package.json
 └── README.md
 ```

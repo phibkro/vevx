@@ -7,7 +7,7 @@ interface AuthConfig {
   apiUrl?: string;
 }
 
-const CONFIG_DIR = join(homedir(), ".code-auditor");
+const CONFIG_DIR = join(homedir(), ".code-audit");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
 /**
@@ -107,7 +107,7 @@ async function validateApiKey(apiKey: string, apiUrl: string): Promise<boolean> 
  * Login command - prompts for API key and saves it
  */
 export async function login(): Promise<void> {
-  console.log("AI Code Auditor - Login\n");
+  console.log("AI Code Audit - Login\n");
   console.log("Get your API key from the dashboard:");
   console.log("  https://code-auditor.com/settings/api-keys\n");
 
@@ -150,7 +150,7 @@ export async function login(): Promise<void> {
 
     console.log(`\n✓ Successfully logged in!`);
     console.log(`  Config saved to: ${CONFIG_FILE}`);
-    console.log(`\nYou can now run audits without setting CODE_AUDITOR_API_KEY.\n`);
+    console.log(`\nYou can now run code-audit without setting CODE_AUDITOR_API_KEY.\n`);
   } catch (error) {
     console.error(`Error saving config: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);

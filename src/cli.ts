@@ -30,12 +30,12 @@ function getVersion(): string {
 }
 
 const HELP_TEXT = `
-AI Code Auditor - Multi-agent code quality analysis tool
+AI Code Audit - Multi-agent code quality analysis tool
 
 USAGE:
-  code-auditor <path> [options]
-  code-auditor login
-  code-auditor logout
+  code-audit <path> [options]
+  code-audit login
+  code-audit logout
   bun run src/cli.ts <path> [options]
 
 COMMANDS:
@@ -59,7 +59,7 @@ ENVIRONMENT:
   CODE_AUDITOR_API_URL    Optional. Dashboard URL (default: https://code-auditor.com)
 
 CONFIGURATION:
-  Create a .code-auditor.json file in your project directory:
+  Create a .code-audit.json file in your project directory:
   {
     "model": "claude-sonnet-4-5-20250929",
     "maxTokensPerChunk": 100000,
@@ -68,19 +68,19 @@ CONFIGURATION:
 
 EXAMPLES:
   # Login to dashboard
-  code-auditor login
+  code-audit login
 
   # Audit a single file
-  code-auditor src/main.ts
+  code-audit src/main.ts
 
   # Audit entire directory
-  code-auditor src/
+  code-audit src/
 
   # Save report to file
-  code-auditor src/ --output report.md
+  code-audit src/ --output report.md
 
   # Use different model
-  code-auditor src/ --model claude-opus-4-6
+  code-audit src/ --model claude-opus-4-6
 `;
 
 interface CliArgs {
@@ -148,7 +148,7 @@ async function main(): Promise<void> {
 
   // Show version
   if (args.version) {
-    console.log(`AI Code Auditor v${getVersion()}`);
+    console.log(`AI Code Audit v${getVersion()}`);
     process.exit(0);
   }
 
