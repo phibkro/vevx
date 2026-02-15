@@ -76,7 +76,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="mt-2 text-gray-600">
-          Overview of your team's code quality metrics
+          Overview of your team&apos;s code quality metrics
         </p>
       </div>
 

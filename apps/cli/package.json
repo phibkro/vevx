@@ -18,7 +18,6 @@
   "dependencies": {
     "@code-auditor/core": "workspace:*",
     "@code-auditor/types": "workspace:*",
-    "@code-auditor/api-client": "workspace:*",
     "@anthropic-ai/sdk": "^0.32.1",
     "glob": "^10.3.10"
   },

@@ -39,7 +39,7 @@ export function NewApiKeyDialog() {
         <CardHeader>
           <CardTitle>API Key Created</CardTitle>
           <CardDescription>
-            Save this key somewhere safe. You won't be able to see it again.
+            Save this key somewhere safe. You won&apos;t be able to see it again.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

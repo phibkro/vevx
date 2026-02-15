@@ -117,7 +117,7 @@ export default async function TeamPage() {
           {team.plan === 'FREE' && auditCount >= planLimits.auditsPerMonth && (
             <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
               <p className="text-sm text-yellow-800">
-                You've reached your monthly limit. Upgrade to continue running audits.
+                You&apos;ve reached your monthly limit. Upgrade to continue running audits.
               </p>
             </div>
           )}
