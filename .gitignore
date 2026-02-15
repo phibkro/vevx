@@ -13,5 +13,6 @@ coverage/
 .vercel
 .env*.local
 
-# Keep dist/ for GitHub Actions (required for action distribution)
-# dist/ is intentionally committed for GitHub Actions to work
+# Keep dist/action.js for GitHub Actions (required for action distribution)
+# CLI binaries are built on-demand and should not be committed
+dist/code-audit-*
