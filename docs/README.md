@@ -7,20 +7,24 @@ AI Code Auditor documentation index.
 - **[Quick Start](QUICK-START.md)** - Get up and running (AI agents start here)
 - **[Architecture](ARCHITECTURE.md)** - Multi-agent system design
 - **[Development](DEVELOPMENT.md)** - Developer workflows and monorepo structure
+- **[Agent Driven Development](agent-driven-development/)** - How AI agents build this project
+
+## Agent Driven Development (ADD)
+
+This project uses **Agent Driven Development** - AI agents orchestrated by Claude:
+
+- **[ADD Overview](agent-driven-development/README.md)** - What is Agent Driven Development?
+- **[Prioritization](agent-driven-development/PRIORITIZATION.md)** - Dependency graph & execution plan
+- **[Software Practices](agent-driven-development/SOFTWARE-PRACTICES.md)** - Practices for AI agent teams
+- **[Implementation Plans](agent-driven-development/backlog/)** - Detailed PLANs for each feature
 
 ## Component Documentation
 
 ### CLI Tool
 - **[Building Binaries](../apps/cli/docs/BUILDING.md)** - Compile standalone executables
-- **[CLI Architecture](../apps/cli/docs/README.md)** - How the CLI works
 
 ### Web Dashboard
-- **[Dashboard Setup](../apps/web/docs/SETUP.md)** - Deploy the web dashboard
-- **[API Documentation](../apps/web/docs/API.md)** - REST API reference
-
-### Core Package
-- **[Agent System](../packages/core/docs/AGENTS.md)** - How agents work
-- **[Adding Agents](../packages/core/docs/ADDING-AGENTS.md)** - Create new agents
+- **[Dashboard Deployment](../apps/web/docs/DEPLOYMENT.md)** - Deploy to Vercel
 
 ## Contributing
 

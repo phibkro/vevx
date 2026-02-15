@@ -6,6 +6,8 @@ Fast onboarding guide for AI assistants working on this project.
 
 AI Code Auditor is a **multi-agent code quality tool**. Five specialized AI agents analyze code in parallel across different quality dimensions (correctness, security, performance, maintainability, edge cases), then synthesize results into a comprehensive report.
 
+**Development model**: This project uses **Agent Driven Development (ADD)** - AI agents orchestrated by Claude build and maintain the codebase. See [docs/agent-driven-development/](./agent-driven-development/) for the full orchestration plan.
+
 ## First Steps
 
 ```bash

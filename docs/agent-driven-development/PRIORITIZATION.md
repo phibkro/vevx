@@ -1,5 +1,6 @@
-# Agent Orchestration Plan (Agile/TDD/CI-CD)
+# Agent Orchestration Plan
 
+**Development Model**: Agent Driven Development (ADD)
 **Team**: AI agents orchestrated by Claude
 **Workflow**: Plan → Route → Execute → Verify
 **Coordination**: Dependency graph + CI/CD feedback
@@ -12,11 +13,29 @@
 4. **Parallel Execution** - Independent scopes run simultaneously
 5. **CI/CD as Coordinator** - Automated quality gates provide feedback
 
-## Priority Formula
+## Priority System: Dependency Graph
 
-`Priority = (Value × 10) / (Effort + Risk)`
+**No priority formula** - Use dependency graph + value ranking instead:
 
-Higher score = higher priority
+```
+1. Topological Sort (dependency graph)
+   └─ Ensures prerequisites complete first
+   └─ Hard constraint: never violate dependencies
+
+2. Value Ranking (within each level)
+   └─ Breaks ties when multiple tasks ready
+   └─ Business value still matters to PM
+
+3. Parallel Scheduling (maximize concurrency)
+   └─ Run independent tasks simultaneously
+   └─ Free speedup for agents
+```
+
+**Why this works for AI agents:**
+- **Dependencies matter** - Blocked work wastes context
+- **Effort is cheap** - Agents don't get tired, work 24/7
+- **Risk is managed** - CI/CD catches issues, retry is easy
+- **Parallelization is free** - No coordination overhead like humans
 
 ---
 
@@ -32,7 +51,7 @@ Higher score = higher priority
 **Effort**: 4-6h
 **Value**: 10 (Blocks CI/CD)
 **Risk**: 10 (Critical blocker)
-**Priority Score**: 100/14 = **7.1** 🔴
+**Priority**: 🔴 CRITICAL (blocks all other work)
 
 **Why First:**
 - Can't implement CI/CD with failing tests
@@ -63,7 +82,7 @@ web-001 (Tester role, RESUME):
 **Effort**: 6-8h
 **Value**: 10 (Enables fast iteration)
 **Risk**: 8 (Foundation)
-**Priority Score**: 100/14 = **7.1** 🔴
+**Priority**: 🔴 CRITICAL (blocks all other work)
 
 **Depends on**: PLAN-6 complete
 
@@ -109,7 +128,7 @@ web-001 (Tester role, RESUME):
 **Effort**: 6-10h total (3-5h per agent in parallel)
 **Value**: 9 (UX, reduces support)
 **Risk**: 2 (Independent work)
-**Priority Score**: 90/10 = **9.0** 🟡
+**Priority**: 🟡 HIGH (parallel with PLAN-7, good UX ROI)
 
 **Why Third:**
 - Improves UX dramatically
@@ -196,7 +215,7 @@ core-001 (packages/core)  ||  cli-001 (apps/cli)
 **Effort**: 8-12h total (2-4h per task in parallel)
 **Value**: 7 (Confidence, refactoring ability)
 **Risk**: 3 (Can be done incrementally)
-**Priority Score**: 70/16 = **4.4** 🟢
+**Priority**: 🟢 MEDIUM (technical debt, can run in parallel with PLAN-8)
 
 **Note:** This backfills tests for EXISTING code. New code uses TDD (tests first).
 
@@ -262,19 +281,19 @@ Option B (Sequential - if context limited):
 
 Listed in priority order for future execution:
 
-1. **PLAN-3: Positioning & Pricing** (Effort: 13h, Score: 6.0)
+1. **PLAN-3: Positioning & Pricing** (Effort: 13h, Value: High)
    - Fix backwards pricing model
    - Product must work first
 
-2. **PLAN-2: DX Improvements** (Effort: 21h, Score: 3.5)
+2. **PLAN-2: DX Improvements** (Effort: 21h, Value: Medium)
    - Installation script, license system, auth flow
    - Requires stable foundation
 
-3. **PLAN-4: Marketing & GTM** (Effort: 21h, Score: 4.3)
+3. **PLAN-4: Marketing & GTM** (Effort: 21h, Value: High)
    - Needs polished product + pricing
    - Can't market broken product
 
-4. **PLAN-5: Brand Identity** (Effort: Unknown)
+4. **PLAN-5: Brand Identity** (Effort: Unknown, Value: Low)
    - Nice to have, not required
    - Product quality more important
 
