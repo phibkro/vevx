@@ -361,11 +361,59 @@ To add a new analysis dimension:
 - **Language coverage** - Best results with TypeScript/JavaScript, good with others
 - **Context window** - Currently analyzes files as single batch (chunk support planned)
 
+## GitHub Action
+
+Automatically audit code quality on every pull request! Add AI Code Auditor to your GitHub workflow for continuous quality monitoring.
+
+### Quick Setup
+
+Add to your repo at `.github/workflows/code-audit.yml`:
+
+```yaml
+name: Code Quality Audit
+
+on: [pull_request]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: your-org/ai-code-auditor@v1
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+Add your `ANTHROPIC_API_KEY` as a repository secret, and you're done!
+
+### Features
+
+- Automatic PR comments with quality reports
+- Deduplication (updates existing comments)
+- Changed files detection (only audits PR diff)
+- Optional workflow failure on critical issues
+- Minimum score enforcement
+
+### Free Tier
+
+**Public repositories get unlimited free audits** with attribution.
+
+**Private repositories** require a Pro subscription ($29/mo).
+
+### Full Documentation
+
+See [GITHUB_ACTION.md](./GITHUB_ACTION.md) for complete documentation, examples, and configuration options.
+
 ## Roadmap
 
+- [x] Multi-agent CLI tool
+- [x] GitHub Actions integration
 - [ ] Per-chunk analysis for large codebases
 - [ ] Custom agent configurations
-- [ ] Integration with GitHub Actions
 - [ ] VS Code extension
 - [ ] Caching and incremental analysis
 - [ ] Custom rule definitions

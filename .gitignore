@@ -3,7 +3,6 @@ node_modules/
 *.log
 .env
 .env.local
-dist/
 build/
 coverage/
 .code-auditor.json
@@ -13,3 +12,6 @@ coverage/
 .*.bun-build
 .vercel
 .env*.local
+
+# Keep dist/ for GitHub Actions (required for action distribution)
+# dist/ is intentionally committed for GitHub Actions to work

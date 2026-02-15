@@ -1,0 +1,32 @@
+name: Code Quality Audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    name: AI Code Audit
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run AI Code Auditor
+        uses: your-org/ai-code-auditor@v1
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: specify path to audit (defaults to changed files)
+          # path: 'src/'
+          # Optional: fail workflow if critical issues found
+          fail-on-critical: 'true'
+          # Optional: minimum acceptable score
+          min-score: '7.0'
+          # Optional: Claude model to use
+          model: 'claude-sonnet-4-5-20250929'

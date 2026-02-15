@@ -1,0 +1,61 @@
+name: 'AI Code Auditor'
+description: 'Multi-agent AI code quality auditor with 5 specialist agents analyzing correctness, security, performance, maintainability, and edge cases'
+author: 'AI Code Auditor'
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  anthropic-api-key:
+    description: 'Anthropic API key for Claude (get from https://console.anthropic.com)'
+    required: true
+
+  github-token:
+    description: 'GitHub token for posting PR comments (automatically provided by Actions)'
+    required: true
+    default: ${{ github.token }}
+
+  path:
+    description: 'Path to audit (file or directory). Defaults to changed files in PR'
+    required: false
+    default: ''
+
+  model:
+    description: 'Claude model to use (claude-sonnet-4-5-20250929, claude-opus-4-6, etc)'
+    required: false
+    default: 'claude-sonnet-4-5-20250929'
+
+  fail-on-critical:
+    description: 'Fail the workflow if critical issues are found'
+    required: false
+    default: 'false'
+
+  min-score:
+    description: 'Minimum acceptable overall quality score (0-10). Fails if score is below this threshold'
+    required: false
+    default: '0'
+
+  max-files:
+    description: 'Maximum number of files to audit (prevents excessive API usage on large PRs)'
+    required: false
+    default: '50'
+
+outputs:
+  score:
+    description: 'Overall quality score (0-10)'
+
+  critical-count:
+    description: 'Number of critical findings'
+
+  warning-count:
+    description: 'Number of warning findings'
+
+  info-count:
+    description: 'Number of info findings'
+
+  report-url:
+    description: 'URL to PR comment with full report'
+
+runs:
+  using: 'node20'
+  main: 'dist/action.js'
