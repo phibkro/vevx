@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/app/api/webhooks/stripe/route'
-import { createMockRequest, createMockDb, createTestTeam } from '../../helpers/api'
+import { createMockRequest, createTestTeam } from '../../helpers/api'
 import {
   generateStripeSignature,
   createStripeCheckoutCompletedPayload,
@@ -9,9 +9,49 @@ import {
 } from '../../helpers/webhooks'
 
 // Mock dependencies
-vi.mock('@/lib/db', () => ({
-  db: createMockDb(),
-}))
+vi.mock('@/lib/db', async () => {
+  return {
+    db: {
+      user: {
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
+      team: {
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
+      apiKey: {
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
+      audit: {
+        create: vi.fn(),
+        count: vi.fn(),
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+      },
+      finding: {
+        create: vi.fn(),
+        findMany: vi.fn(),
+      },
+      teamMember: {
+        create: vi.fn(),
+      },
+    },
+  }
+})
 
 vi.mock('@/lib/rate-limit', () => ({
   webhookRateLimit: {
@@ -46,8 +86,8 @@ vi.mock('@/lib/stripe/helpers', () => ({
   }),
 }))
 
-const { db } = await import('@/lib/db')
-const { stripe } = await import('@/lib/stripe/config')
+import { db } from '@/lib/db'
+import { stripe } from '@/lib/stripe/config'
 
 describe('Stripe Webhook Signature Verification', () => {
   const secret = 'whsec_test_secret_key_for_stripe_webhooks_testing'

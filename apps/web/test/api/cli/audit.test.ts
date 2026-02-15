@@ -1,12 +1,52 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/app/api/cli/audit/route'
-import { createMockRequest, createMockDb, createTestApiKey, createTestTeam } from '../../helpers/api'
+import { createMockRequest, createTestApiKey, createTestTeam } from '../../helpers/api'
 import bcrypt from 'bcryptjs'
 
 // Mock dependencies
-vi.mock('@/lib/db', () => ({
-  db: createMockDb(),
-}))
+vi.mock('@/lib/db', async () => {
+  return {
+    db: {
+      user: {
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
+      team: {
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
+      apiKey: {
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
+      audit: {
+        create: vi.fn(),
+        count: vi.fn(),
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+      },
+      finding: {
+        create: vi.fn(),
+        findMany: vi.fn(),
+      },
+      teamMember: {
+        create: vi.fn(),
+      },
+    },
+  }
+})
 
 vi.mock('@/lib/rate-limit', () => ({
   auditRateLimit: {
@@ -40,8 +80,8 @@ vi.mock('@/lib/stripe/config', () => ({
   },
 }))
 
-const { db } = await import('@/lib/db')
-const { auditRateLimit } = await import('@/lib/rate-limit')
+import { db } from '@/lib/db'
+import { auditRateLimit } from '@/lib/rate-limit'
 
 describe('API Key Authentication', () => {
   beforeEach(() => {
