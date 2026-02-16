@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "varp": {
+      "command": "node",
+      "args": ["build/index.js"],
+      "cwd": "."
+    }
+  }
+}
