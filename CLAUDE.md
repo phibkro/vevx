@@ -36,7 +36,7 @@ hooks/                  3 lifecycle hooks (session-start, subagent-context, fres
 docs/core/              Interface doc (API surface) + internal doc (algorithms, data flow)
 ```
 
-**Details**: See `docs/core/internal.md` for algorithms and data flow. See `docs/core/interface.md` for tool API surface.
+**Details**: See `docs/core/internal.md` for algorithms and data flow. See `docs/core/interface.md` for tool API surface. See `docs/reference-urls.md` for canonical doc URLs.
 
 ## Key Conventions
 
@@ -45,3 +45,4 @@ docs/core/              Interface doc (API surface) + internal doc (algorithms, 
 - **Skills**: Require YAML frontmatter (`name` + `description`). Body is prompt instructions.
 - **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed. Exit 0 when not applicable.
 - **Tests**: Co-located with source (`*.test.ts`). Integration tests use `InMemoryTransport` + `Client`.
+- **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).
