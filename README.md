@@ -120,9 +120,12 @@ Each agent returns a score (0-10) with detailed findings. The **overall score** 
 ### CLI Tool
 - ⚡ **Fast analysis** - Results in seconds
 - 🎨 **Rich terminal output** - Color-coded, scannable reports
-- 📝 **Markdown export** - Save reports for documentation
+- 📝 **Multiple output formats** - JSON, Markdown, HTML, or Text
 - 🔄 **Dashboard sync** - Optional cloud integration
+- 👀 **Watch mode** - Continuous analysis on file changes
 - 🎛️ **Configurable** - Customize models, weights, and thresholds
+- 🔧 **Verbosity levels** - Quiet, normal, verbose, or debug output
+- ⌨️ **Shell completions** - Bash and Zsh support
 
 ### Web Dashboard
 - 👥 **Team collaboration** - Share results across your team
@@ -145,13 +148,42 @@ Create `.code-audit.json` in your project:
 {
   "model": "claude-sonnet-4-5-20250929",
   "maxTokensPerChunk": 100000,
-  "parallel": true
+  "parallel": true,
+  "format": "text",
+  "verbosity": "normal",
+  "watch": false
 }
 ```
 
 Override with CLI flags:
 ```bash
+# Different output formats
+code-audit src/ --format json > results.json
+code-audit src/ --format markdown > AUDIT.md
+code-audit src/ --format html > audit.html
+
+# Watch mode for continuous analysis
+code-audit --watch src/
+
+# Verbosity control
+code-audit --quiet src/          # Minimal output
+code-audit --verbose src/        # Detailed findings
+code-audit --debug src/          # + API calls and timing
+
+# Custom model
 code-audit src/ --model claude-opus-4-6 --output report.md
+```
+
+### Shell Completions
+
+Install completions for better CLI experience:
+
+```bash
+# Bash
+code-audit completions bash > /usr/local/share/bash-completion/completions/code-audit
+
+# Zsh
+code-audit completions zsh > /usr/local/share/zsh/site-functions/_code-audit
 ```
 
 ## Supported Languages

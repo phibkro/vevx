@@ -1,23 +1,35 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
+export type OutputFormat = "text" | "json" | "markdown" | "html";
+export type VerbosityLevel = "quiet" | "normal" | "verbose" | "debug";
+
 export interface Config {
   model: string;
   maxTokensPerChunk: number;
   parallel: boolean;
   outputPath?: string;
+  format: OutputFormat;
+  verbosity: VerbosityLevel;
+  watch: boolean;
 }
 
 interface ConfigFile {
   model?: string;
   maxTokensPerChunk?: number;
   parallel?: boolean;
+  format?: OutputFormat;
+  verbosity?: VerbosityLevel;
+  watch?: boolean;
 }
 
 const DEFAULT_CONFIG: Config = {
   model: "claude-sonnet-4-5-20250929",
   maxTokensPerChunk: 100000,
   parallel: true,
+  format: "text",
+  verbosity: "normal",
+  watch: false,
 };
 
 /**

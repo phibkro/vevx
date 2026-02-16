@@ -1,0 +1,9 @@
+{
+  "$schema": "https://code-auditor.com/schema.json",
+  "model": "claude-sonnet-4-5-20250929",
+  "maxTokensPerChunk": 100000,
+  "parallel": true,
+  "format": "text",
+  "verbosity": "normal",
+  "watch": false
+}
