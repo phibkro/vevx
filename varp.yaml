@@ -1,0 +1,9 @@
+varp: 0.1.0
+name: varp
+
+components:
+  core:
+    path: ./src
+    docs:
+      interface: ./docs/core/interface.md
+      internal: ./docs/core/internal.md
