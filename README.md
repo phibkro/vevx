@@ -2,7 +2,7 @@
 
 **Multi-agent AI code quality analysis powered by Claude**
 
-Get comprehensive, actionable feedback across 5 specialized dimensions: correctness, security, performance, maintainability, and edge cases.
+Get comprehensive, actionable feedback across 7 specialized dimensions: correctness, security, performance, maintainability, edge cases, accessibility, and documentation.
 
 ```bash
 # Audit your codebase
@@ -20,7 +20,7 @@ Overall Score: 7.8/10 ⭐⭐⭐⭐
 
 ## Why AI Code Auditor?
 
-**🎯 Specialized Analysis** - Five AI agents, each an expert in a specific quality dimension, analyze your code in parallel for deeper insights than generic code review tools.
+**🎯 Specialized Analysis** - Seven AI agents, each an expert in a specific quality dimension, analyze your code in parallel for deeper insights than generic code review tools.
 
 **⚡ Fast & Comprehensive** - Get detailed analysis in seconds. Identifies issues human reviewers often miss: race conditions, edge cases, security vulnerabilities, and performance bottlenecks.
 
@@ -88,22 +88,28 @@ Track quality over time and collaborate with your team:
 
 ## How It Works
 
-AI Code Auditor uses **5 specialized AI agents** that analyze your code in parallel:
+AI Code Auditor uses **7 specialized AI agents** that analyze your code in parallel:
 
-### 1. Correctness Agent (25%)
+### 1. Correctness Agent (22%)
 Finds logic errors, type safety issues, incorrect API usage, and null handling problems.
 
-### 2. Security Agent (25%)
+### 2. Security Agent (22%)
 Identifies SQL injection, XSS, authentication issues, data exposure, and crypto weaknesses.
 
-### 3. Performance Agent (15%)
+### 3. Performance Agent (13%)
 Detects algorithmic complexity issues, memory leaks, inefficient database queries, and missing caching opportunities.
 
-### 4. Maintainability Agent (20%)
-Analyzes code complexity, documentation quality, error handling, and test coverage.
+### 4. Maintainability Agent (15%)
+Analyzes code complexity, error handling, code duplication, and naming conventions.
 
-### 5. Edge Cases Agent (15%)
+### 5. Edge Cases Agent (13%)
 Uncovers boundary conditions, race conditions, resource exhaustion, and rare failure scenarios.
+
+### 6. Accessibility Agent (10%)
+Checks WCAG compliance, semantic HTML, ARIA attributes, keyboard navigation, and screen reader compatibility.
+
+### 7. Documentation Agent (5%)
+Ensures public APIs are documented with JSDoc/TSDoc, complex logic is explained, and examples are provided.
 
 Each agent returns a score (0-10) with detailed findings. The **overall score** is a weighted average based on the importance of each dimension.
 
