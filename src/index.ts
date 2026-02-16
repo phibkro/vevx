@@ -15,6 +15,8 @@ import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
 import { TaskSchema } from "./types.js";
 
+export function createServer(): McpServer {
+
 const server = new McpServer({
   name: "varp",
   version: "0.1.0",
@@ -232,9 +234,14 @@ server.tool(
   },
 );
 
+return server;
+
+} // end createServer
+
 // ── Start Server ──
 
 async function main() {
+  const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
