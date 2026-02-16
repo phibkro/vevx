@@ -341,10 +341,10 @@ Varp is delivered as a Claude Code plugin, not a standalone CLI. The plugin prov
 
 **Skills (workflow protocols):** Slash commands that load the appropriate protocol and context for each Varp workflow. Skills are reusable — they structure the agent's behavior for a session without persisting as permanent system prompts. When a skill is invoked, it loads its protocol; when the session ends, the protocol is unloaded. A normal Claude Code session has no Varp overhead.
 
-- `/varp-plan` loads the planner protocol (Section 3.2.1) and the manifest, turning the Claude Code session into a planning conversation. The skill IS the planner's T1 knowledge — it provides the decomposition methodology, the `touches` derivation rules, budget-setting guidelines, and the contract-writing protocol.
-- `/varp-execute` loads the orchestrator protocol (Section 3.4) and the active plan from `plans/in-progress/`, turning the session into an execution run. The skill provides the 14-step chain of thought, the dispatch rules, restart strategies, capability enforcement protocol, and the verification protocol. The manifest and plan together form the orchestrator's T1 knowledge for that session.
-- `/varp-review` surfaces the medium loop decision surface — the log.xml diffed against the plan's expected outcomes, with doc freshness status, invalidation flags, and execution metrics (resource consumption, failure rates, restart decisions).
-- `/varp-status` reports project state: component registry, doc freshness, plan lifecycle status, dependency graph health.
+- `/varp:plan` loads the planner protocol (Section 3.2.1) and the manifest, turning the Claude Code session into a planning conversation. The skill IS the planner's T1 knowledge — it provides the decomposition methodology, the `touches` derivation rules, budget-setting guidelines, and the contract-writing protocol.
+- `/varp:execute` loads the orchestrator protocol (Section 3.4) and the active plan from `plans/in-progress/`, turning the session into an execution run. The skill provides the 14-step chain of thought, the dispatch rules, restart strategies, capability enforcement protocol, and the verification protocol. The manifest and plan together form the orchestrator's T1 knowledge for that session.
+- `/varp:review` surfaces the medium loop decision surface — the log.xml diffed against the plan's expected outcomes, with doc freshness status, invalidation flags, and execution metrics (resource consumption, failure rates, restart decisions).
+- `/varp:status` reports project state: component registry, doc freshness, plan lifecycle status, dependency graph health.
 
 The tiered knowledge architecture is implemented through skill loading, not through persistent configuration. Each skill loads exactly the T1 context its workflow needs. T2 knowledge (component docs) is loaded dynamically by MCP tools during execution, resolved from manifest references.
 
@@ -520,11 +520,11 @@ Resuming a subagent session preserves its accumulated context, but that context 
 
 1. **Build the MCP server.** TypeScript MCP server exposing core functions: manifest parsing, doc resolution, wave computation, hazard detection, invalidation cascade, freshness checking, plan validation, capability verification, resource tracking. Test against Varp's own `varp.yaml`.
 
-2. **Write the skills.** `/varp-plan` and `/varp-execute` as Claude Code skills that load the planner and orchestrator protocols respectively. Each skill provides the T1 knowledge for its workflow — loaded on invocation, unloaded on session end.
+2. **Write the skills.** `/varp:plan` and `/varp:execute` as Claude Code skills that load the planner and orchestrator protocols respectively. Each skill provides the T1 knowledge for its workflow — loaded on invocation, unloaded on session end.
 
 3. **Wire the hooks.** `SubagentStart` for automatic doc injection (reading the orchestrator's resolved context, not re-deriving it), `PostToolUse` for freshness tracking, `SessionStart` for manifest loading when a Varp skill is active.
 
-4. **Plan one feature end-to-end.** Use `/varp-plan` to produce a plan, `/varp-execute` to run it, `/varp-review` to inspect results. Validate the full cycle on a real project.
+4. **Plan one feature end-to-end.** Use `/varp:plan` to produce a plan, `/varp:execute` to run it, `/varp:review` to inspect results. Validate the full cycle on a real project.
 
 ### 9.2 Build Sequence
 
@@ -532,7 +532,7 @@ Resuming a subagent session preserves its accumulated context, but that context 
 2. **MCP server with scheduler tools** — compute waves from `touches`, detect hazards, compute critical path
 3. **MCP server with plan tools** — parse `plan.xml`, validate against manifest, validate budgets
 4. **MCP server with enforcement tools** — capability verification (diff vs `touches`), resource tracking
-5. **Skills** — `/varp-plan`, `/varp-execute`, `/varp-review`, `/varp-status` as reusable workflow protocols
+5. **Skills** — `/varp:plan`, `/varp:execute`, `/varp:review`, `/varp:status` as reusable workflow protocols
 6. **Hooks** — automatic doc injection, freshness tracking, session context
 7. **Plugin packaging** — bundle MCP server + skills + hooks as a Claude Code plugin
 8. **One end-to-end workflow** — full cycle on a real project

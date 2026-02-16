@@ -16,21 +16,7 @@ paths:
 
 ## Testing MCP Tools
 
-Integration tests use in-process transport (no subprocess/stdio):
-
-```typescript
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createServer } from "./index.js";
-
-const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-const server = createServer();
-const client = new Client({ name: "test", version: "1.0.0" });
-await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-
-const result = await client.callTool({ name: "varp_read_manifest", arguments: {} });
-const data = JSON.parse(result.content[0].text);
-```
+Integration tests use in-process transport (no subprocess/stdio). See `src/index.test.ts` for the current pattern — import paths for `Client`, `InMemoryTransport`, and `McpServer` change across SDK versions. Check `docs/reference-urls.md` → MCP TypeScript SDK for current imports.
 
 ## Zod Convention
 

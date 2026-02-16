@@ -9,31 +9,18 @@ paths:
 
 ## Skills
 
-Skills are prompt-based — SKILL.md content is injected into conversation context when invoked.
+Skills are prompt-based — SKILL.md content becomes conversation context when invoked. Skills load at session start — changes require restart.
 
-**Required YAML frontmatter:**
-```yaml
----
-name: skill-name
-description: What this skill does and when to use it
----
-```
+**Spec**: Frontmatter fields, plugin.json format, and namespace rules change frequently. Search the web before modifying — see `docs/reference-urls.md` → Claude Code Skills.
 
-Without frontmatter, Claude Code won't discover the skill. Skills load at session start — changes require restart.
-
-**Plugin namespace**: Skills in `skills/` are invoked as `/varp:skillname` (plugin name from plugin.json).
-
-**plugin.json format**: `"skills": "./skills/"` (directory path string, NOT an array of objects).
+**Project convention**: Skills in `skills/` are invoked as `/varp:skillname`. See existing SKILL.md files for the current pattern.
 
 ## Hooks
 
-All hook scripts must:
+**Spec**: Hook event types, JSON schemas, and output format change frequently. Search the web before modifying — see `docs/reference-urls.md` → Claude Code Hooks.
+
+**Project conventions** (stable):
 - Use `#!/bin/bash` with `set -euo pipefail`
 - Exit 0 silently when `varp.yaml` is missing (graceful skip for non-Varp projects)
-- Parse YAML/JSON with grep/sed only — no jq, python, or other runtime dependencies
-- PostToolUse hooks receive tool context as JSON on stdin (extract `file_path` from it)
-
-**Hook types in use:**
-- `SessionStart` — project overview on new session
-- `SubagentStart` — static Varp awareness injection
-- `PostToolUse` (Write|Edit) — freshness warning after component file edits
+- Parse YAML/JSON with grep/sed/awk only — no jq, python, or other runtime dependencies
+- See existing scripts in `hooks/scripts/` for the current pattern

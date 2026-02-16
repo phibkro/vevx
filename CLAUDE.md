@@ -15,8 +15,8 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 - **Runtime**: Bun (install, test, run)
 - **Language**: TypeScript (ES2022, bundler moduleResolution)
-- **MCP SDK**: `@modelcontextprotocol/sdk` v1.26+ — `McpServer`, `StdioServerTransport`, `InMemoryTransport`
-- **Validation**: Zod v3.24+ (schemas are single source of truth for types)
+- **MCP SDK**: `@modelcontextprotocol/sdk` (see `docs/reference-urls.md` for current SDK docs)
+- **Validation**: Zod (schemas are single source of truth for types)
 - **XML**: fast-xml-parser (plan.xml parsing)
 - **YAML**: yaml (varp.yaml manifest parsing)
 
@@ -42,7 +42,7 @@ docs/core/              Interface doc (API surface) + internal doc (algorithms, 
 
 - **Types**: Define Zod schema first, infer TypeScript type via `z.infer<>`. Never define types separately.
 - **MCP tools**: Accept `manifest_path` parameter (default `./varp.yaml`), parse internally, return JSON as text content.
-- **Skills**: Require YAML frontmatter (`name` + `description`). Body is prompt instructions.
-- **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed. Exit 0 when not applicable.
+- **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `docs/reference-urls.md` before modifying.
+- **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Tests**: Co-located with source (`*.test.ts`). Integration tests use `InMemoryTransport` + `Client`.
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).

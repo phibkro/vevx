@@ -12,7 +12,7 @@ Consumed by: orchestrator (Claude Code session), skills, hooks.
 
 Reads and validates `varp.yaml`. Returns typed manifest with component registry, dependency graph, and doc references. Returns error on schema violations.
 
-**Parameters:** `{ path?: string }` (defaults to `./varp.yaml`)
+**Parameters:** `{ manifest_path?: string }` (defaults to `./varp.yaml`)
 
 **Returns:** `Manifest`
 
@@ -24,7 +24,7 @@ Given a task's `touches` declaration, returns the doc paths to load:
 
 This is the core context resolution logic — it ensures each task gets exactly the information it needs.
 
-**Parameters:** `{ manifest: Manifest, touches: Touches }`
+**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[] }`
 
 **Returns:** `ResolvedDocs`
 
@@ -32,7 +32,7 @@ This is the core context resolution logic — it ensures each task gets exactly 
 
 Given a list of components whose interface docs changed, walks `depends_on` to return all transitively affected components. Used by the orchestrator after task completion to flag stale contexts.
 
-**Parameters:** `{ manifest: Manifest, changed: string[] }`
+**Parameters:** `{ manifest_path?: string, changed: string[] }`
 
 **Returns:** `string[]`
 
@@ -40,7 +40,7 @@ Given a list of components whose interface docs changed, walks `depends_on` to r
 
 Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Used by `/status` and by the orchestrator before dispatching tasks.
 
-**Parameters:** `{ manifest: Manifest }`
+**Parameters:** `{ manifest_path?: string }`
 
 **Returns:** `FreshnessReport`
 
@@ -63,7 +63,7 @@ Checks plan consistency against the manifest:
 - Task IDs are unique
 - Budget values are positive
 
-**Parameters:** `{ plan: Plan, manifest: Manifest }`
+**Parameters:** `{ plan_path: string, manifest_path?: string }`
 
 **Returns:** `ValidationResult`
 
@@ -108,7 +108,7 @@ After a subagent completes, verifies that actual file modifications fall within 
 
 Used at orchestrator step 8 — before merge, not after.
 
-**Parameters:** `{ manifest: Manifest, touches: Touches, diff_paths: string[] }`
+**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[], diff_paths: string[] }`
 
 **Returns:** `CapabilityReport`
 
@@ -149,7 +149,7 @@ Project state report. Shows active plan progress, component doc freshness, detec
 
 ### `SubagentStart`
 
-Auto-injects relevant component docs based on the current task's `touches` declaration. Calls `varp_resolve_docs` and appends the resolved doc content to the subagent's context.
+Injects static project conventions from `.claude/rules/subagent-conventions.md` into subagent context. Dynamic doc injection (component-specific docs based on `touches`) happens in the `/varp:execute` skill before dispatching subagents, not in this hook.
 
 ### `PostToolUse` (on Write/Edit)
 
