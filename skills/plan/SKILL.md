@@ -124,7 +124,7 @@ You can mix modes within a plan.
 
 ### Step 8: Output plan.xml
 
-Write the complete plan to `plans/backlog/<feature-name>/plan.xml`.
+Write the complete plan to `~/.claude/projects/<project>/memory/plans/<feature-name>/plan.xml`. Plans are ephemeral orchestration artifacts, not version-controlled.
 
 ```xml
 <plan>

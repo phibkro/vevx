@@ -21,13 +21,11 @@ Call `varp_check_freshness` to get staleness status for all component docs.
 
 ### Step 3: Check for Active Plan
 
-Look for a plan in `plans/in-progress/`. If a directory exists there, call `varp_parse_plan` with the path to its `plan.xml`.
-
-Also check `plans/in-review/`, `plans/blocked/`, and `plans/backlog/` for other plans in the pipeline.
+Look for active plans in `~/.claude/projects/<project>/memory/plans/`. If a directory exists there, call `varp_parse_plan` with the path to its `plan.xml`.
 
 ### Step 4: Analyze Active Plan (if present)
 
-If an active plan exists in `plans/in-progress/`:
+If an active plan exists:
 
 1. Extract the task list from the parsed plan
 2. Call `varp_detect_hazards` with the plan's tasks to identify data dependencies
@@ -64,14 +62,11 @@ Output a structured report with these sections:
 Tasks: <id> -> <id> -> <id>
 Estimated budget: <tokens> tokens, <minutes> minutes
 
-## Pipeline
+## Active Plans
 
-| Status | Feature |
-|--------|---------|
-| in-progress | <name> |
-| in-review | <name> |
-| backlog | <name>, <name> |
-| blocked | <name> |
+| Plan | Created | Tasks |
+|------|---------|-------|
+| <name> | <date> | <completed>/<total> |
 ```
 
 If there is no active plan, omit the Active Plan section and note "No active plan" in the Pipeline section.

@@ -12,8 +12,8 @@ Priority: correctness > safety > throughput.
 ## Initialization
 
 1. Call `varp_read_manifest` to load the component registry
-2. Load the active plan from `plans/in-progress/` via `varp_parse_plan`
-3. If no plan is in `plans/in-progress/`, report this and stop
+2. Look for an active plan in `~/.claude/projects/<project>/memory/plans/`. Load via `varp_parse_plan`.
+3. If no plan exists, report this and stop
 4. Classify the plan's execution mode (see below)
 5. If `log.xml` exists alongside the plan, load it to resume from the last completed task
 

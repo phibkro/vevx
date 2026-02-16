@@ -13,7 +13,7 @@ Priority: accuracy of assessment > actionability of recommendations > completene
 
 ### Step 1: Load Plan and Log
 
-1. Check `plans/in-progress/` and `plans/in-review/` for the active plan
+1. Find the active plan in `~/.claude/projects/<project>/memory/plans/`
 2. Call `varp_parse_plan` on the plan's `plan.xml`
 3. Read the `log.xml` alongside the plan for execution history
 4. Call `varp_read_manifest` to load the current component registry
@@ -81,7 +81,7 @@ If incomplete waves remain:
 
 If all waves are complete:
 - "All waves complete. N/M postconditions pass."
-- If all postconditions pass, recommend moving plan to `plans/done/`
+- If all postconditions pass, recommend archiving the plan
 - If postconditions fail, present the failures and recommend replanning or manual intervention
 
 **Decision 2: Failure Recovery**
@@ -93,11 +93,10 @@ For each failed task:
 **Decision 3: Plan Status Transition**
 
 Based on overall progress, recommend one of:
-- **Continue execution:** Proceed to next wave (move plan stays in `plans/in-progress/`)
-- **Move to review:** All tasks complete, postconditions need human verification (move to `plans/in-review/`)
-- **Replan needed:** Fundamental assumptions were wrong (keep in `plans/in-progress/`, invoke `/varp:plan` to revise)
-- **Blocked:** External dependency prevents progress (move to `plans/blocked/`)
-- **Done:** All tasks complete, all postconditions pass, human approves (move to `plans/done/`)
+- **Continue execution:** Proceed to next wave
+- **Replan needed:** Fundamental assumptions were wrong, invoke `/varp:plan` to revise
+- **Blocked:** External dependency prevents progress, report to human
+- **Done:** All tasks complete, all postconditions pass, human approves — move to `memory/plans/archive/`
 
 **Decision 4: Documentation Health**
 
