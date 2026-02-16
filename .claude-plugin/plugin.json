@@ -1,8 +1,5 @@
 {
   "name": "varp",
   "version": "0.1.0",
-  "description": "Manifest-aware context management for agent orchestration",
-  "skills": "./skills/",
-  "hooks": "hooks/hooks.json",
-  "mcp": ".mcp.json"
+  "description": "Manifest-aware context management for agent orchestration"
 }

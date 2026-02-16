@@ -36,7 +36,7 @@ hooks/                  3 lifecycle hooks (session-start, subagent-context, fres
 docs/core/              Interface doc (API surface) + internal doc (algorithms, data flow)
 ```
 
-**Details**: See `docs/core/internal.md` for algorithms and data flow. See `docs/core/interface.md` for tool API surface. See `docs/reference-urls.md` for canonical doc URLs.
+**Details**: See `docs/core/internal.md` for algorithms and data flow. See `docs/core/interface.md` for tool API surface. See `docs/manifest-schema.md` and `docs/plan-schema.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
 
 ## Key Conventions
 
