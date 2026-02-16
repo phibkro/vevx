@@ -10,8 +10,8 @@ src/
   types.ts                    Zod schemas → TypeScript types (single source of truth)
   manifest/
     parser.ts                 YAML → Manifest (path resolution)
-    resolver.ts               Touches → doc paths
-    freshness.ts              mtime comparison per component
+    resolver.ts               Touches × load_on → doc paths
+    freshness.ts              mtime comparison per component + project docs
     graph.ts                  Reverse-dep BFS, Kahn's cycle detection
   plan/
     parser.ts                 XML → Plan via fast-xml-parser
@@ -142,12 +142,23 @@ All 11 tools follow the same pattern:
 
 Scheduler tools (`varp_compute_waves`, `varp_detect_hazards`, `varp_compute_critical_path`) accept inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 
+## Doc Resolution (`resolver.ts`)
+
+Iterates each component's `docs` array and checks `load_on` tags against the task's touch type:
+- `load_on: ["reads"]` — doc loads for both reads and writes (public-facing)
+- `load_on: ["writes"]` — doc loads only for writes (internal details)
+- `load_on: ["reads", "writes"]` — doc always loads
+
+Results are deduplicated by `component:doc_name` key and returned as a flat array.
+
 ## Freshness Detection (`freshness.ts`)
 
 Compares doc file mtime against the latest mtime of any file in the component's source directory (recursive scan via `readdirSync({ recursive: true })`). A doc is stale when its mtime predates the source directory's latest file mtime. Missing files are reported as `"N/A"` timestamps with `stale: true`.
+
+Project-level docs (defined at manifest root, not scoped to a component) are reported separately. Since they have no source directory, they are only marked stale if the file is missing.
 
 Uses `(entry as any).parentPath` to handle Bun/Node compatibility for `Dirent.parentPath` (added in Node 20.12).
 
 ## Testing
 
-68 tests across 12 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.
+71 tests across 12 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.

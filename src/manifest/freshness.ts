@@ -41,25 +41,34 @@ export function checkFreshness(manifest: Manifest): FreshnessReport {
 
   for (const [name, component] of Object.entries(manifest.components)) {
     const sourceMtime = getLatestMtime(component.path);
-    const interfaceMtime = getFileMtime(component.docs.interface);
-    const internalMtime = getFileMtime(component.docs.internal);
-
     const sourceTs = sourceMtime?.toISOString() ?? "N/A";
 
-    components[name] = {
-      interface_doc: {
-        path: component.docs.interface,
-        last_modified: interfaceMtime?.toISOString() ?? "N/A",
-        stale: !interfaceMtime || !sourceMtime || interfaceMtime < sourceMtime,
-      },
-      internal_doc: {
-        path: component.docs.internal,
-        last_modified: internalMtime?.toISOString() ?? "N/A",
-        stale: !internalMtime || !sourceMtime || internalMtime < sourceMtime,
-      },
-      source_last_modified: sourceTs,
-    };
+    const docs: Record<string, { path: string; last_modified: string; stale: boolean }> = {};
+    for (const doc of component.docs) {
+      const docMtime = getFileMtime(doc.path);
+      docs[doc.name] = {
+        path: doc.path,
+        last_modified: docMtime?.toISOString() ?? "N/A",
+        stale: !docMtime || !sourceMtime || docMtime < sourceMtime,
+      };
+    }
+
+    components[name] = { docs, source_last_modified: sourceTs };
   }
 
-  return { components };
+  // Project-level docs
+  let project_docs: FreshnessReport["project_docs"];
+  if (manifest.docs) {
+    project_docs = {};
+    for (const [name, doc] of Object.entries(manifest.docs)) {
+      const docMtime = getFileMtime(doc.path);
+      project_docs[name] = {
+        path: doc.path,
+        last_modified: docMtime?.toISOString() ?? "N/A",
+        stale: !docMtime,
+      };
+    }
+  }
+
+  return { components, ...(project_docs ? { project_docs } : {}) };
 }

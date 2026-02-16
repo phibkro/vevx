@@ -49,7 +49,7 @@ server.tool(
 
 server.tool(
   "varp_resolve_docs",
-  "Given a task's touches declaration, returns doc paths to load. Writes get interface+internal, reads get interface only.",
+  "Given a task's touches declaration, returns doc paths to load based on each doc's load_on tags. Reads load docs tagged 'reads'; writes load docs tagged 'reads' or 'writes'.",
   {
     manifest_path: z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)"),
     reads: z.array(z.string()).optional().describe("Components this task reads from"),

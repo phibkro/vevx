@@ -15,11 +15,19 @@ export function parseManifest(manifestPath: string): Manifest {
 
   const manifest = ManifestSchema.parse(parsed);
 
-  // Resolve relative paths to absolute
+  // Resolve component paths and doc paths
   for (const [, component] of Object.entries(manifest.components)) {
     component.path = resolve(baseDir, component.path);
-    component.docs.interface = resolve(baseDir, component.docs.interface);
-    component.docs.internal = resolve(baseDir, component.docs.internal);
+    for (const doc of component.docs) {
+      doc.path = resolve(baseDir, doc.path);
+    }
+  }
+
+  // Resolve project-level doc paths
+  if (manifest.docs) {
+    for (const [, doc] of Object.entries(manifest.docs)) {
+      doc.path = resolve(baseDir, doc.path);
+    }
   }
 
   return manifest;

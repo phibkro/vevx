@@ -2,24 +2,29 @@ import { z } from "zod";
 
 // ── Component Manifest ──
 
-export const ComponentDocsSchema = z.object({
-  interface: z.string(),
-  internal: z.string(),
+export const LoadOnSchema = z.enum(["reads", "writes"]);
+
+export const DocEntrySchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  load_on: z.array(LoadOnSchema).min(1),
 });
 
 export const ComponentSchema = z.object({
   path: z.string(),
   depends_on: z.array(z.string()).optional(),
-  docs: ComponentDocsSchema,
+  docs: z.array(DocEntrySchema).default([]),
 });
 
 export const ManifestSchema = z.object({
   varp: z.string(),
   name: z.string(),
+  docs: z.record(z.string(), DocEntrySchema).optional(),
   components: z.record(z.string(), ComponentSchema),
 });
 
-export type ComponentDocs = z.infer<typeof ComponentDocsSchema>;
+export type LoadOn = z.infer<typeof LoadOnSchema>;
+export type DocEntry = z.infer<typeof DocEntrySchema>;
 export type Component = z.infer<typeof ComponentSchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
@@ -43,17 +48,17 @@ export type Budget = z.infer<typeof BudgetSchema>;
 
 // ── Resolved Docs ──
 
-export const DocRefSchema = z.object({
+export const ResolvedDocSchema = z.object({
   component: z.string(),
+  doc_name: z.string(),
   path: z.string(),
 });
 
 export const ResolvedDocsSchema = z.object({
-  interface_docs: z.array(DocRefSchema),
-  internal_docs: z.array(DocRefSchema),
+  docs: z.array(ResolvedDocSchema),
 });
 
-export type DocRef = z.infer<typeof DocRefSchema>;
+export type ResolvedDoc = z.infer<typeof ResolvedDocSchema>;
 export type ResolvedDocs = z.infer<typeof ResolvedDocsSchema>;
 
 // ── Freshness ──
@@ -65,13 +70,13 @@ export const DocFreshnessSchema = z.object({
 });
 
 export const ComponentFreshnessSchema = z.object({
-  interface_doc: DocFreshnessSchema,
-  internal_doc: DocFreshnessSchema,
+  docs: z.record(z.string(), DocFreshnessSchema),
   source_last_modified: z.string(),
 });
 
 export const FreshnessReportSchema = z.object({
   components: z.record(z.string(), ComponentFreshnessSchema),
+  project_docs: z.record(z.string(), DocFreshnessSchema).optional(),
 });
 
 export type DocFreshness = z.infer<typeof DocFreshnessSchema>;

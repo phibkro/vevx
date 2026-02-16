@@ -6,8 +6,8 @@ const manifest: Manifest = {
   varp: "0.1.0",
   name: "test",
   components: {
-    auth: { path: "/project/src/auth", docs: { interface: "/docs/auth/interface.md", internal: "/docs/auth/internal.md" } },
-    api: { path: "/project/src/api", depends_on: ["auth"], docs: { interface: "/docs/api/interface.md", internal: "/docs/api/internal.md" } },
+    auth: { path: "/project/src/auth", docs: [{ name: "interface", path: "/docs/auth/interface.md", load_on: ["reads"] }, { name: "internal", path: "/docs/auth/internal.md", load_on: ["writes"] }] },
+    api: { path: "/project/src/api", depends_on: ["auth"], docs: [{ name: "interface", path: "/docs/api/interface.md", load_on: ["reads"] }, { name: "internal", path: "/docs/api/internal.md", load_on: ["writes"] }] },
   },
 };
 

@@ -130,10 +130,14 @@ describe("MCP server integration", () => {
       arguments: { manifest_path: MANIFEST_PATH, writes: ["auth"], reads: ["api"] },
     });
     const data = parseResult(result);
-    const ifaceComponents = data.interface_docs.map((d: any) => d.component).sort();
-    const internalComponents = data.internal_docs.map((d: any) => d.component);
-    expect(ifaceComponents).toEqual(["api", "auth"]);
-    expect(internalComponents).toEqual(["auth"]);
+    // writes: auth → gets reads+writes docs; reads: api → gets reads docs only
+    const docs = data.docs as { component: string; doc_name: string; path: string }[];
+    const authDocs = docs.filter((d) => d.component === "auth").map((d) => d.doc_name);
+    const apiDocs = docs.filter((d) => d.component === "api").map((d) => d.doc_name);
+    expect(authDocs).toContain("interface");
+    expect(authDocs).toContain("internal");
+    expect(apiDocs).toContain("interface");
+    expect(apiDocs).not.toContain("internal");
   });
 
   test("varp_invalidation_cascade returns transitively affected components", async () => {
@@ -153,8 +157,7 @@ describe("MCP server integration", () => {
     const data = parseResult(result);
     expect(Object.keys(data.components).sort()).toEqual(["api", "auth", "web"]);
     for (const comp of Object.values(data.components) as any[]) {
-      expect(comp).toHaveProperty("interface_doc");
-      expect(comp).toHaveProperty("internal_doc");
+      expect(comp).toHaveProperty("docs");
       expect(comp).toHaveProperty("source_last_modified");
     }
   });

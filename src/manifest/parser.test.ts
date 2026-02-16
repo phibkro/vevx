@@ -15,7 +15,8 @@ describe("parseManifest", () => {
     expect(manifest.components.core.path).toBe(
       resolve(PROJECT_ROOT, "src"),
     );
-    expect(manifest.components.core.docs.interface).toBe(
+    expect(manifest.components.core.docs[0].name).toBe("interface");
+    expect(manifest.components.core.docs[0].path).toBe(
       resolve(PROJECT_ROOT, "docs/core/interface.md"),
     );
   });

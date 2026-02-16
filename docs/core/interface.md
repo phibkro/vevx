@@ -18,9 +18,10 @@ Reads and validates `varp.yaml`. Returns typed manifest with component registry,
 
 #### `varp_resolve_docs`
 
-Given a task's `touches` declaration, returns the doc paths to load:
-- Components in `writes` → both interface and internal doc paths
-- Components in `reads` → interface doc paths only
+Given a task's `touches` declaration, returns the doc paths to load based on each doc's `load_on` tags:
+- Docs tagged `["reads"]` load for both reads and writes
+- Docs tagged `["writes"]` load only for writes
+- Docs tagged `["reads", "writes"]` load for both
 
 This is the core context resolution logic — it ensures each task gets exactly the information it needs.
 
@@ -165,16 +166,20 @@ Loads the manifest and displays project state — active plan, doc freshness, an
 interface Manifest {
   version: string
   name: string
+  docs?: Record<string, DocEntry>  // project-level docs
   components: Record<string, Component>
 }
 
 interface Component {
   path: string
   depends_on?: string[]
-  docs: {
-    interface: string
-    internal: string
-  }
+  docs: DocEntry[]
+}
+
+interface DocEntry {
+  name: string
+  path: string
+  load_on: ('reads' | 'writes')[]  // when to load this doc
 }
 
 interface Touches {
@@ -188,16 +193,15 @@ interface Budget {
 }
 
 interface ResolvedDocs {
-  interface_docs: { component: string; path: string }[]
-  internal_docs: { component: string; path: string }[]
+  docs: { component: string; doc_name: string; path: string }[]
 }
 
 interface FreshnessReport {
   components: Record<string, {
-    interface_doc: { path: string; last_modified: string; stale: boolean }
-    internal_doc: { path: string; last_modified: string; stale: boolean }
+    docs: Record<string, { path: string; last_modified: string; stale: boolean }>
     source_last_modified: string
   }>
+  project_docs?: Record<string, { path: string; last_modified: string; stale: boolean }>
 }
 
 interface Plan {

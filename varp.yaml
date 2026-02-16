@@ -1,9 +1,27 @@
 varp: 0.1.0
 name: varp
 
+docs:
+  getting-started:
+    name: getting-started
+    path: ./docs/getting-started.md
+    load_on: [reads]
+  manifest-schema:
+    name: manifest-schema
+    path: ./docs/manifest-schema.md
+    load_on: [reads]
+  plan-schema:
+    name: plan-schema
+    path: ./docs/plan-schema.md
+    load_on: [reads]
+
 components:
   core:
     path: ./src
     docs:
-      interface: ./docs/core/interface.md
-      internal: ./docs/core/internal.md
+      - name: interface
+        path: ./docs/core/interface.md
+        load_on: [reads]
+      - name: internal
+        path: ./docs/core/internal.md
+        load_on: [writes]

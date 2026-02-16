@@ -14,10 +14,10 @@ function makeManifest(
     result.components[name] = {
       path: `./src/${name}`,
       depends_on: config.depends_on,
-      docs: {
-        interface: `./docs/${name}/interface.md`,
-        internal: `./docs/${name}/internal.md`,
-      },
+      docs: [
+        { name: "interface", path: `./docs/${name}/interface.md`, load_on: ["reads"] },
+        { name: "internal", path: `./docs/${name}/internal.md`, load_on: ["writes"] },
+      ],
     };
   }
   return result;

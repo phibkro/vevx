@@ -8,42 +8,36 @@ const manifest: Manifest = {
   components: {
     auth: {
       path: "/src/auth",
-      docs: {
-        interface: "/docs/auth/interface.md",
-        internal: "/docs/auth/internal.md",
-      },
+      docs: [
+        { name: "interface", path: "/docs/auth/interface.md", load_on: ["reads"] },
+        { name: "internal", path: "/docs/auth/internal.md", load_on: ["writes"] },
+      ],
     },
     api: {
       path: "/src/api",
       depends_on: ["auth"],
-      docs: {
-        interface: "/docs/api/interface.md",
-        internal: "/docs/api/internal.md",
-      },
+      docs: [
+        { name: "interface", path: "/docs/api/interface.md", load_on: ["reads"] },
+        { name: "internal", path: "/docs/api/internal.md", load_on: ["writes"] },
+        { name: "examples", path: "/docs/api/examples.md", load_on: ["reads", "writes"] },
+      ],
     },
   },
 };
 
 describe("resolveDocs", () => {
-  test("writes get both interface and internal", () => {
+  test("writes get docs tagged reads and writes", () => {
     const result = resolveDocs(manifest, { writes: ["auth"] });
-    expect(result.interface_docs).toContainEqual({
-      component: "auth",
-      path: "/docs/auth/interface.md",
-    });
-    expect(result.internal_docs).toContainEqual({
-      component: "auth",
-      path: "/docs/auth/internal.md",
-    });
+    const names = result.docs.map((d) => d.doc_name);
+    expect(names).toContain("interface");
+    expect(names).toContain("internal");
   });
 
-  test("reads get interface only", () => {
-    const result = resolveDocs(manifest, { reads: ["api"] });
-    expect(result.interface_docs).toContainEqual({
-      component: "api",
-      path: "/docs/api/interface.md",
-    });
-    expect(result.internal_docs).toHaveLength(0);
+  test("reads get only docs tagged reads", () => {
+    const result = resolveDocs(manifest, { reads: ["auth"] });
+    const names = result.docs.map((d) => d.doc_name);
+    expect(names).toContain("interface");
+    expect(names).not.toContain("internal");
   });
 
   test("mixed reads and writes", () => {
@@ -51,9 +45,9 @@ describe("resolveDocs", () => {
       writes: ["auth"],
       reads: ["api"],
     });
-    expect(result.interface_docs).toHaveLength(2);
-    expect(result.internal_docs).toHaveLength(1);
-    expect(result.internal_docs[0].component).toBe("auth");
+    // auth: interface (reads tag) + internal (writes tag) = 2
+    // api: interface (reads tag) + examples (reads+writes tag, but only reads needed) = 2
+    expect(result.docs).toHaveLength(4);
   });
 
   test("throws on unknown component", () => {
@@ -62,12 +56,28 @@ describe("resolveDocs", () => {
     );
   });
 
-  test("component in both reads and writes gets internal docs", () => {
+  test("component in both reads and writes deduplicates", () => {
     const result = resolveDocs(manifest, {
       writes: ["auth"],
       reads: ["auth"],
     });
-    expect(result.interface_docs).toHaveLength(1); // deduplicated
-    expect(result.internal_docs).toHaveLength(1);
+    // interface + internal, each once
+    expect(result.docs).toHaveLength(2);
+  });
+
+  test("docs with both load_on tags load for reads", () => {
+    const result = resolveDocs(manifest, { reads: ["api"] });
+    const names = result.docs.map((d) => d.doc_name);
+    expect(names).toContain("interface");
+    expect(names).toContain("examples");
+    expect(names).not.toContain("internal");
+  });
+
+  test("docs with both load_on tags load for writes", () => {
+    const result = resolveDocs(manifest, { writes: ["api"] });
+    const names = result.docs.map((d) => d.doc_name);
+    expect(names).toContain("interface");
+    expect(names).toContain("internal");
+    expect(names).toContain("examples");
   });
 });
