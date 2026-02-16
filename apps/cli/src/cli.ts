@@ -13,6 +13,9 @@ import { printReport } from "./report/terminal";
 import { generateMarkdown } from "./report/markdown";
 import { syncToDashboard } from "./dashboard-sync";
 import { login, logout } from "./auth";
+import { createProgressReporter } from "./progress";
+import { formatError } from "./errors";
+import { validateInput, ValidationError } from "./validation";
 
 // Get version from package.json
 function getVersion(): string {
@@ -166,6 +169,9 @@ async function main(): Promise<void> {
   }
 
   try {
+    // Validate input path and API key first
+    const validatedPath = validateInput(args.path);
+
     // Load and validate configuration
     console.log("Loading configuration...");
     const config = loadConfig({
@@ -184,23 +190,9 @@ async function main(): Promise<void> {
     }
     console.log();
 
-    // Validate API key early
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("\n✗ Error: ANTHROPIC_API_KEY not configured\n");
-      console.error("To use AI Code Auditor, you need an Anthropic API key.\n");
-      console.error("Get your API key:");
-      console.error("  1. Sign up at https://console.anthropic.com/");
-      console.error("  2. Go to API Keys section");
-      console.error("  3. Create a new API key\n");
-      console.error("Then set it as an environment variable:");
-      console.error("  export ANTHROPIC_API_KEY='your-api-key-here'\n");
-      console.error("Or add it to your shell profile (~/.bashrc, ~/.zshrc, etc.)\n");
-      process.exit(1);
-    }
-
-    // Discovery phase
-    console.log(`Discovering files in: ${args.path}`);
-    const files = await discoverFiles(args.path);
+    // Discovery phase (use validated path)
+    console.log(`Discovering files in: ${validatedPath}`);
+    const files = await discoverFiles(validatedPath);
     console.log(`  Found ${files.length} file${files.length === 1 ? "" : "s"}`);
 
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
@@ -213,13 +205,15 @@ async function main(): Promise<void> {
     console.log(formatChunkSummary(chunks));
     console.log();
 
-    // Run multi-agent audit
+    // Run multi-agent audit with progress reporting
     // Note: For now, we run on all files as a single batch
     // In future, could iterate through chunks if needed
     const startTime = Date.now();
+    const reporter = createProgressReporter();
     const agentResults = await runAudit(files, {
       model: config.model,
       maxTokens: 4096, // Per-agent response limit
+      onProgress: reporter.onProgress,
     });
     const durationMs = Date.now() - startTime;
 
@@ -242,7 +236,7 @@ async function main(): Promise<void> {
       console.log(`\n📊 View in dashboard: ${dashboardResult.dashboardUrl}\n`);
     }
   } catch (error) {
-    console.error("\n✗ Error:", error instanceof Error ? error.message : String(error));
+    console.error(formatError(error instanceof Error ? error : new Error(String(error))));
     process.exit(1);
   }
 }

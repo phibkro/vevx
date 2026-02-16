@@ -2,10 +2,12 @@ import type { FileContent } from "./discovery";
 import type { AgentResult } from "./agents/types";
 import { agents } from "./agents/index";
 import { callClaude } from "./client";
+import type { ProgressEvent } from "./progress";
 
 interface OrchestratorOptions {
   model: string;
   maxTokens?: number;
+  onProgress?: (event: ProgressEvent) => void;
 }
 
 /**
@@ -70,14 +72,37 @@ export async function runAudit(
   files: FileContent[],
   options: OrchestratorOptions
 ): Promise<AgentResult[]> {
-  console.log(`\nRunning ${agents.length} agents in parallel...`);
+  const { onProgress } = options;
+
+  // Emit started event
+  onProgress?.({ type: 'started', agentCount: agents.length });
+
+  // Fallback if no progress handler provided
+  if (!onProgress) {
+    console.log(`\nRunning ${agents.length} agents in parallel...`);
+  }
 
   const startTime = Date.now();
 
   // Run all agents in parallel using Promise.allSettled
   // This ensures that if one agent fails, others continue
   const results = await Promise.allSettled(
-    agents.map((agent) => runAgent(agent, files, options))
+    agents.map(async (agent) => {
+      // Emit agent started event
+      onProgress?.({ type: 'agent-started', agent: agent.name });
+
+      const result = await runAgent(agent, files, options);
+
+      // Emit agent completed event
+      onProgress?.({
+        type: 'agent-completed',
+        agent: agent.name,
+        score: result.score,
+        duration: result.durationMs / 1000
+      });
+
+      return result;
+    })
   );
 
   const totalDuration = Date.now() - startTime;
@@ -108,16 +133,22 @@ export async function runAudit(
     }
   });
 
-  console.log(`All agents completed in ${(totalDuration / 1000).toFixed(2)}s`);
+  // Emit completed event
+  onProgress?.({ type: 'completed', totalDuration: totalDuration / 1000 });
 
-  // Log individual agent performance
-  agentResults.forEach((result) => {
-    const status = result.score > 0 ? "✓" : "✗";
-    const duration = (result.durationMs / 1000).toFixed(2);
-    console.log(
-      `  ${status} ${result.agent.padEnd(15)} - ${duration}s - Score: ${result.score.toFixed(1)}/10 - ${result.findings.length} findings`
-    );
-  });
+  // Fallback if no progress handler provided
+  if (!onProgress) {
+    console.log(`All agents completed in ${(totalDuration / 1000).toFixed(2)}s`);
+
+    // Log individual agent performance
+    agentResults.forEach((result) => {
+      const status = result.score > 0 ? "✓" : "✗";
+      const duration = (result.durationMs / 1000).toFixed(2);
+      console.log(
+        `  ${status} ${result.agent.padEnd(15)} - ${duration}s - Score: ${result.score.toFixed(1)}/10 - ${result.findings.length} findings`
+      );
+    });
+  }
 
   return agentResults;
 }
