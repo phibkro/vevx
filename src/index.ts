@@ -49,7 +49,7 @@ server.tool(
 
 server.tool(
   "varp_resolve_docs",
-  "Given a task's touches declaration, returns doc paths to load based on each doc's load_on tags. Reads load docs tagged 'reads'; writes load docs tagged 'reads' or 'writes'.",
+  "Given a task's touches declaration, returns doc paths to load based on README.md convention. Reads load docs tagged as public (README.md). Writes load all docs.",
   {
     manifest_path: z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)"),
     reads: z.array(z.string()).optional().describe("Components this task reads from"),
@@ -68,7 +68,7 @@ server.tool(
 
 server.tool(
   "varp_invalidation_cascade",
-  "Given changed components, walks depends_on to return all transitively affected components.",
+  "Given changed components, walks deps to return all transitively affected components.",
   {
     manifest_path: z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)"),
     changed: z.array(z.string()).describe("Component names whose interface docs changed"),

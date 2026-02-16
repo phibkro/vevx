@@ -2,29 +2,18 @@ import { z } from "zod";
 
 // ── Component Manifest ──
 
-export const LoadOnSchema = z.enum(["reads", "writes"]);
-
-export const DocEntrySchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  load_on: z.array(LoadOnSchema).min(1),
-});
-
 export const ComponentSchema = z.object({
   path: z.string(),
-  depends_on: z.array(z.string()).optional(),
-  docs: z.array(DocEntrySchema).default([]),
+  deps: z.array(z.string()).optional(),
+  docs: z.array(z.string()).default([]),
 });
 
 export const ManifestSchema = z.object({
   varp: z.string(),
-  name: z.string(),
-  docs: z.record(z.string(), DocEntrySchema).optional(),
   components: z.record(z.string(), ComponentSchema),
 });
 
-export type LoadOn = z.infer<typeof LoadOnSchema>;
-export type DocEntry = z.infer<typeof DocEntrySchema>;
+export type DocEntry = string;
 export type Component = z.infer<typeof ComponentSchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
@@ -50,7 +39,7 @@ export type Budget = z.infer<typeof BudgetSchema>;
 
 export const ResolvedDocSchema = z.object({
   component: z.string(),
-  doc_name: z.string(),
+  doc: z.string(),
   path: z.string(),
 });
 
@@ -76,7 +65,6 @@ export const ComponentFreshnessSchema = z.object({
 
 export const FreshnessReportSchema = z.object({
   components: z.record(z.string(), ComponentFreshnessSchema),
-  project_docs: z.record(z.string(), DocFreshnessSchema).optional(),
 });
 
 export type DocFreshness = z.infer<typeof DocFreshnessSchema>;

@@ -43,7 +43,7 @@ Output a structured report with these sections:
 
 | Component | Path | Dependencies |
 |-----------|------|-------------|
-| <name>    | <path> | <depends_on or "none"> |
+| <name>    | <path> | <deps or "none"> |
 
 ## Doc Freshness
 

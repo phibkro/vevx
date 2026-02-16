@@ -25,38 +25,36 @@ Create `varp.yaml` at your project root. This declares your components, their fi
 
 ```yaml
 varp: 0.1.0
-name: my-project
 
-components:
-  auth:
-    path: ./src/auth
-    docs:
-      interface: ./docs/auth/interface.md
-      internal: ./docs/auth/internal.md
+auth:
+  path: ./src/auth
+  docs:
+    - ./docs/auth/README.md
+    - ./docs/auth/internal.md
 
-  api:
-    path: ./src/api
-    depends_on: [auth]
-    docs:
-      interface: ./docs/api/interface.md
-      internal: ./docs/api/internal.md
+api:
+  path: ./src/api
+  deps: [auth]
+  docs:
+    - ./docs/api/README.md
+    - ./docs/api/internal.md
 
-  web:
-    path: ./src/web
-    depends_on: [auth, api]
-    docs:
-      interface: ./docs/web/interface.md
-      internal: ./docs/web/internal.md
+web:
+  path: ./src/web
+  deps: [auth, api]
+  docs:
+    - ./docs/web/README.md
+    - ./docs/web/internal.md
 ```
 
 See [Manifest Schema](manifest-schema.md) for the full reference.
 
 ### 2. Write Component Docs
 
-For each component, create its interface and internal docs:
+For each component, create its README.md and internal docs:
 
-- **Interface doc** — how to use the component from outside (API surface, behavioral assumptions, guarantees). Loaded when other tasks read from this component.
-- **Internal doc** — how the component works inside (implementation details, algorithms, design decisions). Loaded only when tasks write to this component.
+- **README.md** — how to use the component from outside (API surface, behavioral assumptions, guarantees). Public: loaded when tasks read from or write to this component.
+- **Internal doc** — how the component works inside (implementation details, algorithms, design decisions). Private: loaded only when tasks write to this component.
 
 Start minimal. Even a few sentences per doc is useful — the system degrades gracefully with sparse documentation.
 
@@ -180,4 +178,4 @@ Varp exposes 11 MCP tools. Skills call these automatically, but you can also cal
 
 - Read the [Design Document](varp-design-document.md) for the full architecture and rationale
 - See [Manifest Schema](manifest-schema.md) and [Plan Schema](plan-schema.md) for format references
-- See [Interface](core/interface.md) for the complete MCP tool API
+- See [Interface](core/README.md) for the complete MCP tool API

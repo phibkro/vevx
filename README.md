@@ -59,7 +59,7 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 | [Getting Started](docs/getting-started.md) | Installation, setup, first workflow |
 | [Manifest Schema](docs/manifest-schema.md) | `varp.yaml` reference |
 | [Plan Schema](docs/plan-schema.md) | `plan.xml` reference |
-| [Interface](docs/core/interface.md) | MCP tool API surface |
+| [Interface](docs/core/README.md) | MCP tool API surface |
 | [Internal](docs/core/internal.md) | Algorithms and data flow |
 
 ## Stack

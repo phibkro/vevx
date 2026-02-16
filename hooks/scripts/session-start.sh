@@ -11,72 +11,77 @@ if [ ! -f "$MANIFEST" ]; then
   exit 0
 fi
 
-# Parse project name and version
-project_name=$(grep '^name:' "$MANIFEST" | sed 's/^name:[[:space:]]*//')
+# Parse version
 project_version=$(grep '^varp:' "$MANIFEST" | sed 's/^varp:[[:space:]]*//')
 
-# Parse component names (lines matching "^  <name>:" under components)
+# Parse component names (top-level keys that aren't 'varp')
+# In flat format, components are top-level keys with a 'path:' child
 components=()
-in_components=false
+current_key=""
 while IFS= read -r line; do
-  if echo "$line" | grep -q '^components:'; then
-    in_components=true
+  # Top-level key (no leading space, has colon)
+  if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
+    current_key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    # Skip the 'varp' key
+    if [ "$current_key" = "varp" ]; then
+      current_key=""
+    fi
     continue
   fi
-  if $in_components; then
-    # A top-level key (no leading space) ends the components block
-    if echo "$line" | grep -q '^[^[:space:]]'; then
-      break
-    fi
-    # Component entries have exactly 2 spaces of indent followed by name:
-    if echo "$line" | grep -qE '^  [a-zA-Z_][a-zA-Z0-9_-]*:'; then
-      comp=$(echo "$line" | sed 's/^  \([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
-      components+=("$comp")
-    fi
+  # If we're in a top-level key and see 'path:', it's a component
+  if [ -n "$current_key" ] && echo "$line" | grep -qE '^  path:'; then
+    components+=("$current_key")
+    current_key=""
   fi
 done < "$MANIFEST"
 
 comp_count=${#components[@]}
 comp_list=$(IFS=', '; echo "${components[*]}")
 
-echo "Varp project: ${project_name} (v${project_version})"
+echo "Varp project: v${project_version}"
 echo "Components: ${comp_list} (${comp_count})"
 
-# Check for stale docs (source files newer than doc files)
+# Check for stale docs
 stale_docs=()
-in_components=false
 current_comp=""
 current_path=""
+in_docs=false
 while IFS= read -r line; do
-  if echo "$line" | grep -q '^components:'; then
-    in_components=true
+  # Top-level key
+  if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
+    key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    if [ "$key" != "varp" ]; then
+      current_comp="$key"
+      current_path=""
+      in_docs=false
+    fi
     continue
   fi
-  if $in_components; then
-    if echo "$line" | grep -q '^[^[:space:]]'; then
-      break
-    fi
-    # Component name
-    if echo "$line" | grep -qE '^  [a-zA-Z_][a-zA-Z0-9_-]*:'; then
-      current_comp=$(echo "$line" | sed 's/^  \([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
-      current_path=""
-    fi
-    # Component path
-    if echo "$line" | grep -qE '^    path:'; then
-      current_path=$(echo "$line" | sed 's/^    path:[[:space:]]*//')
-    fi
-    # Doc entries (6 spaces indent)
-    if echo "$line" | grep -qE '^      [a-zA-Z_][a-zA-Z0-9_-]*:'; then
-      doc_path=$(echo "$line" | sed 's/^      [a-zA-Z_][a-zA-Z0-9_-]*:[[:space:]]*//')
-      doc_name=$(echo "$line" | sed 's/^      \([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
-      if [ -n "$current_path" ] && [ -f "$doc_path" ]; then
-        # Find most recently modified source file in component path
-        newest_source=$(find "$current_path" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.py' -o -name '*.go' -o -name '*.rs' \) -newer "$doc_path" 2>/dev/null | head -1)
-        if [ -n "$newest_source" ]; then
-          stale_docs+=("${current_comp}/${doc_name}.md")
-        fi
+  # Component path
+  if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  path:'; then
+    current_path=$(echo "$line" | sed 's/^  path:[[:space:]]*//')
+  fi
+  # Docs array start
+  if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  docs:'; then
+    in_docs=true
+    continue
+  fi
+  # Doc entry (list item: "    - ./path/to/doc.md")
+  if $in_docs && echo "$line" | grep -qE '^    - '; then
+    doc_path=$(echo "$line" | sed 's/^    - [[:space:]]*//')
+    if [ -n "$current_path" ] && [ -f "$doc_path" ]; then
+      # Find most recently modified source file in component path
+      newest_source=$(find "$current_path" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.py' -o -name '*.go' -o -name '*.rs' \) -newer "$doc_path" 2>/dev/null | head -1)
+      if [ -n "$newest_source" ]; then
+        doc_basename=$(basename "$doc_path")
+        stale_docs+=("${current_comp}/${doc_basename}")
       fi
     fi
+    continue
+  fi
+  # Any non-list-item line after docs ends the docs block
+  if $in_docs && ! echo "$line" | grep -qE '^    - |^$'; then
+    in_docs=false
   fi
 done < "$MANIFEST"
 

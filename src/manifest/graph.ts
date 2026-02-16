@@ -11,7 +11,7 @@ function buildReverseDeps(manifest: Manifest): Map<string, string[]> {
   }
 
   for (const [name, component] of Object.entries(manifest.components)) {
-    for (const dep of component.depends_on ?? []) {
+    for (const dep of component.deps ?? []) {
       const dependents = reverse.get(dep);
       if (dependents) {
         dependents.push(name);
@@ -23,7 +23,7 @@ function buildReverseDeps(manifest: Manifest): Map<string, string[]> {
 }
 
 /**
- * Given a list of changed components, walk depends_on in reverse (BFS)
+ * Given a list of changed components, walk deps in reverse (BFS)
  * to return all transitively affected components.
  * The changed components themselves are included in the result.
  */
@@ -70,7 +70,7 @@ export function validateDependencyGraph(
 
   // Build forward adjacency and count in-degrees
   for (const [name, component] of Object.entries(manifest.components)) {
-    for (const dep of component.depends_on ?? []) {
+    for (const dep of component.deps ?? []) {
       // dep -> name (name depends on dep)
       adjacency.get(dep)?.push(name);
       inDegree.set(name, (inDegree.get(name) ?? 0) + 1);

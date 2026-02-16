@@ -1,0 +1,74 @@
+<plan>
+  <metadata>
+    <feature>Manifest Simplification</feature>
+    <created>2026-02-17</created>
+  </metadata>
+
+  <contract>
+    <preconditions>
+      <condition id="pre-1">
+        <description>All existing tests pass before changes</description>
+        <verify>bun test</verify>
+      </condition>
+      <condition id="pre-2">
+        <description>TypeScript compiles cleanly</description>
+        <verify>bun run build</verify>
+      </condition>
+    </preconditions>
+
+    <invariants>
+      <invariant critical="true">
+        <description>TypeScript compiles without errors at wave boundaries</description>
+        <verify>bun run build</verify>
+      </invariant>
+    </invariants>
+
+    <postconditions>
+      <condition id="post-1">
+        <description>All tests pass with new manifest schema</description>
+        <verify>bun test</verify>
+      </condition>
+      <condition id="post-2">
+        <description>varp_read_manifest parses flat YAML without components wrapper</description>
+        <verify>echo '{"manifest_path":"./varp.yaml"}' | node -e "const {createServer}=require('./build/index.js'); /* manual verification */" || bun run build</verify>
+      </condition>
+      <condition id="post-3">
+        <description>ManifestSchema no longer has name, LoadOnSchema, or top-level docs fields</description>
+        <verify>! grep -q 'LoadOnSchema\|load_on' src/types.ts</verify>
+      </condition>
+      <condition id="post-4">
+        <description>Component docs are string paths, not objects</description>
+        <verify>grep -q "docs: z.array(z.string())" src/types.ts</verify>
+      </condition>
+      <condition id="post-5">
+        <description>depends_on renamed to deps everywhere</description>
+        <verify>! grep -rq 'depends_on' src/ --include='*.ts' --exclude='*.test.ts'</verify>
+      </condition>
+      <condition id="post-6">
+        <description>varp.yaml uses flat format without components wrapper</description>
+        <verify>! grep -q '^components:' varp.yaml</verify>
+      </condition>
+      <condition id="post-7">
+        <description>docs/core/README.md exists (renamed from interface.md)</description>
+        <verify>test -f docs/core/README.md</verify>
+      </condition>
+    </postconditions>
+  </contract>
+
+  <tasks>
+    <task id="1">
+      <description>Simplify manifest schema and all source modules. Delete LoadOnSchema/LoadOn. Change DocEntry from object to z.string(). Rename depends_on to deps in ComponentSchema. Remove name and top-level docs from ManifestSchema. Parser: extract varp key, treat rest as components (flat YAML to structured type). Resolver: README.md convention (public=reads+writes) instead of load_on, dedup by absolute path. Freshness: string doc paths, remove project_docs block. Graph: depends_on to deps. Capabilities: longest-prefix-match fix. Index.ts: update tool descriptions. ResolvedDocSchema: doc_name to doc. FreshnessReportSchema: remove project_docs.</description>
+      <action>refactor</action>
+      <values>correctness, API simplicity, backwards-incompatible-by-design</values>
+      <touches writes="core" reads="" />
+      <budget tokens="60000" minutes="30" />
+    </task>
+    <task id="2">
+      <description>Update all tests, YAML fixtures, and docs to match new schema. Tests: remove name field from fixtures, depends_on to deps, DocEntry objects to string paths, test README.md convention instead of load_on, remove project_docs tests. YAML: flatten varp.yaml and multi-component.yaml. Docs: rewrite manifest-schema.md, rename interface.md to README.md, update internal.md and design doc.</description>
+      <action>refactor</action>
+      <values>test coverage, documentation accuracy</values>
+      <touches writes="core" reads="" />
+      <budget tokens="60000" minutes="30" />
+    </task>
+  </tasks>
+</plan>

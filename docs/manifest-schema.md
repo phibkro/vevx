@@ -6,103 +6,70 @@ Reference for `varp.yaml`, the component manifest that declares project structur
 
 ```yaml
 varp: 0.1.0
-name: my-project
 
-docs:
-  getting-started:
-    name: getting-started
-    path: ./docs/getting-started.md
-    load_on: [reads]
+auth:
+  path: ./src/auth
+  docs:
+    - ./docs/auth/README.md
+    - ./docs/auth/internal.md
 
-components:
-  auth:
-    path: ./src/auth
-    docs:
-      - name: interface
-        path: ./docs/auth/interface.md
-        load_on: [reads]
-      - name: internal
-        path: ./docs/auth/internal.md
-        load_on: [writes]
-      - name: examples
-        path: ./docs/auth/examples.md
-        load_on: [reads, writes]
+api:
+  path: ./src/api
+  deps: [auth]
+  docs:
+    - ./docs/api/README.md
+    - ./docs/api/internal.md
 
-  api:
-    path: ./src/api
-    depends_on: [auth]
-    docs:
-      - name: interface
-        path: ./docs/api/interface.md
-        load_on: [reads]
-      - name: internal
-        path: ./docs/api/internal.md
-        load_on: [writes]
-
-  web:
-    path: ./src/web
-    depends_on: [auth, api]
-    docs:
-      - name: interface
-        path: ./docs/web/interface.md
-        load_on: [reads]
-      - name: internal
-        path: ./docs/web/internal.md
-        load_on: [writes]
+web:
+  path: ./src/web
+  deps: [auth, api]
+  docs:
+    - ./docs/web/README.md
+    - ./docs/web/internal.md
 ```
 
-## Fields
+## Format
 
-### Root
+The manifest has three concepts:
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `varp` | string | yes | Varp schema version (e.g. `"0.1.0"`) |
-| `name` | string | yes | Project name |
-| `docs` | map | no | Project-level docs not scoped to any component |
-| `components` | map | yes | Component registry (keys are component names) |
+1. **`varp`** — version string (required, top-level key)
+2. **Component names** — every other top-level key is a component
+3. **Component fields** — `path`, `deps`, `docs`
 
-### Component
+There is no `name` field, no `components:` wrapper. The YAML is flat: `varp` is the version, everything else is a component.
 
-Each key under `components` is the component name (used in `touches` declarations and dependency references).
+## Component Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `path` | string | yes | Directory path for this component's source files. Relative paths are resolved from the manifest file's directory. |
-| `depends_on` | string[] | no | Names of components this component depends on. Declares structural dependencies — "this component consumes that component's interface." |
-| `docs` | DocEntry[] | no | Documentation entries for this component (defaults to `[]`) |
+| `path` | string | yes | Directory path for source files. Relative paths resolved from manifest directory. |
+| `deps` | string[] | no | Component names this component depends on. Structural dependencies — "this component consumes that component's interface." |
+| `docs` | string[] | no | File paths to documentation (defaults to `[]`). Relative paths resolved from manifest directory. |
 
-### DocEntry
+## README.md Convention
 
-Used for both component docs and project-level docs.
+Doc visibility is determined by filename, not metadata:
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | yes | Unique identifier for this doc within its component |
-| `path` | string | yes | File path to the markdown doc. Relative paths resolved from manifest directory. |
-| `load_on` | string[] | yes | When to load: `["reads"]`, `["writes"]`, or `["reads", "writes"]` |
+| Filename | Visibility | Loaded when... |
+|----------|-----------|----------------|
+| `README.md` | Public | Task reads from OR writes to the component |
+| Any other `.md` | Private | Task writes to the component only |
 
-### `load_on` Semantics
+This replaces the old `load_on` tag system. Name your public-facing docs `README.md` and they load automatically for consumers.
 
-| Value | Loaded when task... | Typical use |
-|-------|---------------------|-------------|
-| `["reads"]` | reads from or writes to the component | API surface, behavioral guarantees — what callers need |
-| `["writes"]` | writes to the component only | Implementation details, internal algorithms |
-| `["reads", "writes"]` | reads from or writes to the component | Always-relevant docs (examples, conventions) |
+## Auto-Discovery
+
+If `{component.path}/README.md` exists on disk, it is automatically included as a public doc even if not listed in `docs`. This means a component with `path: ./src/auth` automatically gets `./src/auth/README.md` as a public doc if that file exists.
 
 ## Path Resolution
 
-All paths in the manifest (`path`, doc `path`) are resolved relative to the directory containing `varp.yaml`. For example, if `varp.yaml` is at `/project/varp.yaml`, then `./src/auth` resolves to `/project/src/auth`.
+All paths (`path`, doc entries) are resolved relative to the directory containing `varp.yaml`. For example, if `varp.yaml` is at `/project/varp.yaml`, then `./src/auth` resolves to `/project/src/auth`.
 
 The MCP tools perform this resolution at parse time — callers always receive absolute paths in tool responses.
 
-## Project-Level Docs
-
-The optional `docs` field at the manifest root declares docs not scoped to any component. These are included in freshness reports but not loaded by `varp_resolve_docs` (which operates on component touches). Useful for project-wide references like getting-started guides, schema docs, and architecture overviews.
-
 ## Dependencies
 
-`depends_on` declares architectural dependencies between components. These are behavioral relationships ("web consumes auth's interface"), not package dependencies.
+`deps` declares architectural dependencies between components. These are behavioral relationships ("web consumes auth's interface"), not package dependencies.
 
 Dependencies serve three purposes:
 
@@ -116,13 +83,10 @@ The dependency graph must be acyclic. `varp_read_manifest` runs cycle detection 
 
 The manifest is validated at parse time by Zod schemas. Validation errors include:
 
-- Missing required fields (`varp`, `name`, `components`, `path`)
-- Missing required doc fields (`name`, `path`, `load_on`)
-- Invalid `load_on` values (must be `"reads"` or `"writes"`)
-- `load_on` must have at least one entry
-- Wrong types (e.g. `depends_on` not an array)
+- Missing `varp` key
+- Wrong types (e.g. `deps` not an array, `docs` not an array of strings)
 - Dependency cycles (detected via Kahn's algorithm)
-- References to unknown components in `depends_on`
+- References to unknown components in `deps`
 
 Use `varp_read_manifest` to parse and validate. The response includes `dependency_graph_valid: true|false` and any detected cycles.
 
@@ -132,9 +96,7 @@ The smallest valid manifest:
 
 ```yaml
 varp: 0.1.0
-name: my-app
 
-components:
-  core:
-    path: ./src
+core:
+  path: ./src
 ```

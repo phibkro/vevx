@@ -4,39 +4,38 @@ import type { Manifest } from "../types.js";
 
 const manifest: Manifest = {
   varp: "0.1.0",
-  name: "test",
   components: {
     auth: {
       path: "/src/auth",
       docs: [
-        { name: "interface", path: "/docs/auth/interface.md", load_on: ["reads"] },
-        { name: "internal", path: "/docs/auth/internal.md", load_on: ["writes"] },
+        "/docs/auth/README.md",
+        "/docs/auth/internal.md",
       ],
     },
     api: {
       path: "/src/api",
-      depends_on: ["auth"],
+      deps: ["auth"],
       docs: [
-        { name: "interface", path: "/docs/api/interface.md", load_on: ["reads"] },
-        { name: "internal", path: "/docs/api/internal.md", load_on: ["writes"] },
-        { name: "examples", path: "/docs/api/examples.md", load_on: ["reads", "writes"] },
+        "/docs/api/README.md",
+        "/docs/api/internal.md",
+        "/docs/api/examples.md",
       ],
     },
   },
 };
 
 describe("resolveDocs", () => {
-  test("writes get docs tagged reads and writes", () => {
+  test("writes get all docs (README + private)", () => {
     const result = resolveDocs(manifest, { writes: ["auth"] });
-    const names = result.docs.map((d) => d.doc_name);
-    expect(names).toContain("interface");
+    const names = result.docs.map((d) => d.doc);
+    expect(names).toContain("README");
     expect(names).toContain("internal");
   });
 
-  test("reads get only docs tagged reads", () => {
+  test("reads get only README.md docs (public)", () => {
     const result = resolveDocs(manifest, { reads: ["auth"] });
-    const names = result.docs.map((d) => d.doc_name);
-    expect(names).toContain("interface");
+    const names = result.docs.map((d) => d.doc);
+    expect(names).toContain("README");
     expect(names).not.toContain("internal");
   });
 
@@ -45,9 +44,9 @@ describe("resolveDocs", () => {
       writes: ["auth"],
       reads: ["api"],
     });
-    // auth: interface (reads tag) + internal (writes tag) = 2
-    // api: interface (reads tag) + examples (reads+writes tag, but only reads needed) = 2
-    expect(result.docs).toHaveLength(4);
+    // auth writes: README + internal = 2
+    // api reads: README only = 1
+    expect(result.docs).toHaveLength(3);
   });
 
   test("throws on unknown component", () => {
@@ -61,22 +60,22 @@ describe("resolveDocs", () => {
       writes: ["auth"],
       reads: ["auth"],
     });
-    // interface + internal, each once
+    // README + internal, each once
     expect(result.docs).toHaveLength(2);
   });
 
-  test("docs with both load_on tags load for reads", () => {
+  test("reads get README.md docs but not private docs", () => {
     const result = resolveDocs(manifest, { reads: ["api"] });
-    const names = result.docs.map((d) => d.doc_name);
-    expect(names).toContain("interface");
-    expect(names).toContain("examples");
+    const names = result.docs.map((d) => d.doc);
+    expect(names).toContain("README");
     expect(names).not.toContain("internal");
+    expect(names).not.toContain("examples");
   });
 
-  test("docs with both load_on tags load for writes", () => {
+  test("writes get all docs including private", () => {
     const result = resolveDocs(manifest, { writes: ["api"] });
-    const names = result.docs.map((d) => d.doc_name);
-    expect(names).toContain("interface");
+    const names = result.docs.map((d) => d.doc);
+    expect(names).toContain("README");
     expect(names).toContain("internal");
     expect(names).toContain("examples");
   });

@@ -3,21 +3,17 @@ import { invalidationCascade, validateDependencyGraph } from "./graph.js";
 import type { Manifest } from "../types.js";
 
 function makeManifest(
-  components: Record<string, { depends_on?: string[] }>,
+  components: Record<string, { deps?: string[] }>,
 ): Manifest {
   const result: Manifest = {
     varp: "0.1.0",
-    name: "test",
     components: {},
   };
   for (const [name, config] of Object.entries(components)) {
     result.components[name] = {
       path: `./src/${name}`,
-      depends_on: config.depends_on,
-      docs: [
-        { name: "interface", path: `./docs/${name}/interface.md`, load_on: ["reads"] },
-        { name: "internal", path: `./docs/${name}/internal.md`, load_on: ["writes"] },
-      ],
+      deps: config.deps,
+      docs: [],
     };
   }
   return result;
@@ -32,8 +28,8 @@ describe("invalidationCascade", () => {
   test("cascades through direct dependents", () => {
     const manifest = makeManifest({
       auth: {},
-      api: { depends_on: ["auth"] },
-      web: { depends_on: ["api"] },
+      api: { deps: ["auth"] },
+      web: { deps: ["api"] },
     });
 
     const result = invalidationCascade(manifest, ["auth"]);
@@ -45,9 +41,9 @@ describe("invalidationCascade", () => {
   test("handles diamond dependencies", () => {
     const manifest = makeManifest({
       core: {},
-      auth: { depends_on: ["core"] },
-      api: { depends_on: ["core"] },
-      web: { depends_on: ["auth", "api"] },
+      auth: { deps: ["core"] },
+      api: { deps: ["core"] },
+      web: { deps: ["auth", "api"] },
     });
 
     const result = invalidationCascade(manifest, ["core"]);
@@ -57,9 +53,9 @@ describe("invalidationCascade", () => {
   test("handles multiple changed components", () => {
     const manifest = makeManifest({
       auth: {},
-      api: { depends_on: ["auth"] },
+      api: { deps: ["auth"] },
       db: {},
-      cache: { depends_on: ["db"] },
+      cache: { deps: ["db"] },
     });
 
     const result = invalidationCascade(manifest, ["auth", "db"]);
@@ -71,8 +67,8 @@ describe("validateDependencyGraph", () => {
   test("valid acyclic graph", () => {
     const manifest = makeManifest({
       auth: {},
-      api: { depends_on: ["auth"] },
-      web: { depends_on: ["auth", "api"] },
+      api: { deps: ["auth"] },
+      web: { deps: ["auth", "api"] },
     });
 
     expect(validateDependencyGraph(manifest)).toEqual({ valid: true });
@@ -80,8 +76,8 @@ describe("validateDependencyGraph", () => {
 
   test("detects simple cycle", () => {
     const manifest = makeManifest({
-      a: { depends_on: ["b"] },
-      b: { depends_on: ["a"] },
+      a: { deps: ["b"] },
+      b: { deps: ["a"] },
     });
 
     const result = validateDependencyGraph(manifest);
@@ -94,8 +90,8 @@ describe("validateDependencyGraph", () => {
   test("detects cycle in larger graph", () => {
     const manifest = makeManifest({
       a: {},
-      b: { depends_on: ["a", "c"] },
-      c: { depends_on: ["b"] },
+      b: { deps: ["a", "c"] },
+      c: { deps: ["b"] },
     });
 
     const result = validateDependencyGraph(manifest);

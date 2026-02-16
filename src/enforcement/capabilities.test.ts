@@ -4,10 +4,9 @@ import type { Manifest } from "../types.js";
 
 const manifest: Manifest = {
   varp: "0.1.0",
-  name: "test",
   components: {
-    auth: { path: "/project/src/auth", docs: [{ name: "interface", path: "/docs/auth/interface.md", load_on: ["reads"] }, { name: "internal", path: "/docs/auth/internal.md", load_on: ["writes"] }] },
-    api: { path: "/project/src/api", depends_on: ["auth"], docs: [{ name: "interface", path: "/docs/api/interface.md", load_on: ["reads"] }, { name: "internal", path: "/docs/api/internal.md", load_on: ["writes"] }] },
+    auth: { path: "/project/src/auth", docs: [] },
+    api: { path: "/project/src/api", deps: ["auth"], docs: [] },
   },
 };
 
@@ -47,5 +46,23 @@ describe("verifyCapabilities", () => {
   test("no violations when no writes declared and no changes", () => {
     const result = verifyCapabilities(manifest, { reads: ["auth"] }, []);
     expect(result.valid).toBe(true);
+  });
+
+  test("overlapping paths match the more specific component", () => {
+    const overlappingManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        src: { path: "/project/src", docs: [] },
+        auth: { path: "/project/src/auth", docs: [] },
+      },
+    };
+
+    const result = verifyCapabilities(
+      overlappingManifest,
+      { writes: ["auth"] },
+      ["/project/src/auth/login.ts"],
+    );
+    expect(result.valid).toBe(true);
+    expect(result.violations).toHaveLength(0);
   });
 });

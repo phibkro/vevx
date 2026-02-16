@@ -13,11 +13,14 @@ export function verifyCapabilities(
   const violations: Violation[] = [];
   const writeComponents = new Set(touches.writes ?? []);
 
-  // Build a map of component paths for lookup
-  const componentPaths = Object.entries(manifest.components).map(([name, comp]) => ({
-    name,
-    path: resolve(comp.path),
-  }));
+  // Build a map of component paths for lookup, sorted by descending path length
+  // so longer (more specific) paths match first when components overlap
+  const componentPaths = Object.entries(manifest.components)
+    .map(([name, comp]) => ({
+      name,
+      path: resolve(comp.path),
+    }))
+    .sort((a, b) => b.path.length - a.path.length);
 
   for (const filePath of diffPaths) {
     const absPath = resolve(filePath);

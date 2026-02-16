@@ -18,10 +18,10 @@ Reads and validates `varp.yaml`. Returns typed manifest with component registry,
 
 #### `varp_resolve_docs`
 
-Given a task's `touches` declaration, returns the doc paths to load based on each doc's `load_on` tags:
-- Docs tagged `["reads"]` load for both reads and writes
-- Docs tagged `["writes"]` load only for writes
-- Docs tagged `["reads", "writes"]` load for both
+Given a task's `touches` declaration, returns the doc paths to load based on the README.md convention:
+- Docs where `basename === 'README.md'` are public — loaded for reads AND writes
+- All other docs are private — loaded for writes only
+- Auto-discovers `{component.path}/README.md` if it exists on disk
 
 This is the core context resolution logic — it ensures each task gets exactly the information it needs.
 
@@ -31,7 +31,7 @@ This is the core context resolution logic — it ensures each task gets exactly 
 
 #### `varp_invalidation_cascade`
 
-Given a list of components whose interface docs changed, walks `depends_on` to return all transitively affected components. Used by the orchestrator after task completion to flag stale contexts.
+Given a list of components whose docs changed, walks `deps` to return all transitively affected components. Used by the orchestrator after task completion to flag stale contexts.
 
 **Parameters:** `{ manifest_path?: string, changed: string[] }`
 
@@ -59,7 +59,7 @@ Reads and validates `plan.xml`. Returns typed plan with metadata, contracts (pre
 
 Checks plan consistency against the manifest:
 - All components referenced in `touches` exist in the manifest
-- Write targets are reachable through `depends_on`
+- Write targets are reachable through `deps`
 - No tasks reference unknown components
 - Task IDs are unique
 - Budget values are positive
@@ -105,7 +105,7 @@ Returns the longest chain of RAW dependencies from any root task to any leaf tas
 
 #### `varp_verify_capabilities`
 
-After a subagent completes, verifies that actual file modifications fall within the declared `touches` write set. Checks git diff against component path boundaries from the manifest. Returns violations if the subagent modified files outside its declared scope.
+After a subagent completes, verifies that actual file modifications fall within the declared `touches` write set. Checks git diff against component path boundaries from the manifest. Returns violations if the subagent modified files outside its declared scope. When component paths overlap, the most specific (longest) path matches first.
 
 Used at orchestrator step 8 — before merge, not after.
 
@@ -136,7 +136,7 @@ Planning workflow. Loads the planner protocol (design doc section 3.2.1) and the
 
 ### `/execute`
 
-Execution workflow. Loads the orchestrator protocol (design doc section 3.4) and the active plan from `plans/in-progress/`. Follows the 14-step chain of thought: select → verify → load → budget → dispatch → monitor → collect → verify capabilities → review → handle failure → observe → update → invalidate → advance. Writes `log.xml` as it progresses.
+Execution workflow. Loads the orchestrator protocol (design doc section 3.4) and the active plan from `plans/in-progress/`. Follows the 14-step chain of thought: select, verify, load, budget, dispatch, monitor, collect, verify capabilities, review, handle failure, observe, update, invalidate, advance. Writes `log.xml` as it progresses.
 
 ### `/review`
 
@@ -164,22 +164,14 @@ Loads the manifest and displays project state — active plan, doc freshness, an
 
 ```typescript
 interface Manifest {
-  version: string
-  name: string
-  docs?: Record<string, DocEntry>  // project-level docs
+  varp: string
   components: Record<string, Component>
 }
 
 interface Component {
   path: string
-  depends_on?: string[]
-  docs: DocEntry[]
-}
-
-interface DocEntry {
-  name: string
-  path: string
-  load_on: ('reads' | 'writes')[]  // when to load this doc
+  deps?: string[]
+  docs: string[]  // file paths (strings, not objects)
 }
 
 interface Touches {
@@ -193,7 +185,7 @@ interface Budget {
 }
 
 interface ResolvedDocs {
-  docs: { component: string; doc_name: string; path: string }[]
+  docs: { component: string; doc: string; path: string }[]
 }
 
 interface FreshnessReport {
@@ -201,7 +193,6 @@ interface FreshnessReport {
     docs: Record<string, { path: string; last_modified: string; stale: boolean }>
     source_last_modified: string
   }>
-  project_docs?: Record<string, { path: string; last_modified: string; stale: boolean }>
 }
 
 interface Plan {

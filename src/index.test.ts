@@ -111,7 +111,6 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data.dependency_graph_valid).toBe(true);
-    expect(data.manifest.name).toBe("test-project");
     expect(Object.keys(data.manifest.components)).toEqual(["auth", "api", "web"]);
   });
 
@@ -124,19 +123,19 @@ describe("MCP server integration", () => {
     expect((result.content[0] as any).text).toContain("Error");
   });
 
-  test("varp_resolve_docs returns interface+internal for writes, interface for reads", async () => {
+  test("varp_resolve_docs returns all docs for writes, README only for reads", async () => {
     const result = await client.callTool({
       name: "varp_resolve_docs",
       arguments: { manifest_path: MANIFEST_PATH, writes: ["auth"], reads: ["api"] },
     });
     const data = parseResult(result);
-    // writes: auth → gets reads+writes docs; reads: api → gets reads docs only
-    const docs = data.docs as { component: string; doc_name: string; path: string }[];
-    const authDocs = docs.filter((d) => d.component === "auth").map((d) => d.doc_name);
-    const apiDocs = docs.filter((d) => d.component === "api").map((d) => d.doc_name);
-    expect(authDocs).toContain("interface");
+    // writes: auth → gets all docs; reads: api → gets README only
+    const docs = data.docs as { component: string; doc: string; path: string }[];
+    const authDocs = docs.filter((d) => d.component === "auth").map((d) => d.doc);
+    const apiDocs = docs.filter((d) => d.component === "api").map((d) => d.doc);
+    expect(authDocs).toContain("README");
     expect(authDocs).toContain("internal");
-    expect(apiDocs).toContain("interface");
+    expect(apiDocs).toContain("README");
     expect(apiDocs).not.toContain("internal");
   });
 

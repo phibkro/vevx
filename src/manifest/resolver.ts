@@ -1,7 +1,9 @@
+import { basename, join } from "node:path";
+import { existsSync } from "node:fs";
 import type { Manifest, Touches, ResolvedDocs } from "../types.js";
 
 export function resolveDocs(manifest: Manifest, touches: Touches): ResolvedDocs {
-  const docs: { component: string; doc_name: string; path: string }[] = [];
+  const docs: { component: string; doc: string; path: string }[] = [];
   const seen = new Set<string>();
 
   const readSet = new Set(touches.reads ?? []);
@@ -16,16 +18,26 @@ export function resolveDocs(manifest: Manifest, touches: Touches): ResolvedDocs 
 
     const isWrite = writeSet.has(name);
 
-    for (const doc of component.docs) {
-      // "reads" docs load for both reads and writes
-      // "writes" docs load only for writes
-      const shouldLoad = doc.load_on.includes("reads") || (isWrite && doc.load_on.includes("writes"));
-      if (shouldLoad) {
-        const key = `${name}:${doc.name}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          docs.push({ component: name, doc_name: doc.name, path: doc.path });
-        }
+    // Collect all doc paths including auto-discovered README.md
+    const docPaths = [...component.docs];
+
+    // Auto-discover README.md at component root
+    const readmePath = join(component.path, "README.md");
+    if (existsSync(readmePath) && !docPaths.includes(readmePath)) {
+      docPaths.push(readmePath);
+    }
+
+    for (const docPath of docPaths) {
+      const isPublic = basename(docPath) === "README.md";
+
+      // Public docs (README.md) load for reads AND writes
+      // Private docs load for writes only
+      const shouldLoad = isPublic || isWrite;
+
+      if (shouldLoad && !seen.has(docPath)) {
+        seen.add(docPath);
+        const docName = basename(docPath, ".md");
+        docs.push({ component: name, doc: docName, path: docPath });
       }
     }
   }

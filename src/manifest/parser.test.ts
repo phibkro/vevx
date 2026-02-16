@@ -10,14 +10,12 @@ describe("parseManifest", () => {
     const manifest = parseManifest(resolve(PROJECT_ROOT, "varp.yaml"));
 
     expect(manifest.varp).toBe("0.1.0");
-    expect(manifest.name).toBe("varp");
     expect(manifest.components.core).toBeDefined();
     expect(manifest.components.core.path).toBe(
       resolve(PROJECT_ROOT, "src"),
     );
-    expect(manifest.components.core.docs[0].name).toBe("interface");
-    expect(manifest.components.core.docs[0].path).toBe(
-      resolve(PROJECT_ROOT, "docs/core/interface.md"),
+    expect(manifest.components.core.docs[0]).toBe(
+      resolve(PROJECT_ROOT, "src/docs/architecture.md"),
     );
   });
 
@@ -27,13 +25,32 @@ describe("parseManifest", () => {
     );
 
     expect(Object.keys(manifest.components)).toEqual(["auth", "api", "web"]);
-    expect(manifest.components.api.depends_on).toEqual(["auth"]);
-    expect(manifest.components.web.depends_on).toEqual(["auth", "api"]);
+    expect(manifest.components.api.deps).toEqual(["auth"]);
+    expect(manifest.components.web.deps).toEqual(["auth", "api"]);
   });
 
   test("throws on invalid manifest", () => {
     expect(() =>
       parseManifest(resolve(FIXTURE_DIR, "invalid.yaml")),
     ).toThrow();
+  });
+
+  test("parses flat YAML format without components wrapper", () => {
+    const manifest = parseManifest(resolve(PROJECT_ROOT, "varp.yaml"));
+
+    // Should have components directly from top-level keys
+    expect(manifest.components.core).toBeDefined();
+    expect(manifest.components.skills).toBeDefined();
+    expect(manifest.components.hooks).toBeDefined();
+    // Should not have 'name' on manifest
+    expect((manifest as any).name).toBeUndefined();
+  });
+
+  test("resolves doc paths to absolute paths", () => {
+    const manifest = parseManifest(resolve(PROJECT_ROOT, "varp.yaml"));
+
+    for (const doc of manifest.components.core.docs) {
+      expect(doc).toMatch(/^\//); // absolute path
+    }
   });
 });

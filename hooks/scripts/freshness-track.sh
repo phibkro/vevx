@@ -40,38 +40,33 @@ else
   file_path_rel="$file_path"
 fi
 
-# Parse components and their paths from varp.yaml
-in_components=false
-current_comp=""
+# Parse components and their paths from flat varp.yaml
+# Top-level keys (except 'varp') with a 'path:' child are components
+current_key=""
 current_path=""
 matched_comp=""
 
 while IFS= read -r line; do
-  if echo "$line" | grep -q '^components:'; then
-    in_components=true
+  # Top-level key (no leading space)
+  if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
+    current_key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    if [ "$current_key" = "varp" ]; then
+      current_key=""
+    fi
+    current_path=""
     continue
   fi
-  if $in_components; then
-    if echo "$line" | grep -q '^[^[:space:]]'; then
-      break
-    fi
-    # Component name
-    if echo "$line" | grep -qE '^  [a-zA-Z_][a-zA-Z0-9_-]*:'; then
-      current_comp=$(echo "$line" | sed 's/^  \([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
-      current_path=""
-    fi
-    # Component path
-    if echo "$line" | grep -qE '^    path:'; then
-      current_path=$(echo "$line" | sed 's/^    path:[[:space:]]*//')
-      # Normalize: strip leading ./
-      current_path="${current_path#./}"
+  # Component path (2 spaces indent)
+  if [ -n "$current_key" ] && echo "$line" | grep -qE '^  path:'; then
+    current_path=$(echo "$line" | sed 's/^  path:[[:space:]]*//')
+    # Normalize: strip leading ./
+    current_path="${current_path#./}"
 
-      # Check if edited file falls within this component's path
-      file_check="${file_path_rel#./}"
-      if echo "$file_check" | grep -q "^${current_path}"; then
-        matched_comp="$current_comp"
-        break
-      fi
+    # Check if edited file falls within this component's path
+    file_check="${file_path_rel#./}"
+    if echo "$file_check" | grep -q "^${current_path}"; then
+      matched_comp="$current_key"
+      break
     fi
   fi
 done < "$MANIFEST"
@@ -81,39 +76,39 @@ if [ -z "$matched_comp" ]; then
   exit 0
 fi
 
-# Find the interface doc for this component (first doc entry)
+# Find the first doc for this component (look for README.md first)
 doc_path=""
-in_components=false
 found_comp=false
 in_docs=false
 while IFS= read -r line; do
-  if echo "$line" | grep -q '^components:'; then
-    in_components=true
-    continue
-  fi
-  if $in_components; then
-    if echo "$line" | grep -q '^[^[:space:]]'; then
+  # Top-level key
+  if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
+    key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    if [ "$key" = "$matched_comp" ]; then
+      found_comp=true
+    elif $found_comp; then
       break
     fi
-    if echo "$line" | grep -qE "^  ${matched_comp}:"; then
-      found_comp=true
+    continue
+  fi
+  if $found_comp; then
+    if echo "$line" | grep -qE '^  docs:'; then
+      in_docs=true
       continue
     fi
-    if $found_comp; then
-      # Another component starts
-      if echo "$line" | grep -qE '^  [a-zA-Z_][a-zA-Z0-9_-]*:' && ! echo "$line" | grep -qE '^    '; then
+    if $in_docs && echo "$line" | grep -qE '^    - '; then
+      entry=$(echo "$line" | sed 's/^    - [[:space:]]*//')
+      # Prefer README.md
+      if echo "$entry" | grep -q 'README.md'; then
+        doc_path="$entry"
         break
       fi
-      if echo "$line" | grep -qE '^    docs:'; then
-        in_docs=true
-        continue
+      # Otherwise take the first doc
+      if [ -z "$doc_path" ]; then
+        doc_path="$entry"
       fi
-      if $in_docs; then
-        if echo "$line" | grep -qE '^      interface:'; then
-          doc_path=$(echo "$line" | sed 's/^      interface:[[:space:]]*//')
-          break
-        fi
-      fi
+    elif $in_docs && ! echo "$line" | grep -qE '^    - |^$'; then
+      in_docs=false
     fi
   fi
 done < "$MANIFEST"

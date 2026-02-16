@@ -116,45 +116,45 @@ The manifest is a YAML file that maps the project's module structure. It is the 
 
 ```yaml
 varp: 0.1.0
-name: my-project
 
-components:
-  auth:
-    path: ./src/auth
-    docs:
-      interface: ./docs/auth/interface.md
-      internal: ./docs/auth/internal.md
+auth:
+  path: ./src/auth
+  docs:
+    - ./docs/auth/README.md
+    - ./docs/auth/internal.md
 
-  api:
-    path: ./src/api
-    depends_on: [auth]
-    docs:
-      interface: ./docs/api/interface.md
-      internal: ./docs/api/internal.md
+api:
+  path: ./src/api
+  deps: [auth]
+  docs:
+    - ./docs/api/README.md
+    - ./docs/api/internal.md
 
-  web:
-    path: ./src/web
-    depends_on: [auth, api]
-    docs:
-      interface: ./docs/web/interface.md
-      internal: ./docs/web/internal.md
+web:
+  path: ./src/web
+  deps: [auth, api]
+  docs:
+    - ./docs/web/README.md
+    - ./docs/web/internal.md
 ```
 
-**Interface docs** describe how to use the component from outside — its API surface, behavioral assumptions, and the guarantees callers can rely on. These are loaded when a task depends on this component.
+**The manifest is flat.** The `varp` key holds the version string. Every other top-level key is a component name. No `components:` wrapper, no `name:` field. Docs are plain string paths, not objects.
 
-**Internal docs** describe how the component works inside — implementation details, design decisions, and local conventions. These are loaded only when a task directly modifies this component.
+**Doc visibility uses the README.md convention.** Docs named `README.md` are public — loaded when a task reads from or writes to the component. All other docs are private — loaded only when a task writes. This replaces the previous `load_on` tag system. Auto-discovery: if `{component.path}/README.md` exists on disk, it's included automatically as a public doc.
 
-**Dependencies** declare the static relationship between components. `web` depends on `auth` and `api`, meaning it consumes their interfaces. This serves two purposes: the planner agent uses it to understand the project's dependency graph when decomposing features, and the framework uses it for cross-session invalidation — when `auth`'s interface docs change, any component that depends on `auth` is flagged for review even if no plan is currently active.
+**Components include everything that gets modified as a unit.** Source code, skills, hooks — anything an agent might need context to work on. A skill component's "source" is its SKILL.md; its docs might be the design doc section describing that workflow.
 
-Task-level `touches` declarations are the per-operation subset of these static dependencies. A task on `web` that reads from `auth` is consistent with `web`'s `depends_on: [auth]`, but not every task on `web` will touch every dependency. The manifest captures the structural truth; `touches` captures the operational specifics.
+**Dependencies** declare the static relationship between components. `web` depends on `auth` and `api`, meaning it consumes their interfaces. This serves two purposes: the planner agent uses it to understand the project's dependency graph when decomposing features, and the framework uses it for cross-session invalidation — when `auth`'s docs change, any component that depends on `auth` is flagged for review even if no plan is currently active.
 
-**Varp tracks architectural dependencies, not package dependencies.** `depends_on` captures behavioral relationships between components — "web consumes auth's interface and assumes certain behaviors." Package-level dependencies (shared libraries, framework versions, transitive npm dependencies) are deferred to existing tooling. Monorepo tools like Turborepo, pnpm workspaces, and nx already maintain the package dependency graph, resolve transitive dependencies, and can report impact radius when shared dependencies change. The orchestrator and planner agent should query these tools (e.g., `turbo ls --affected`, `pnpm why react`) when planning work that involves shared dependency upgrades, rather than maintaining a parallel dependency graph in the manifest.
+Task-level `touches` declarations are the per-operation subset of these static dependencies. A task on `web` that reads from `auth` is consistent with `web`'s `deps: [auth]`, but not every task on `web` will touch every dependency. The manifest captures the structural truth; `touches` captures the operational specifics.
 
-When the orchestrator dispatches a task that `writes` to `auth` and `reads` from `api`, it loads `auth`'s internal docs and `api`'s interface docs. Exactly the right information, no more. The plan references components by name, the manifest resolves names to file paths and documentation.
+**Varp tracks architectural dependencies, not package dependencies.** `deps` captures behavioral relationships between components — "web consumes auth's interface and assumes certain behaviors." Package-level dependencies (shared libraries, framework versions, transitive npm dependencies) are deferred to existing tooling. Monorepo tools like Turborepo, pnpm workspaces, and nx already maintain the package dependency graph, resolve transitive dependencies, and can report impact radius when shared dependencies change. The orchestrator and planner agent should query these tools (e.g., `turbo ls --affected`, `pnpm why react`) when planning work that involves shared dependency upgrades, rather than maintaining a parallel dependency graph in the manifest.
 
-**The interface doc IS the contract.** There is no separate contract artifact. A component's `interface.md` describes its API surface, behavioral assumptions ("this module assumes the request has already been authenticated"), ordering guarantees, and what it explicitly does not guarantee. This is the single source of truth for how other components and agents should interact with it.
+When the orchestrator dispatches a task that `writes` to `auth` and `reads` from `api`, it resolves docs via the README.md convention: auth's README.md and internal docs both load (full context for modification), while api's README.md loads (public interface only, enough to use correctly). The plan references components by name, the manifest resolves names to file paths and documentation.
 
-Some of this content can be autogenerated (type exports, route definitions), but the behavioral assumptions that actually break agent work must be written by humans, because no tool can extract semantic expectations from code. The interface doc is where both live, in whatever mix is appropriate for the component.
+**The README.md IS the contract.** There is no separate contract artifact. A component's `README.md` describes its API surface, behavioral assumptions ("this module assumes the request has already been authenticated"), ordering guarantees, and what it explicitly does not guarantee. This is the single source of truth for how other components and agents should interact with it.
+
+Some of this content can be autogenerated (type exports, route definitions), but the behavioral assumptions that actually break agent work must be written by humans, because no tool can extract semantic expectations from code. The README.md is where both live, in whatever mix is appropriate for the component.
 
 ### 3.2 Plan Format
 
@@ -198,31 +198,17 @@ The planner and orchestrator never run simultaneously. The planner session is a 
 
   <tasks>
     <task id="1">
-      <description>Implement rate limiting middleware</description>
+      <description>Implement rate limiting for auth endpoints — middleware, tests, and doc updates</description>
       <action>implement</action>
       <values>security, correctness, backwards-compatibility</values>
       <touches writes="auth" reads="api" />
-      <budget tokens="30000" minutes="10" />
-    </task>
-
-    <task id="2">
-      <description>Add rate limit integration tests</description>
-      <action>test</action>
-      <values>coverage, correctness</values>
-      <touches writes="auth" reads="auth" />
-      <budget tokens="20000" minutes="8" />
-    </task>
-
-    <task id="3">
-      <description>Update API documentation</description>
-      <action>document</action>
-      <values>accuracy, completeness</values>
-      <touches reads="auth, api" />
-      <budget tokens="10000" minutes="5" />
+      <budget tokens="50000" minutes="20" />
     </task>
   </tasks>
 </plan>
 ```
+
+**Tasks are scoped by component, not by action type.** A single task covers implementation, tests, and doc updates for its component scope. You split tasks when scope would overflow a context window, not when the action type changes. Tests are part of the scope — a task writing to `auth` includes writing auth's tests because they need the same context and verify the same behavior.
 
 **The plan does not specify execution order.** Tasks declare their read and write sets via `touches`. The orchestrator derives execution order at runtime by analyzing data dependencies. This separation means plans can be written by a planner agent (or human) without needing to reason about scheduling, and the orchestrator can optimize execution independently.
 
@@ -233,7 +219,7 @@ The planner and orchestrator never run simultaneously. The planner session is a 
 
 **Why XML:** Reliable agent parsing, clear nesting for structured data (tasks within plans, conditions within contracts), and schema validation. Markdown is preferred for narrative documentation; XML is preferred for machine-consumed control structures.
 
-**Verification commands must be idempotent and exit-code-based.** Each `<verify>` element is a shell command that exits 0 on success and non-zero on failure. Tests are preferred over greps — `npm test --filter=auth` is a reliable postcondition; `grep -r "router\."` is fragile. The plan example above uses grep for illustration; real plans should prefer test suites, type checks, and assertion scripts.
+**Verification is test-driven.** Postconditions should be test suites, not bespoke shell commands. The planner writes test expectations ("rate limiting returns 429 after threshold"), the subagent implements TDD (write failing tests, implement until they pass), and the orchestrator verifies at wave boundaries by running the test suite. Invariants remain as the broader regression check ("full test suite still passes, types compile"). Each `<verify>` element is a shell command that exits 0 on success — prefer `bun test --filter=rate-limit` over `grep -r "router\."`.
 
 **Resource budgets are per-task.** Each task declares token and time limits that the orchestrator enforces during execution. Directed tasks get tighter budgets (the path is known). Contract tasks get more headroom (the agent must discover its own approach). The planner sets initial budgets based on task complexity; the orchestrator can adjust based on execution history from previous waves or sessions.
 
@@ -245,16 +231,16 @@ The planner agent is a specialized agent whose domain is decomposing vague human
 
 1. **Load manifest** — read `varp.yaml` to understand component structure and dependency graph
 2. **Clarify intent** — ask the human targeted questions to resolve ambiguity ("per-user or per-IP? what HTTP status on limit?")
-3. **Decompose** — break the feature into tasks scoped to individual components
-4. **Derive `touches`** — for each task, determine which components it reads from and writes to, cross-referencing the manifest's `depends_on` graph for consistency
-5. **Set budgets** — assign token and time limits per task, scaled to complexity and plan mode
-6. **Write contracts** — produce preconditions (what must be true before work starts), invariants (what must remain true throughout), and postconditions (what must be true when done) with concrete verification commands
+3. **Decompose** — break the feature into tasks scoped to individual components. Each task covers implementation, tests, and doc updates for its scope. Split by context window pressure, not by action type.
+4. **Derive `touches`** — for each task, determine which components it reads from and writes to, cross-referencing the manifest's `deps` graph for consistency. Two tasks writing the same component is a plan smell — merge them.
+5. **Set budgets** — assign token and time limits per task, scaled to scope complexity (budgets include implementation + tests + docs)
+6. **Write contracts** — preconditions (readiness), invariants (regression checks at wave boundaries), and postconditions (test suites that verify the feature works). Prefer test-driven postconditions over bespoke shell scripts.
 7. **Choose plan mode** — directed (explicit steps) for well-understood work, contract (postconditions only) for complex autonomous work
 8. **Output `plan.xml`** — the complete plan artifact
 
 **`touches` validation is the planner's responsibility.** The entire concurrency model depends on correct read/write declarations. The planner derives `touches` from both the task description and the manifest's dependency graph. If a task on `web` needs to change behavior that flows through `auth`, that's a write to `auth`, not just `web` — even if the files being edited are in `web`'s directory. The planner must reason about behavioral dependencies, not just file locations.
 
-The orchestrator performs a consistency check at dispatch time: if a task's `touches` references a component not in the manifest, or if a write target isn't reachable through `depends_on`, execution halts and kicks back to replanning. This catches the most obvious errors but cannot catch undeclared dependencies — those surface as postcondition failures after execution.
+The orchestrator performs a consistency check at dispatch time: if a task's `touches` references a component not in the manifest, or if a write target isn't reachable through `deps`, execution halts and kicks back to replanning. This catches the most obvious errors but cannot catch undeclared dependencies — those surface as postcondition failures after execution.
 
 ### 3.3 File Structure
 
@@ -265,10 +251,10 @@ project/
   varp.yaml                    # component manifest (persistent)
   docs/
     auth/
-      interface.md             # API surface and behavioral assumptions
+      README.md                # API surface and behavioral assumptions
       internal.md              # implementation details
     api/
-      interface.md
+      README.md
       internal.md
   plans/
     in-progress/
@@ -306,22 +292,24 @@ The orchestrator is Claude Code — specifically, a Claude Code session with Var
 
 Varp does not implement its own orchestrator runtime. Claude Code already provides the agent loop, tool execution, subagent dispatch (Task tool), session management, hooks system, and context compaction. Varp adds manifest-awareness to this existing infrastructure through MCP tools that the orchestrator calls during its work cycle.
 
-**Enforced chain of thought:** The orchestrator follows a rigid protocol for each work cycle:
+**Execution modes.** The orchestrator classifies the plan's scope shape at initialization and adapts its protocol accordingly:
 
-1. **Select** — pick the next executable task(s) from the dependency graph, prioritizing critical path tasks (those that block the most downstream work)
-2. **Verify** — check preconditions and context freshness (via `varp_check_freshness`)
-3. **Load** — resolve component references via manifest, inject appropriate docs (via `varp_resolve_docs`)
-4. **Budget** — set resource limits for the task based on plan budgets and execution history
-5. **Dispatch** — send task to subagent with assembled context and capability grants (via Claude Code's Task tool)
-6. **Monitor** — track resource consumption against budget; flag tasks approaching limits
-7. **Collect** — receive structured result (`COMPLETE|PARTIAL|BLOCKED|NEEDS_REPLAN`)
-8. **Verify capabilities** — confirm actual file changes match declared `touches` (via `varp_verify_capabilities`)
-9. **Review** — verify task output against postconditions and invariants
-10. **Handle failure** — if task failed, derive restart strategy from `touches` graph (isolated retry, cascade restart, or escalate)
-11. **Observe** — extract observations from completed tasks to enrich context for subsequent dispatches
-12. **Update** — refresh documentation for modified components
-13. **Invalidate** — cascade changes to dependent contexts (via `varp_invalidation_cascade`)
-14. **Advance** — mark task complete, unblock dependent tasks
+- **Single-scope** — all tasks write to the same component. Skip wave computation; execute sequentially. Most plans on small projects use this mode.
+- **Sequential multi-scope** — tasks write to different components with RAW dependencies. Compute waves but expect one task per wave. Pass observations forward.
+- **Parallel multi-scope** — tasks write to different components with independent waves. Full wave computation, critical path scheduling, parallel dispatch.
+
+**Enforced chain of thought:** The orchestrator follows this protocol for each work cycle. Steps are conditional on execution mode — some are skipped in simpler modes.
+
+1. **Select** — pick the next executable task(s). Single-scope: next by ID. Parallel: tasks whose RAW deps are satisfied, prioritizing critical path.
+2. **Verify** — check preconditions (via plan's `<verify>` commands)
+3. **Resolve** — resolve doc paths via `varp_resolve_docs`. The orchestrator resolves paths; the subagent reads content. The orchestrator should not load component internals into its own context.
+4. **Dispatch** — send task to subagent with assembled context, capability grants, and postconditions. The subagent owns implementation + tests + docs for its scope.
+5. **Collect** — receive structured result (`COMPLETE|PARTIAL|BLOCKED|NEEDS_REPLAN`) and record in log.xml
+6. **Verify capabilities** — confirm actual file changes match declared `touches` (via `varp_verify_capabilities`)
+7. **Verify invariants** — run invariant checks at wave boundaries (not between individual tasks). Tests may break mid-task during schema changes — the invariant holds at wave boundaries.
+8. **Handle failure** — derive restart strategy from `touches` graph (via `varp_derive_restart_strategy`)
+9. **Invalidate** — cascade changes to dependent contexts (via `varp_invalidation_cascade`). Parallel mode only.
+10. **Advance** — mark task complete, unblock dependent tasks
 
 **Wave cancellation.** If a critical invariant fails during a wave (checked between task completions), the orchestrator signals all running subagents in the wave to stop. Graceful cancellation lets subagents finish their current atomic operation and return partial results. Hard cancellation abandons worktrees and discards everything. The orchestrator chooses based on invariant severity: `critical="true"` invariants trigger hard cancellation; others allow graceful wind-down.
 
@@ -329,7 +317,7 @@ Varp does not implement its own orchestrator runtime. Claude Code already provid
 
 **The orchestrator owns prompting knowledge.** It is given the prompting research and framework as T1 knowledge because effective prompt construction IS its domain expertise. It assembles subagent prompts by combining the task's action and values with the component's domain context and relevant documentation — applying the 3D model at dispatch time.
 
-**Subagents are processes with functional interfaces.** They are *defined* functionally — domain, values, action, context — but *execute* as processes with lifecycles, resource consumption, and structured exit states. They receive fully assembled context, perform a narrow transformation, and return a structured result. They don't load their own context, don't know about other agents, and don't manage state beyond their current session.
+**Subagents are processes with functional interfaces.** They are *defined* functionally — domain, values, action, context — but *execute* as processes with lifecycles, resource consumption, and structured exit states. The orchestrator resolves doc paths and passes them to the subagent; the subagent reads the actual content. This keeps the orchestrator lean (meta-level only) while giving subagents full component context. Subagents own their entire scope — implementation, tests, and doc updates — and return a structured result. They don't know about other agents and don't manage state beyond their current session.
 
 "Warm agents" are resumed subagent sessions — when a later task operates on the same component scope, the orchestrator can resume the previous subagent's session rather than starting cold, preserving the subagent's accumulated context about that component. This is analogous to fork-and-COW: the new task starts with the previous subagent's component knowledge (shared pages), then diverges only where the new work requires it (copy-on-write). This is distinct from orchestrator session persistence: the orchestrator session lives across the whole plan, while subagent sessions are per-component and optionally resumed.
 
@@ -342,7 +330,7 @@ Varp is delivered as a Claude Code plugin, not a standalone CLI. The plugin prov
 **Skills (workflow protocols):** Slash commands that load the appropriate protocol and context for each Varp workflow. Skills are reusable — they structure the agent's behavior for a session without persisting as permanent system prompts. When a skill is invoked, it loads its protocol; when the session ends, the protocol is unloaded. A normal Claude Code session has no Varp overhead.
 
 - `/varp:plan` loads the planner protocol (Section 3.2.1) and the manifest, turning the Claude Code session into a planning conversation. The skill IS the planner's T1 knowledge — it provides the decomposition methodology, the `touches` derivation rules, budget-setting guidelines, and the contract-writing protocol.
-- `/varp:execute` loads the orchestrator protocol (Section 3.4) and the active plan from `plans/in-progress/`, turning the session into an execution run. The skill provides the 14-step chain of thought, the dispatch rules, restart strategies, capability enforcement protocol, and the verification protocol. The manifest and plan together form the orchestrator's T1 knowledge for that session.
+- `/varp:execute` loads the orchestrator protocol (Section 3.4) and the active plan from `plans/in-progress/`, turning the session into an execution run. The skill classifies the plan's execution mode (single-scope, sequential, parallel), provides the adaptive execution loop, dispatch rules, restart strategies, and capability enforcement. The manifest and plan together form the orchestrator's T1 knowledge for that session.
 - `/varp:review` surfaces the medium loop decision surface — the log.xml diffed against the plan's expected outcomes, with doc freshness status, invalidation flags, and execution metrics (resource consumption, failure rates, restart decisions).
 - `/varp:status` reports project state: component registry, doc freshness, plan lifecycle status, dependency graph health.
 
@@ -426,7 +414,7 @@ Varp operates across three timescales:
 
 ### 5.1 Fast Loop (Within Session)
 
-The orchestrator's inner execution cycle: select → verify → load → budget → dispatch → monitor → collect → verify capabilities → review → handle failure → observe → update → invalidate → advance. Fully autonomous within the bounds of the plan's contracts and the orchestrator's restart strategy. The orchestrator makes all decisions it can derive mechanically from `touches` and postconditions, and escalates everything else to the human.
+The orchestrator's inner execution cycle: select → verify → resolve → dispatch → collect → verify capabilities → verify invariants → handle failure → invalidate → advance. Fully autonomous within the bounds of the plan's contracts and the orchestrator's restart strategy. The orchestrator makes all decisions it can derive mechanically from `touches` and postconditions, and escalates everything else to the human.
 
 ### 5.2 Medium Loop (Across Sessions)
 
@@ -448,11 +436,11 @@ Documentation rot actively degrades agent performance because agents trust conte
 
 Varp treats documentation as a first-class concern in the work cycle:
 
-**Every task that writes to a component triggers a doc update step.** The orchestrator's post-work protocol includes refreshing documentation for any component in the task's write set.
+**Doc updates are part of the subagent's scope.** When a task writes to a component, updating that component's docs is part of the task — not a separate orchestrator step. The subagent has the context to know what changed and how the docs should reflect it. The orchestrator verifies freshness after task completion.
 
-**Invalidation cascades through dependencies.** When component A's interface docs change, the manifest's `depends_on` graph identifies every component that consumes A's interface. During active execution, the `touches` metadata enables targeted refresh — only tasks that actually read from A need updated context. Between sessions, the manifest-level dependencies flag stale assumptions for the next planning cycle, even without an active plan.
+**Invalidation cascades through dependencies.** When component A's docs change, the manifest's `deps` graph identifies every component that consumes A's interface. During active execution, the `touches` metadata enables targeted refresh — only tasks that actually read from A need updated context. Between sessions, the manifest-level dependencies flag stale assumptions for the next planning cycle, even without an active plan.
 
-**Interface and internal docs serve different audiences.** Interface docs describe how to use a component — loaded by tasks that depend on it. Internal docs describe how it works — loaded only by tasks that modify it. This distinction prevents information overload while ensuring each task has exactly the context it needs.
+**Doc visibility uses the README.md convention.** Docs named `README.md` are public — loaded for tasks that read from or write to the component (API surface, behavioral guarantees). All other docs are private — loaded only for writes (implementation details, algorithms). This convention-over-configuration approach replaces explicit tagging and ensures each task gets exactly the context it needs.
 
 ## 7. Open Questions
 
