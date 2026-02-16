@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bash hooks/scripts/session-start.sh"
+      }
+    ],
+    "SubagentStart": [
+      {
+        "type": "command",
+        "command": "bash hooks/scripts/subagent-context.sh"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "type": "command",
+        "command": "bash hooks/scripts/freshness-track.sh"
+      }
+    ]
+  }
+}
