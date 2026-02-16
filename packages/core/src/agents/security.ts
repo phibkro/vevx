@@ -2,7 +2,7 @@ import type { FileContent } from "@code-auditor/types";
 import type { AgentDefinition, AgentResult, Finding } from "./types";
 
 const AGENT_NAME = "security";
-const WEIGHT = 0.25;
+const WEIGHT = 0.22;
 
 const SYSTEM_PROMPT = `You are a security specialist analyzing code for vulnerabilities and attack vectors.
 

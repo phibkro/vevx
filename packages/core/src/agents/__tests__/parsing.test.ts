@@ -4,6 +4,8 @@ import { securityAgent } from '../security'
 import { performanceAgent } from '../performance'
 import { maintainabilityAgent } from '../maintainability'
 import { edgeCasesAgent } from '../edge-cases'
+import { accessibilityAgent } from '../accessibility'
+import { documentationAgent } from '../documentation'
 import { agents } from '../index'
 import type { FileContent } from '@code-auditor/types'
 
@@ -203,6 +205,40 @@ Hope this helps!`
     })
   })
 
+  describe('Accessibility Agent', () => {
+    it('parses valid JSON response', () => {
+      const response = validResponse('accessibility', 7.5)
+      const result = accessibilityAgent.parseResponse(response)
+
+      expect(result.agent).toBe('accessibility')
+      expect(result.score).toBe(7.5)
+    })
+
+    it('handles malformed JSON with fallback', () => {
+      const result = accessibilityAgent.parseResponse('invalid')
+
+      expect(result.agent).toBe('accessibility')
+      expect(result.score).toBe(5.0)
+    })
+  })
+
+  describe('Documentation Agent', () => {
+    it('parses valid JSON response', () => {
+      const response = validResponse('documentation', 8.0)
+      const result = documentationAgent.parseResponse(response)
+
+      expect(result.agent).toBe('documentation')
+      expect(result.score).toBe(8.0)
+    })
+
+    it('handles malformed JSON with fallback', () => {
+      const result = documentationAgent.parseResponse('invalid')
+
+      expect(result.agent).toBe('documentation')
+      expect(result.score).toBe(5.0)
+    })
+  })
+
   describe('Weight Validation', () => {
     it('all agent weights sum to 1.0', () => {
       const totalWeight = agents.reduce((sum, agent) => sum + agent.weight, 0)
@@ -216,8 +252,8 @@ Hope this helps!`
       })
     })
 
-    it('has exactly 5 agents', () => {
-      expect(agents).toHaveLength(5)
+    it('has exactly 7 agents', () => {
+      expect(agents).toHaveLength(7)
     })
 
     it('all agents have unique names', () => {

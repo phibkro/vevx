@@ -2,7 +2,7 @@ import type { FileContent } from "@code-auditor/types";
 import type { AgentDefinition, AgentResult, Finding } from "./types";
 
 const AGENT_NAME = "performance";
-const WEIGHT = 0.15;
+const WEIGHT = 0.13;
 
 const SYSTEM_PROMPT = `You are a performance specialist analyzing code for bottlenecks and algorithmic inefficiencies.
 

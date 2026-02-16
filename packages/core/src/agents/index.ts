@@ -3,11 +3,25 @@ import { securityAgent } from "./security";
 import { performanceAgent } from "./performance";
 import { maintainabilityAgent } from "./maintainability";
 import { edgeCasesAgent } from "./edge-cases";
+import { accessibilityAgent } from "./accessibility";
+import { documentationAgent } from "./documentation";
+// import { dependencySecurityAgent } from "./dependency-security"; // Disabled by default (weight=0.00)
 
 export type { AgentDefinition, AgentResult, Finding, Severity } from "./types";
 
 /**
  * All available agents for code analysis
+ *
+ * Weights (7 active agents):
+ * - Correctness: 0.22 (22%)
+ * - Security: 0.22 (22%)
+ * - Performance: 0.13 (13%)
+ * - Maintainability: 0.15 (15%)
+ * - Edge Cases: 0.13 (13%)
+ * - Accessibility: 0.10 (10%)
+ * - Documentation: 0.05 (5%)
+ *
+ * Total: 1.00 (100%)
  */
 export const agents = [
   correctnessAgent,
@@ -15,6 +29,9 @@ export const agents = [
   performanceAgent,
   maintainabilityAgent,
   edgeCasesAgent,
+  accessibilityAgent,
+  documentationAgent,
+  // dependencySecurityAgent, // Uncomment to enable (requires rebalancing weights)
 ];
 
 /**

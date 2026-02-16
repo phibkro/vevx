@@ -2,7 +2,7 @@ import type { FileContent } from "@code-auditor/types";
 import type { AgentDefinition, AgentResult, Finding } from "./types";
 
 const AGENT_NAME = "maintainability";
-const WEIGHT = 0.20;
+const WEIGHT = 0.15;
 
 const SYSTEM_PROMPT = `You are a maintainability specialist analyzing code for readability and long-term maintenance issues.
 

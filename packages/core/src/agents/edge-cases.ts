@@ -2,7 +2,7 @@ import type { FileContent } from "@code-auditor/types";
 import type { AgentDefinition, AgentResult, Finding } from "./types";
 
 const AGENT_NAME = "edge-cases";
-const WEIGHT = 0.15;
+const WEIGHT = 0.13;
 
 const SYSTEM_PROMPT = `You are an edge case specialist analyzing code for robustness and error handling.
 
