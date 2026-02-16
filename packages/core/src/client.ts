@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { RateLimitError, AuthenticationError, ValidationError } from "./errors";
 
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000; // 1 second
@@ -15,9 +16,9 @@ function createClient(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
-    throw new Error(
-      "ANTHROPIC_API_KEY environment variable is not set.\n" +
-        "Please set it with: export ANTHROPIC_API_KEY='your-api-key'"
+    throw new ValidationError(
+      "ANTHROPIC_API_KEY",
+      "Environment variable is not set. Please set it with: export ANTHROPIC_API_KEY='your-api-key'"
     );
   }
 
@@ -68,34 +69,27 @@ export async function callClaude(
     } catch (error) {
       lastError = error as Error;
 
-      // Check if it's a rate limit error (429)
+      // Check if it's an API error
       if (error instanceof Anthropic.APIError) {
-        if (error.status === 429) {
-          const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-          console.warn(
-            `Rate limit hit (429). Retrying in ${retryDelay / 1000}s... (attempt ${attempt + 1}/${MAX_RETRIES})`
-          );
-          await sleep(retryDelay);
-          continue;
-        }
-
-        // For other API errors, provide detailed message
+        // Handle 401 authentication errors
         if (error.status === 401) {
-          throw new Error(
-            `Invalid Anthropic API key (401 Unauthorized)\n\n` +
-            `Your ANTHROPIC_API_KEY is invalid or expired.\n` +
-            `Get a new key at: https://console.anthropic.com/settings/keys\n` +
-            `Then set it with: export ANTHROPIC_API_KEY='your-new-key'`
-          );
+          throw new AuthenticationError();
         }
 
+        // Handle 429 rate limit errors with retry logic
         if (error.status === 429) {
-          throw new Error(
-            `Rate limit exceeded (429)\n\n` +
-            `You've hit the API rate limit or quota.\n` +
-            `Check your usage at: https://console.anthropic.com/settings/usage\n` +
-            `Consider upgrading your plan for higher limits.`
-          );
+          if (attempt < MAX_RETRIES - 1) {
+            const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+            console.warn(
+              `Rate limit hit (429). Retrying in ${retryDelay / 1000}s... (attempt ${attempt + 1}/${MAX_RETRIES})`
+            );
+            await sleep(retryDelay);
+            continue;
+          } else {
+            // After max retries, throw RateLimitError
+            const finalRetryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+            throw new RateLimitError(Math.ceil(finalRetryDelay / 1000));
+          }
         }
 
         // Generic API error

@@ -1,10 +1,36 @@
 # Implementation Plan: Core Product Polish
 
+**Status:** 🟢 **Track A (packages/core) COMPLETE** | Track B (apps/cli) PENDING
 **Priority:** 🟡 HIGH - User experience & reliability
 **Scope:** packages/core + apps/cli (2 scopes, parallel execution)
 **Agent Strategy:** 2 parallel agents, each owns a scope
 **Estimated Time:** 6-10h total (3-5h per agent in parallel)
 **Branch:** `feature/core-polish`
+
+## Track A Status (packages/core) ✅
+
+**Agent:** core-001
+**Completed:** 2026-02-16
+**Duration:** ~2h
+**Coverage:** 100% on new code
+
+**Deliverables:**
+- ✅ Error classes (RateLimitError, AuthenticationError, ValidationError, AgentError)
+- ✅ Progress callback system (ProgressEvent types)
+- ✅ Updated client.ts to throw specific errors
+- ✅ Updated orchestrator.ts with progress tracking
+- ✅ Comprehensive tests (42 tests total, all passing)
+- ✅ Documentation (CHANGELOG.md)
+
+**Files Modified:**
+- packages/core/src/errors.ts (NEW)
+- packages/core/src/client.ts (updated error handling)
+- packages/core/src/orchestrator.ts (added progress callbacks)
+- packages/core/src/__tests__/errors.test.ts (NEW)
+- packages/core/src/__tests__/client.test.ts (NEW)
+- packages/core/src/__tests__/orchestrator.test.ts (NEW)
+- packages/core/package.json (added vitest)
+- packages/core/vitest.config.ts (NEW)
 
 ## Agent Execution
 

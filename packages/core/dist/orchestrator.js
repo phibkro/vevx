@@ -43,12 +43,28 @@ async function runAgent(agent, files, options) {
 /**
  * Run all agents in parallel on the provided files
  */
-export async function runAudit(files, options) {
+export async function runAudit(files, options, onProgress) {
     console.log(`\nRunning ${agents.length} agents in parallel...`);
     const startTime = Date.now();
+    // Emit started event
+    onProgress?.({ type: 'started', agentCount: agents.length });
     // Run all agents in parallel using Promise.allSettled
     // This ensures that if one agent fails, others continue
-    const results = await Promise.allSettled(agents.map((agent) => runAgent(agent, files, options)));
+    const results = await Promise.allSettled(agents.map(async (agent) => {
+        const agentStartTime = Date.now();
+        // Emit agent-started event
+        onProgress?.({ type: 'agent-started', agent: agent.name });
+        const result = await runAgent(agent, files, options);
+        const duration = (Date.now() - agentStartTime) / 1000;
+        // Emit agent-completed event
+        onProgress?.({
+            type: 'agent-completed',
+            agent: agent.name,
+            score: result.score,
+            duration,
+        });
+        return result;
+    }));
     const totalDuration = Date.now() - startTime;
     // Extract results (both successful and failed)
     const agentResults = results.map((result, index) => {
@@ -76,6 +92,8 @@ export async function runAudit(files, options) {
         }
     });
     console.log(`All agents completed in ${(totalDuration / 1000).toFixed(2)}s`);
+    // Emit completed event
+    onProgress?.({ type: 'completed', totalDuration: totalDuration / 1000 });
     // Log individual agent performance
     agentResults.forEach((result) => {
         const status = result.score > 0 ? "✓" : "✗";

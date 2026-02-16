@@ -4,4 +4,5 @@ export * from './chunker';
 export * from './client';
 export * from './report/index';
 export * from './discovery-node';
+export * from './errors';
 //# sourceMappingURL=index.js.map

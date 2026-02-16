@@ -6,7 +6,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
   },
   "dependencies": {
     "@code-auditor/types": "workspace:*",
@@ -15,6 +18,8 @@
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
-    "typescript": "^5.4.5"
+    "@vitest/coverage-v8": "^4.0.18",
+    "typescript": "^5.4.5",
+    "vitest": "^4.0.18"
   }
 }

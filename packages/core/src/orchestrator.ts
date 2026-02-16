@@ -3,10 +3,19 @@ import type { AgentResult } from "./agents/types";
 import { agents } from "./agents/index";
 import { callClaude } from "./client";
 
-interface OrchestratorOptions {
+export interface OrchestratorOptions {
   model: string;
   maxTokens?: number;
 }
+
+/**
+ * Progress event types emitted during audit execution
+ */
+export type ProgressEvent =
+  | { type: 'started'; agentCount: number }
+  | { type: 'agent-started'; agent: string }
+  | { type: 'agent-completed'; agent: string; score: number; duration: number }
+  | { type: 'completed'; totalDuration: number }
 
 /**
  * Run a single agent on the provided files
@@ -68,16 +77,38 @@ async function runAgent(
  */
 export async function runAudit(
   files: FileContent[],
-  options: OrchestratorOptions
+  options: OrchestratorOptions,
+  onProgress?: (event: ProgressEvent) => void
 ): Promise<AgentResult[]> {
   console.log(`\nRunning ${agents.length} agents in parallel...`);
 
   const startTime = Date.now();
 
+  // Emit started event
+  onProgress?.({ type: 'started', agentCount: agents.length });
+
   // Run all agents in parallel using Promise.allSettled
   // This ensures that if one agent fails, others continue
   const results = await Promise.allSettled(
-    agents.map((agent) => runAgent(agent, files, options))
+    agents.map(async (agent) => {
+      const agentStartTime = Date.now();
+
+      // Emit agent-started event
+      onProgress?.({ type: 'agent-started', agent: agent.name });
+
+      const result = await runAgent(agent, files, options);
+      const duration = (Date.now() - agentStartTime) / 1000;
+
+      // Emit agent-completed event
+      onProgress?.({
+        type: 'agent-completed',
+        agent: agent.name,
+        score: result.score,
+        duration,
+      });
+
+      return result;
+    })
   );
 
   const totalDuration = Date.now() - startTime;
@@ -109,6 +140,9 @@ export async function runAudit(
   });
 
   console.log(`All agents completed in ${(totalDuration / 1000).toFixed(2)}s`);
+
+  // Emit completed event
+  onProgress?.({ type: 'completed', totalDuration: totalDuration / 1000 });
 
   // Log individual agent performance
   agentResults.forEach((result) => {
