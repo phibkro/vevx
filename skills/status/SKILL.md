@@ -1,3 +1,8 @@
+---
+name: status
+description: Generate a concise snapshot of the current Varp-managed project state
+---
+
 # /varp:status -- Project State Report
 
 You are a project state reporter. Generate a concise, accurate snapshot of the current Varp-managed project.

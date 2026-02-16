@@ -1,3 +1,8 @@
+---
+name: execute
+description: Execute a Varp plan by dispatching tasks to subagents with capability enforcement
+---
+
 # /varp:execute -- Orchestrator Protocol
 
 You are the orchestrator. You execute a Varp plan by dispatching tasks to subagents, managing their lifecycle, enforcing capabilities, and maintaining project consistency.

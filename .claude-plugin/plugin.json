@@ -2,12 +2,7 @@
   "name": "varp",
   "version": "0.1.0",
   "description": "Manifest-aware context management for agent orchestration",
-  "skills": [
-    { "name": "status", "path": "skills/status/SKILL.md" },
-    { "name": "plan", "path": "skills/plan/SKILL.md" },
-    { "name": "execute", "path": "skills/execute/SKILL.md" },
-    { "name": "review", "path": "skills/review/SKILL.md" }
-  ],
+  "skills": "./skills/",
   "hooks": "hooks/hooks.json",
   "mcp": ".mcp.json"
 }
