@@ -1,6 +1,6 @@
 # Varp: A Reactive Agent Orchestration Framework
 
-Design Document — v0.1.0 — February 2026*
+*Design Document — v0.1.0 — February 2026*
 
 ---
 
@@ -28,9 +28,13 @@ Everything an agent operates on falls into one of two categories:
 
 The architectural decision follows directly: **trust static encoding, obsess over dynamic injection.** Invest effort in getting static knowledge right once. Invest infrastructure in ensuring dynamic context is fresh every time.
 
-### 2.2 The 3D Agent Model: Agents as Functions
+### 2.2 The Dual Agent Model: Functional Interface, Process Execution
 
-Agents are functions with three dimensions plus input:
+Agents exhibit two distinct natures that map to different engineering traditions. Their *interface* is functional — you define what an agent does the same way you define a function. Their *runtime behavior* is process-like — they have lifecycles, accumulate state, consume resources, and fail in ways that need structured handling. Varp models both explicitly.
+
+#### The Functional Interface (3D Model)
+
+Agents are defined as functions with three dimensions plus input:
 
 **Domain (invariant — precondition):** What the agent knows. "You are a senior TypeScript engineer." This constrains the space of competent behavior. It holds true across every invocation.
 
@@ -44,6 +48,28 @@ Effective prompting often compresses multiple dimensions into a single phrase. "
 
 **Saved prompts work best when action is static.** Fix the transformation, parameterize everything else. This is currying — partially apply the action, get back a reusable function that takes (domain, values, context) as arguments.
 
+The 3D model governs how agents are *defined* and *dispatched*. The manifest and plan are the functional layer — declarative, compositional, concerned with what agents should do.
+
+#### The Process Execution Model
+
+Agents *execute* as processes. They have duration, accumulate state during execution, consume resources (tokens, time, API calls), can be suspended and resumed, and fail in ways more complex than "return or throw." A function either returns a value or raises an exception. A process can hang, leak resources, produce partial results, corrupt shared state, or fail silently.
+
+This distinction has concrete architectural consequences:
+
+**Lifecycle management.** Agents start, run, and terminate. The orchestrator must track their state: pending, running, completed, failed, cancelled. Warm agent resumption is process suspension and restart — the subagent's accumulated context is preserved across invocations, like a process swapped back into memory.
+
+**Resource budgets.** Processes get resource limits (cgroups, ulimits). Agent tasks need token budgets, time limits, and iteration bounds. An agent that has burned 50k tokens without converging is probably stuck, not thorough. This is especially important for contract-mode tasks where the agent determines its own approach — unbounded autonomy with unbounded resources produces runaway costs. The orchestrator sets per-task budgets at dispatch time, scaled to task complexity and plan mode (directed tasks get tighter budgets than contract tasks).
+
+**Failure modes.** The `COMPLETE|PARTIAL|BLOCKED|NEEDS_REPLAN` discriminated union is modeling process exit states, not function return types. `PARTIAL` means the process did useful work but couldn't finish — like a process killed by OOM that managed to flush some output. `BLOCKED` means it's waiting on an external condition. `NEEDS_REPLAN` means the task's assumptions were wrong — the process discovered its preconditions don't hold.
+
+**Capability restrictions.** Processes run in namespaces with restricted views of system resources. Agent tasks should be similarly constrained: a subagent dispatched with `touches writes="auth" reads="api"` should only be able to modify files in auth's path and read files in api's path. `touches` declarations become capability grants, verified on commit (Section 3.4).
+
+**Process accounting.** The system tracks per-task resource consumption: tokens used, tools invoked, files modified, time elapsed, verification pass/fail rate. This data feeds into `log.xml` as structured execution metrics, enabling slow-loop questions like "which component is most expensive to work on?" and "which task types have the highest failure rate?"
+
+The orchestrator is the process manager — the scheduler, supervisor, and resource controller. It operates on the functional definitions (3D model, plans, manifests) but manages execution using process semantics.
+
+This pattern is well-established: Erlang processes have functional interfaces but process semantics. Goroutines are launched with function calls but have thread-like lifecycles. OS threads start by passing a function pointer. The function defines *what*; the process defines *how it executes*.
+
 ### 2.3 Tiered Knowledge Architecture
 
 Not all knowledge is needed at all times. Loading everything creates noise; loading nothing creates gaps. The solution is tiered loading:
@@ -56,11 +82,23 @@ Not all knowledge is needed at all times. Loading everything creates noise; load
 
 This implicitly tells agents "reason from principles first, look up specifics when needed." It provides graceful degradation — an agent without T2 context can still reason from T1 principles, producing a less precise but not fundamentally wrong result.
 
-### 2.4 Two-Layer Constraint
+### 2.4 Two-Layer Constraint (Supervision Tree)
 
 **Only two agent layers exist: orchestrator and subagents.** Subagents cannot spawn sub-subagents. Every additional layer creates indirection where context gets lost and accountability becomes unclear.
 
-The orchestrator coordinates work and maintains the project model. Subagents execute concrete tasks within narrow scopes. Information flows in one direction: orchestrator → subagent → result → orchestrator → next subagent. No agent ever needs to know about another agent's existence. This turns a potentially cyclic graph into a DAG, eliminating an entire class of coordination bugs.
+This is a flat supervision tree. The orchestrator is the supervisor; subagents are workers. The supervisor is responsible for starting workers, monitoring their health, handling their failures, and deciding restart strategy. Workers do their assigned task and report results — they never coordinate with each other directly.
+
+Information flows in one direction: orchestrator → subagent → result → orchestrator → next subagent. No agent ever needs to know about another agent's existence. This turns a potentially cyclic graph into a DAG, eliminating an entire class of coordination bugs.
+
+The orchestrator can pass **observations** from completed tasks to upcoming tasks as enriched context. "Task 1 implemented rate limiting using Redis; task 3 should document the Redis dependency." This is not subagent-to-subagent communication — it's the supervisor updating environment variables between process launches. The orchestrator is the only node with a global view, and it uses that view to improve context for subsequent dispatches.
+
+**Restart strategies** (borrowed from Erlang/OTP) determine what happens when a subagent fails:
+
+- **Isolated retry:** The failed task's write set doesn't overlap with any completed task's read set in subsequent waves. Safe to retry — delete the worktree, redispatch. The nondeterminism concern is bounded: retry is unsafe if you need *identical* output, but valid if you're checking *postconditions*. A retry that produces different code but passes the same postconditions is a successful recovery. Contract-mode tasks are particularly retry-friendly.
+- **Cascade restart:** The failed task's output is consumed by later tasks that have already been dispatched or completed. The failure invalidates downstream work. The orchestrator must cancel the affected wave (if in progress) and restart from the failed task forward.
+- **Escalate to human:** The failure indicates a planning problem, not an execution problem — preconditions were wrong, the task was misscoped, or postconditions are unsatisfiable. No amount of retry helps. Kick to medium loop.
+
+The orchestrator derives the appropriate strategy from `touches` metadata: if the failed task's write set is disjoint from all downstream read sets, isolated retry is safe. If not, cascade or escalate. This is a mechanical decision, not a judgment call.
 
 ## 3. Architecture
 
@@ -164,6 +202,7 @@ The planner and orchestrator never run simultaneously. The planner session is a 
       <action>implement</action>
       <values>security, correctness, backwards-compatibility</values>
       <touches writes="auth" reads="api" />
+      <budget tokens="30000" minutes="10" />
     </task>
 
     <task id="2">
@@ -171,6 +210,7 @@ The planner and orchestrator never run simultaneously. The planner session is a 
       <action>test</action>
       <values>coverage, correctness</values>
       <touches writes="auth" reads="auth" />
+      <budget tokens="20000" minutes="8" />
     </task>
 
     <task id="3">
@@ -178,6 +218,7 @@ The planner and orchestrator never run simultaneously. The planner session is a 
       <action>document</action>
       <values>accuracy, completeness</values>
       <touches reads="auth, api" />
+      <budget tokens="10000" minutes="5" />
     </task>
   </tasks>
 </plan>
@@ -194,6 +235,8 @@ The planner and orchestrator never run simultaneously. The planner session is a 
 
 **Verification commands must be idempotent and exit-code-based.** Each `<verify>` element is a shell command that exits 0 on success and non-zero on failure. Tests are preferred over greps — `npm test --filter=auth` is a reliable postcondition; `grep -r "router\."` is fragile. The plan example above uses grep for illustration; real plans should prefer test suites, type checks, and assertion scripts.
 
+**Resource budgets are per-task.** Each task declares token and time limits that the orchestrator enforces during execution. Directed tasks get tighter budgets (the path is known). Contract tasks get more headroom (the agent must discover its own approach). The planner sets initial budgets based on task complexity; the orchestrator can adjust based on execution history from previous waves or sessions.
+
 ### 3.2.1 The Planner Agent
 
 The planner agent is a specialized agent whose domain is decomposing vague human intent into concrete, verifiable plans. It runs in a dedicated session — a conversation between human and planner — and produces `plan.xml` as its artifact.
@@ -204,9 +247,10 @@ The planner agent is a specialized agent whose domain is decomposing vague human
 2. **Clarify intent** — ask the human targeted questions to resolve ambiguity ("per-user or per-IP? what HTTP status on limit?")
 3. **Decompose** — break the feature into tasks scoped to individual components
 4. **Derive `touches`** — for each task, determine which components it reads from and writes to, cross-referencing the manifest's `depends_on` graph for consistency
-5. **Write contracts** — produce preconditions (what must be true before work starts), invariants (what must remain true throughout), and postconditions (what must be true when done) with concrete verification commands
-6. **Choose plan mode** — directed (explicit steps) for well-understood work, contract (postconditions only) for complex autonomous work
-7. **Output `plan.xml`** — the complete plan artifact
+5. **Set budgets** — assign token and time limits per task, scaled to complexity and plan mode
+6. **Write contracts** — produce preconditions (what must be true before work starts), invariants (what must remain true throughout), and postconditions (what must be true when done) with concrete verification commands
+7. **Choose plan mode** — directed (explicit steps) for well-understood work, contract (postconditions only) for complex autonomous work
+8. **Output `plan.xml`** — the complete plan artifact
 
 **`touches` validation is the planner's responsibility.** The entire concurrency model depends on correct read/write declarations. The planner derives `touches` from both the task description and the manifest's dependency graph. If a task on `web` needs to change behavior that flows through `auth`, that's a write to `auth`, not just `web` — even if the files being edited are in `web`'s directory. The planner must reason about behavioral dependencies, not just file locations.
 
@@ -254,43 +298,61 @@ project/
 
 **The human is the feature-level scheduler.** The human picks the next feature from the backlog, works with the planner agent to produce (or refine) a plan, moves it to `in-progress`, and kicks off an execution session. The orchestrator is the task-level scheduler within that feature. This division gives humans control over strategic sequencing while delegating both planning and execution to specialized agents.
 
-**`log.xml` is the orchestrator's execution record.** While `plan.xml` is immutable during execution, `log.xml` is the orchestrator's running output — the raw material for the medium loop. It records: which tasks were dispatched and in what order, which postconditions passed or failed, which docs were invalidated, which components were flagged as uncertain, and any orchestrator observations (e.g., "task 2 succeeded but the implementation diverged from the directed approach"). The log, diffed against the plan's expected outcomes, is what the human reviews between sessions.
+**`log.xml` is the orchestrator's execution record.** While `plan.xml` is immutable during execution, `log.xml` is the orchestrator's running output — the raw material for the medium loop. It records: which tasks were dispatched and in what order, which postconditions passed or failed, which docs were invalidated, which components were flagged as uncertain, orchestrator observations passed between waves, per-task resource consumption (tokens, time, tool invocations), and restart decisions with rationale. The log, diffed against the plan's expected outcomes, is what the human reviews between sessions.
 
 ### 3.4 The Orchestrator
 
-The orchestrator is Claude Code — specifically, a Claude Code session with Varp's MCP tools and skills loaded. It is both coordinator and manager: it maintains the accurate project model, translates architectural intent into concrete subagent prompts, and executes the plan's task graph.
+The orchestrator is Claude Code — specifically, a Claude Code session with Varp's MCP tools and skills loaded. It is both coordinator and process manager: it maintains the accurate project model, translates architectural intent into concrete subagent prompts, schedules and supervises task execution, enforces resource budgets, handles failures, and executes the plan's task graph.
 
 Varp does not implement its own orchestrator runtime. Claude Code already provides the agent loop, tool execution, subagent dispatch (Task tool), session management, hooks system, and context compaction. Varp adds manifest-awareness to this existing infrastructure through MCP tools that the orchestrator calls during its work cycle.
 
 **Enforced chain of thought:** The orchestrator follows a rigid protocol for each work cycle:
 
-1. **Select** — pick the next executable task(s) from the dependency graph
+1. **Select** — pick the next executable task(s) from the dependency graph, prioritizing critical path tasks (those that block the most downstream work)
 2. **Verify** — check preconditions and context freshness (via `varp_check_freshness`)
 3. **Load** — resolve component references via manifest, inject appropriate docs (via `varp_resolve_docs`)
-4. **Dispatch** — send task to subagent with assembled context (via Claude Code's Task tool)
-5. **Collect** — receive structured result
-6. **Review** — verify task output against postconditions and invariants
-7. **Update** — refresh documentation for modified components
-8. **Invalidate** — cascade changes to dependent contexts (via `varp_invalidation_cascade`)
-9. **Advance** — mark task complete, unblock dependent tasks
+4. **Budget** — set resource limits for the task based on plan budgets and execution history
+5. **Dispatch** — send task to subagent with assembled context and capability grants (via Claude Code's Task tool)
+6. **Monitor** — track resource consumption against budget; flag tasks approaching limits
+7. **Collect** — receive structured result (`COMPLETE|PARTIAL|BLOCKED|NEEDS_REPLAN`)
+8. **Verify capabilities** — confirm actual file changes match declared `touches` (via `varp_verify_capabilities`)
+9. **Review** — verify task output against postconditions and invariants
+10. **Handle failure** — if task failed, derive restart strategy from `touches` graph (isolated retry, cascade restart, or escalate)
+11. **Observe** — extract observations from completed tasks to enrich context for subsequent dispatches
+12. **Update** — refresh documentation for modified components
+13. **Invalidate** — cascade changes to dependent contexts (via `varp_invalidation_cascade`)
+14. **Advance** — mark task complete, unblock dependent tasks
+
+**Wave cancellation.** If a critical invariant fails during a wave (checked between task completions), the orchestrator signals all running subagents in the wave to stop. Graceful cancellation lets subagents finish their current atomic operation and return partial results. Hard cancellation abandons worktrees and discards everything. The orchestrator chooses based on invariant severity: `critical="true"` invariants trigger hard cancellation; others allow graceful wind-down.
+
+**Capability enforcement.** `touches` declarations are not just scheduling hints — they are capability grants. After a subagent completes, the orchestrator verifies that actual file modifications fall within the declared write set by checking the git diff against component path boundaries from the manifest. A subagent dispatched with `touches writes="auth"` that modified files in `web/`'s path has violated its capabilities. This is caught before merge, not after — the worktree is quarantined and the task either retried with corrected scope or escalated to replanning.
 
 **The orchestrator owns prompting knowledge.** It is given the prompting research and framework as T1 knowledge because effective prompt construction IS its domain expertise. It assembles subagent prompts by combining the task's action and values with the component's domain context and relevant documentation — applying the 3D model at dispatch time.
 
-**Subagents are simple functions.** They receive fully assembled context, perform a narrow transformation, and return a structured result. They don't load their own context, don't know about other agents, and don't manage state. Claude Code's session resumption enables "warm agents" — a subagent session can be resumed with full context preserved for follow-up work in the same component scope.
+**Subagents are processes with functional interfaces.** They are *defined* functionally — domain, values, action, context — but *execute* as processes with lifecycles, resource consumption, and structured exit states. They receive fully assembled context, perform a narrow transformation, and return a structured result. They don't load their own context, don't know about other agents, and don't manage state beyond their current session.
+
+"Warm agents" are resumed subagent sessions — when a later task operates on the same component scope, the orchestrator can resume the previous subagent's session rather than starting cold, preserving the subagent's accumulated context about that component. This is analogous to fork-and-COW: the new task starts with the previous subagent's component knowledge (shared pages), then diverges only where the new work requires it (copy-on-write). This is distinct from orchestrator session persistence: the orchestrator session lives across the whole plan, while subagent sessions are per-component and optionally resumed.
 
 ### 3.5 Delivery: Claude Code Plugin
 
 Varp is delivered as a Claude Code plugin, not a standalone CLI. The plugin provides three integration layers:
 
-**MCP tools (core logic):** Deterministic functions exposed as MCP tools that the orchestrator calls during its work cycle. These handle manifest parsing, doc resolution, hazard detection, wave computation, and invalidation cascading — the mechanical operations that should be code, not agent reasoning.
+**MCP tools (core logic):** Deterministic functions exposed as MCP tools that the orchestrator calls during its work cycle. These handle manifest parsing, doc resolution, hazard detection, wave computation, invalidation cascading, capability verification, and resource tracking — the mechanical operations that should be code, not agent reasoning.
 
-**Skills (workflow entry points):** Slash commands that trigger structured orchestrator workflows. `/varp-plan` initiates a planning session with the manifest loaded. `/varp-execute` runs the in-progress plan through the orchestrator protocol. `/varp-review` surfaces the medium loop decision surface. `/varp-status` reports project state and doc freshness.
+**Skills (workflow protocols):** Slash commands that load the appropriate protocol and context for each Varp workflow. Skills are reusable — they structure the agent's behavior for a session without persisting as permanent system prompts. When a skill is invoked, it loads its protocol; when the session ends, the protocol is unloaded. A normal Claude Code session has no Varp overhead.
 
-**Hooks (enforcement):** Lifecycle hooks that enforce Varp conventions during normal Claude Code usage. `SubagentStart` auto-injects relevant component docs based on the current task's `touches`. `PostToolUse` flags docs for refresh after file writes. `SessionStart` loads the manifest and displays project state.
+- `/varp-plan` loads the planner protocol (Section 3.2.1) and the manifest, turning the Claude Code session into a planning conversation. The skill IS the planner's T1 knowledge — it provides the decomposition methodology, the `touches` derivation rules, budget-setting guidelines, and the contract-writing protocol.
+- `/varp-execute` loads the orchestrator protocol (Section 3.4) and the active plan from `plans/in-progress/`, turning the session into an execution run. The skill provides the 14-step chain of thought, the dispatch rules, restart strategies, capability enforcement protocol, and the verification protocol. The manifest and plan together form the orchestrator's T1 knowledge for that session.
+- `/varp-review` surfaces the medium loop decision surface — the log.xml diffed against the plan's expected outcomes, with doc freshness status, invalidation flags, and execution metrics (resource consumption, failure rates, restart decisions).
+- `/varp-status` reports project state: component registry, doc freshness, plan lifecycle status, dependency graph health.
+
+The tiered knowledge architecture is implemented through skill loading, not through persistent configuration. Each skill loads exactly the T1 context its workflow needs. T2 knowledge (component docs) is loaded dynamically by MCP tools during execution, resolved from manifest references.
+
+**Hooks (enforcement):** Lifecycle hooks that enforce Varp conventions during active Varp sessions. `SubagentStart` auto-injects relevant component docs based on the orchestrator's resolved context for the current task. `PostToolUse` flags docs for refresh after file writes. `SessionStart` loads the manifest and displays project state when a Varp skill is invoked.
 
 **Why not a standalone CLI:** Claude Code already provides the REPL, tool execution, subagent dispatch, session management, streaming, permissions, and context compaction. Reimplementing these would be wasted effort. Varp's value is manifest-aware context management — the data structures and logic that make agent orchestration dependency-aware. Packaging this as a plugin delivers that value without duplicating infrastructure.
 
-**Prompt caching integration:** The Anthropic SDK's prompt caching (90% cost reduction on cache reads) maps naturally to Varp's tiered knowledge. T1 knowledge (manifest + principles) is cached at the system prompt level — stable across all dispatches. T2 knowledge (component docs) is cached per component scope — reused across tasks that share the same component context. Cache breakpoints are placed at tier boundaries: tools → system (T1) → component docs (T2) → task-specific context.
+**Prompt caching integration:** The Anthropic SDK's prompt caching (90% cost reduction on cache reads) maps naturally to Varp's tiered knowledge. T1 knowledge (manifest + skill protocol) is cached at the system prompt level — stable across all dispatches within a session. T2 knowledge (component docs) is cached per component scope — reused across tasks that share the same component context. Cache breakpoints are placed at tier boundaries: tools → system (T1) → component docs (T2) → task-specific context.
 
 ## 4. Concurrency Model
 
@@ -346,6 +408,8 @@ Therefore: **prevent conflicts at scheduling time (pessimistic), execute freely 
 
 The orchestrator analyzes the task graph's `touches` declarations, identifies RAW/WAR/WAW hazards, and groups tasks into execution waves where no two concurrent tasks write to the same component. Within a wave, each task runs in its own worktree without interference. Between waves, the orchestrator merges results, verifies invariants, and dispatches the next wave.
 
+**Critical path scheduling.** Not all tasks are equally urgent. Tasks on the critical path — those whose completion unblocks the most downstream work — are prioritized within each wave. The critical path is derivable from the dependency graph: it's the longest chain of RAW dependencies from any root task to any leaf task. The orchestrator computes this at plan load time and uses it to prioritize dispatch order when multiple tasks are eligible.
+
 This avoids the failure mode that led TiDB to abandon pure optimistic concurrency control: expensive rollbacks under contention. By preventing write-write conflicts structurally, the orchestrator never discovers a conflict after the expensive work is already done.
 
 ### 4.5 Verification as Serialization Check
@@ -362,11 +426,13 @@ Varp operates across three timescales:
 
 ### 5.1 Fast Loop (Within Session)
 
-The orchestrator's inner execution cycle: dispatch → collect → verify → update docs → advance to next task. Fully autonomous. The orchestrator makes all decisions within the bounds of its protocol and the plan's contracts.
+The orchestrator's inner execution cycle: select → verify → load → budget → dispatch → monitor → collect → verify capabilities → review → handle failure → observe → update → invalidate → advance. Fully autonomous within the bounds of the plan's contracts and the orchestrator's restart strategy. The orchestrator makes all decisions it can derive mechanically from `touches` and postconditions, and escalates everything else to the human.
 
 ### 5.2 Medium Loop (Across Sessions)
 
 Plan → execute → observe → replan. The human reviews the **manifest diff** between pre-execution and post-execution state: which tasks completed, which failed, which docs were invalidated, which interfaces broke, what the orchestrator flagged as uncertain.
+
+The execution metrics from `log.xml` inform the next cycle: tasks that consumed disproportionate resources suggest misscoped work, high restart rates on a component suggest inadequate interface documentation, capability violations suggest incorrect `touches` derivation by the planner. These signals feed back into planning — the planner can use execution history to set better budgets, write tighter `touches`, and decompose more carefully.
 
 This annotated diff is the decision surface. The human decides whether to proceed, replan, or intervene. The planner agent (a separate session, never running simultaneously with the orchestrator) produces or refines the next plan based on the current state, guided by the human's intent.
 
@@ -374,7 +440,7 @@ This annotated diff is the decision surface. The human decides whether to procee
 
 ### 5.3 Slow Loop (Over Time)
 
-The framework itself evolving. T1 principles update as patterns emerge across many execution cycles. The manifest grows as the project adds components. Plan templates improve as failure modes are discovered. The orchestrator's strategy becomes more sophisticated.
+The framework itself evolving. T1 principles update as patterns emerge across many execution cycles. The manifest grows as the project adds components. Plan templates improve as failure modes are discovered. The orchestrator's strategy becomes more sophisticated. Aggregate execution metrics across many plans reveal which components are expensive, which task types fail often, and where the documentation investment has the highest return.
 
 ## 6. Documentation as System State
 
@@ -394,27 +460,29 @@ Varp treats documentation as a first-class concern in the work cycle:
 
 The medium loop is underspecified. The manifest diff concept is clear in principle, but the concrete UX — what the human sees, what decisions they can make, how replanning integrates with the existing plan — needs design work. This is the most important open problem because the medium loop is where system value concentrates.
 
-### 7.2 Nondeterminism
-
-Database concurrency theory assumes deterministic transactions: same input, same output. Agent tasks are nondeterministic. This means silent retry is unsafe (the retry may produce a different result), validation carries more weight (postconditions are the only correctness guarantee), and the cost model for optimistic vs. pessimistic concurrency shifts (abort is more expensive, prevention is more valuable).
-
-The current design handles this through postcondition verification and human-in-the-loop conflict resolution. Whether this is sufficient or whether additional mechanisms are needed (confidence scoring, multi-attempt consensus, bounded retry with diff comparison) is an open question.
-
-### 7.3 Semantic Conflicts
+### 7.2 Semantic Conflicts
 
 Git detects structural merge conflicts (same lines changed). Two agents can make semantically incompatible changes to different files that git merges cleanly. The postcondition and invariant checks catch some of these, but they only test what was explicitly contracted. Uncontracted semantic conflicts — changes that are individually correct but collectively wrong in ways nobody anticipated — remain a gap.
 
-### 7.4 Decision Authority
+### 7.3 Decision Authority
 
-When does the orchestrator proceed autonomously vs. ask the human? A decision authority matrix that encodes escalation thresholds (confidence level, risk assessment, scope of change) should be a framework-level concept rather than per-plan configuration. The exact thresholds need empirical tuning through real usage.
+When does the orchestrator proceed autonomously vs. ask the human? The restart strategies (Section 2.4) handle failure cases mechanically, but gray areas remain: a task that completes with `PARTIAL` status, a postcondition that passes but with warnings, a capability violation that looks like a `touches` derivation error rather than agent misbehavior. A decision authority matrix that encodes escalation thresholds should be a framework-level concept. The exact thresholds need empirical tuning through real usage.
 
-### 7.5 `touches` Accuracy
+### 7.4 `touches` Accuracy
 
-The concurrency model is only as good as the `touches` declarations. If a task declares `reads: auth` but actually modifies auth's behavior through a shared utility or transitive dependency, the hazard detection misses it. The planner agent is responsible for deriving correct `touches`, and the orchestrator performs basic consistency checks — but undeclared dependencies can only be caught after the fact through postcondition failures. Whether additional static analysis (e.g., scanning file-level imports to infer component boundaries) can improve `touches` accuracy without adding brittleness is worth investigating.
+The concurrency model is only as good as the `touches` declarations. If a task declares `reads: auth` but actually modifies auth's behavior through a shared utility or transitive dependency, the hazard detection misses it. Capability verification (Section 3.4) catches *writes* to undeclared components after the fact, but undeclared *reads* — where a task depends on a component's behavior without declaring it — remain invisible until postcondition failures reveal the gap. Whether additional static analysis (e.g., scanning file-level imports to infer component boundaries) can improve `touches` accuracy without adding brittleness is worth investigating.
 
-### 7.6 Interface Completeness
+### 7.5 Interface Completeness
 
-The behavioral assumptions in interface docs are human-written because the important ones can't be mechanically extracted. But how do you know you've documented all the important assumptions? Missing interface assumptions are the most dangerous failure mode — the system has no way to verify what it doesn't know about. This is fundamentally unsolvable in general, but heuristics for surfacing likely-missing assumptions (e.g., components that interact frequently but have sparse interface docs) could help.
+The behavioral assumptions in interface docs are human-written because the important ones can't be mechanically extracted. But how do you know you've documented all the important assumptions? Missing interface assumptions are the most dangerous failure mode — the system has no way to verify what it doesn't know about. This is fundamentally unsolvable in general, but heuristics for surfacing likely-missing assumptions (e.g., components that interact frequently but have sparse interface docs, or high capability-violation rates on a component boundary) could help.
+
+### 7.6 Budget Calibration
+
+Initial resource budgets are set by the planner based on task complexity estimates, but these estimates may be systematically wrong — especially early in a project's lifecycle when there's no execution history. The orchestrator can adjust budgets based on observed consumption patterns, but the feedback loop between observed costs and planned budgets crosses the session boundary. How budget learning feeds from `log.xml` back into planning, and whether the planner should have access to aggregate execution metrics, needs design work.
+
+### 7.7 Warm Agent Staleness
+
+Resuming a subagent session preserves its accumulated context, but that context may be stale if other tasks have modified components in its scope since the session was suspended. The orchestrator checks doc freshness before dispatch, but a warm agent's *implicit* understanding (patterns it noticed, assumptions it formed) can't be freshness-checked. Whether warm agent resumption should be limited to cases where no intervening writes occurred, or whether a freshness summary injected at resumption is sufficient, is an open question.
 
 ## 8. Relationship to Existing Work
 
@@ -426,42 +494,49 @@ The behavioral assumptions in interface docs are human-written because the impor
 
 **CPU pipeline theory:** RAW/WAR/WAW hazard detection for task scheduling, register renaming via context snapshotting, speculative execution via parallel worktrees.
 
-**Orchestrator-worker patterns:** Two-layer constraint with centralized coordination and distributed execution. Well-established in both human organizations and distributed systems.
+**OS process management:** Resource limits (token/time budgets as cgroups), capability restrictions (`touches` as namespace boundaries), process accounting (structured execution metrics), wave cancellation (process group signals), fork-and-COW semantics (warm agent resumption).
+
+**Erlang/OTP supervision trees:** Two-layer constraint as flat supervision hierarchy. Restart strategies (isolated retry, cascade restart, escalate) derived mechanically from dependency metadata rather than configured per-worker. The supervisor (orchestrator) has a global view; workers (subagents) are isolated.
+
+**Orchestrator-worker patterns:** Centralized coordination with distributed execution. Well-established in both human organizations and distributed systems.
 
 ### 8.2 What's Novel
 
-**The 3D framework as a prompt construction model.** Domain/action/values as orthogonal dimensions of agent behavior, with context as the only dynamic input. The mapping to function preconditions, transformations, postconditions, and parameters.
+**The dual agent model.** Agents as processes with functional interfaces — defined by the 3D model (domain/action/values as function signature), executed with process semantics (lifecycle, resources, capabilities, failure handling). The functional layer governs definition and dispatch; the process layer governs execution and supervision.
 
 **Static vs. dynamic as the fundamental architectural principle.** The claim that most agent failures trace to confusing invariant knowledge with volatile context, and that the entire framework follows from rigorously maintaining this distinction.
+
+**`touches` as unified scheduling and capability mechanism.** Read/write declarations serving triple duty: concurrency hazard detection (scheduling), capability grants (enforcement), and restart strategy derivation (failure handling). One declaration, three enforcement layers.
 
 **Documentation lifecycle as a first-class concern.** Treating docs not as artifacts but as system state that must be maintained with the same rigor as code, with dependency-aware invalidation cascading through the component graph. The interface/internal distinction as the mechanism for automatic context resolution.
 
 **Planner-orchestrator session separation.** Planning and execution as distinct sessions communicating through plan artifacts, with the planner agent specializing in turning vague human intent into verifiable, actionable plans through clarifying dialogue.
 
-**The DBMS framing applied to software project management by AI agents.** The systematic mapping of manifest→schema, plan→transaction, orchestrator→transaction manager, git→MVCC, docs→materialized views, verification→constraint checking.
+**The DBMS framing applied to software project management by AI agents.** The systematic mapping of manifest→schema, plan→transaction, orchestrator→transaction manager, git→MVCC, docs→materialized views, verification→constraint checking — extended with process management semantics for the execution layer.
 
 ## 9. Implementation Path
 
 ### 9.1 Immediate Next Steps
 
-1. **Build the MCP server.** TypeScript MCP server exposing core functions: manifest parsing, doc resolution, wave computation, hazard detection, invalidation cascade, freshness checking, plan validation. Test against Varp's own `varp.yaml`.
+1. **Build the MCP server.** TypeScript MCP server exposing core functions: manifest parsing, doc resolution, wave computation, hazard detection, invalidation cascade, freshness checking, plan validation, capability verification, resource tracking. Test against Varp's own `varp.yaml`.
 
-2. **Write the skills.** `/varp-plan`, `/varp-execute`, `/varp-review`, `/varp-status` as Claude Code skills that invoke MCP tools and structure the orchestrator's workflow.
+2. **Write the skills.** `/varp-plan` and `/varp-execute` as Claude Code skills that load the planner and orchestrator protocols respectively. Each skill provides the T1 knowledge for its workflow — loaded on invocation, unloaded on session end.
 
-3. **Wire the hooks.** `SubagentStart` for automatic doc injection, `PostToolUse` for freshness tracking, `SessionStart` for manifest loading.
+3. **Wire the hooks.** `SubagentStart` for automatic doc injection (reading the orchestrator's resolved context, not re-deriving it), `PostToolUse` for freshness tracking, `SessionStart` for manifest loading when a Varp skill is active.
 
 4. **Plan one feature end-to-end.** Use `/varp-plan` to produce a plan, `/varp-execute` to run it, `/varp-review` to inspect results. Validate the full cycle on a real project.
 
 ### 9.2 Build Sequence
 
 1. **MCP server with manifest tools** — parse `varp.yaml`, resolve docs for tasks, compute invalidation cascades, check freshness
-2. **MCP server with scheduler tools** — compute waves from `touches`, detect hazards
-3. **MCP server with plan tools** — parse `plan.xml`, validate against manifest
-4. **Skills** — `/varp-plan`, `/varp-execute`, `/varp-review`, `/varp-status`
-5. **Hooks** — automatic doc injection, freshness tracking, session context
-6. **Plugin packaging** — bundle MCP server + skills + hooks as a Claude Code plugin
-7. **One end-to-end workflow** — full cycle on a real project
-8. **Git worktree integration** — parallel task execution with automated merge
+2. **MCP server with scheduler tools** — compute waves from `touches`, detect hazards, compute critical path
+3. **MCP server with plan tools** — parse `plan.xml`, validate against manifest, validate budgets
+4. **MCP server with enforcement tools** — capability verification (diff vs `touches`), resource tracking
+5. **Skills** — `/varp-plan`, `/varp-execute`, `/varp-review`, `/varp-status` as reusable workflow protocols
+6. **Hooks** — automatic doc injection, freshness tracking, session context
+7. **Plugin packaging** — bundle MCP server + skills + hooks as a Claude Code plugin
+8. **One end-to-end workflow** — full cycle on a real project
+9. **Git worktree integration** — parallel task execution with automated merge and capability verification
 
 ### 9.3 Technical Choices
 
@@ -471,7 +546,7 @@ The behavioral assumptions in interface docs are human-written because the impor
 
 **Structured outputs via Anthropic SDK.** Subagent results use JSON schema enforcement (`strict: true` on tool use) rather than hoping for well-formed XML. The `COMPLETE|PARTIAL|BLOCKED|NEEDS_REPLAN` discriminated union is enforced at the API level, not by convention.
 
-**Prompt caching for cost efficiency.** Cache T1 knowledge (manifest, principles) at the system prompt level. Cache T2 knowledge (component docs) per scope. Token counting before dispatch to stay within rate limits. Batch API (50% discount) for bulk postcondition verification.
+**Prompt caching for cost efficiency.** Cache T1 knowledge (manifest, skill protocol) at the system prompt level. Cache T2 knowledge (component docs) per scope. Token counting before dispatch to stay within rate limits. Batch API (50% discount) for bulk postcondition verification.
 
 ---
 

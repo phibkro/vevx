@@ -1,6 +1,6 @@
 # Core Interface
 
-Varp's MCP server. Exposes manifest operations, scheduling logic, plan validation, and doc freshness tracking as MCP tools that the orchestrator (Claude Code) calls during its work cycle.
+Varp's MCP server. Exposes manifest operations, scheduling logic, plan validation, capability enforcement, and doc freshness tracking as MCP tools that the orchestrator (Claude Code) calls during its work cycle.
 
 Consumed by: orchestrator (Claude Code session), skills, hooks.
 
@@ -38,7 +38,7 @@ Given a list of components whose interface docs changed, walks `depends_on` to r
 
 #### `varp_check_freshness`
 
-Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Used by `/varp-status` and by the orchestrator before dispatching tasks.
+Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Used by `/status` and by the orchestrator before dispatching tasks.
 
 **Parameters:** `{ manifest: Manifest }`
 
@@ -48,7 +48,7 @@ Returns freshness status for all component docs — last modified timestamps, st
 
 #### `varp_parse_plan`
 
-Reads and validates `plan.xml`. Returns typed plan with metadata, contracts (preconditions, invariants, postconditions with verify commands), and task graph with `touches` declarations. Returns error on schema violations.
+Reads and validates `plan.xml`. Returns typed plan with metadata, contracts (preconditions, invariants, postconditions with verify commands), task graph with `touches` declarations, and per-task resource budgets. Returns error on schema violations.
 
 **Parameters:** `{ path: string }`
 
@@ -60,6 +60,8 @@ Checks plan consistency against the manifest:
 - All components referenced in `touches` exist in the manifest
 - Write targets are reachable through `depends_on`
 - No tasks reference unknown components
+- Task IDs are unique
+- Budget values are positive
 
 **Parameters:** `{ plan: Plan, manifest: Manifest }`
 
@@ -71,7 +73,7 @@ Checks plan consistency against the manifest:
 
 Pure function. Takes tasks with `touches` declarations, detects data hazards (RAW/WAR/WAW), and groups tasks into execution waves where no two concurrent tasks write to the same component.
 
-Within each wave, tasks are safe to run in parallel. Waves execute sequentially.
+Within each wave, tasks are safe to run in parallel. Waves execute sequentially. Tasks on the critical path (longest RAW dependency chain) are ordered first within each wave.
 
 **Parameters:** `{ tasks: Task[] }`
 
@@ -84,29 +86,64 @@ Diagnostic function. Returns all detected data hazards between tasks:
 - `WAR` — anti-dependency (write after read), resolved by context snapshotting
 - `WAW` — output dependency (write after write), scheduling constraint or plan smell
 
-Used by the planner and `/varp-status` to surface potential issues before execution.
+Used by the planner and `/status` to surface potential issues before execution.
 
 **Parameters:** `{ tasks: Task[] }`
 
 **Returns:** `Hazard[]`
 
+#### `varp_compute_critical_path`
+
+Returns the longest chain of RAW dependencies from any root task to any leaf task. Used by the orchestrator to prioritize dispatch order when multiple tasks are eligible within a wave.
+
+**Parameters:** `{ tasks: Task[] }`
+
+**Returns:** `CriticalPath`
+
+### Enforcement
+
+#### `varp_verify_capabilities`
+
+After a subagent completes, verifies that actual file modifications fall within the declared `touches` write set. Checks git diff against component path boundaries from the manifest. Returns violations if the subagent modified files outside its declared scope.
+
+Used at orchestrator step 8 — before merge, not after.
+
+**Parameters:** `{ manifest: Manifest, touches: Touches, diff_paths: string[] }`
+
+**Returns:** `CapabilityReport`
+
+#### `varp_derive_restart_strategy`
+
+Given a failed task and the current execution state, derives the appropriate restart strategy from the `touches` dependency graph:
+- **Isolated retry** — failed task's write set is disjoint from all downstream read sets
+- **Cascade restart** — failed task's output is consumed by dispatched/completed downstream tasks
+- **Escalate** — failure indicates a planning problem, not an execution problem
+
+This is a mechanical decision derived from `touches`, not a judgment call.
+
+**Parameters:** `{ failed_task: Task, all_tasks: Task[], completed_task_ids: string[], dispatched_task_ids: string[] }`
+
+**Returns:** `RestartStrategy`
+
 ## Skills
 
-### `/varp-plan [feature-name]`
+Skill names omit the `varp-` prefix — the plugin's namespace (`/varp:`) provides the prefix automatically.
 
-Planning workflow. Loads the manifest, initiates a clarifying conversation with the human, and produces `plan.xml` in the appropriate backlog directory.
+### `/plan [feature-name]`
 
-### `/varp-execute`
+Planning workflow. Loads the planner protocol (design doc section 3.2.1) and the manifest, turning the session into a planning conversation. Clarifies intent, decomposes into tasks, derives `touches`, sets budgets, writes contracts, outputs `plan.xml`.
 
-Execution workflow. Loads the in-progress plan, computes waves via `varp_compute_waves`, walks the task graph dispatching subagents, writes `log.xml` as it progresses.
+### `/execute`
 
-### `/varp-review`
+Execution workflow. Loads the orchestrator protocol (design doc section 3.4) and the active plan from `plans/in-progress/`. Follows the 14-step chain of thought: select → verify → load → budget → dispatch → monitor → collect → verify capabilities → review → handle failure → observe → update → invalidate → advance. Writes `log.xml` as it progresses.
 
-Medium loop decision surface. Diffs the active plan's expected outcomes against `log.xml` — what completed, what failed, what was flagged uncertain, which docs were invalidated.
+### `/review`
 
-### `/varp-status`
+Medium loop decision surface. Diffs the active plan's expected outcomes against `log.xml` — what completed, what failed, what was flagged uncertain, which docs were invalidated. Includes execution metrics: per-task resource consumption, failure rates, restart decisions.
 
-Project state report. Shows active plan progress, component doc freshness, detected hazards, and any stale dependencies.
+### `/status`
+
+Project state report. Shows active plan progress, component doc freshness, detected hazards, critical path, and any stale dependencies.
 
 ## Hooks
 
@@ -143,6 +180,11 @@ interface Component {
 interface Touches {
   reads?: string[]
   writes?: string[]
+}
+
+interface Budget {
+  tokens: number
+  minutes: number
 }
 
 interface ResolvedDocs {
@@ -186,11 +228,12 @@ interface Task {
   action: string
   values: string[]
   touches: Touches
+  budget: Budget
 }
 
 interface Wave {
   id: number
-  tasks: Task[]
+  tasks: Task[]  // ordered by critical path priority
 }
 
 interface Hazard {
@@ -200,9 +243,40 @@ interface Hazard {
   component: string
 }
 
+interface CriticalPath {
+  tasks: Task[]      // ordered chain, longest RAW dependency path
+  total_budget: Budget
+}
+
+interface CapabilityReport {
+  valid: boolean
+  violations: {
+    path: string
+    declared_component: string | null  // null = outside any component
+    actual_component: string
+  }[]
+}
+
+interface RestartStrategy {
+  strategy: 'isolated_retry' | 'cascade_restart' | 'escalate'
+  reason: string
+  affected_tasks: string[]  // task IDs impacted by cascade, empty for isolated/escalate
+}
+
 interface ValidationResult {
   valid: boolean
   errors: string[]
   warnings: string[]
+}
+
+interface ExecutionMetrics {
+  task_id: string
+  tokens_used: number
+  minutes_elapsed: number
+  tools_invoked: number
+  files_modified: string[]
+  exit_status: 'COMPLETE' | 'PARTIAL' | 'BLOCKED' | 'NEEDS_REPLAN'
+  restart_count: number
+  capability_violations: number
 }
 ```
