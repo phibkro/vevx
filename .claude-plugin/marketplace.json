@@ -4,7 +4,7 @@
   "plugins": [
     {
       "name": "varp",
-      "source": ".",
+      "source": "./",
       "description": "Manifest-aware context management for agent orchestration",
       "version": "0.1.0"
     }
