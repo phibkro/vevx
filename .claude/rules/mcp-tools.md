@@ -8,11 +8,9 @@ paths:
 ## Adding a New Tool
 
 1. Write the pure function in the appropriate module (`manifest/`, `scheduler/`, `plan/`, `enforcement/`)
-2. Define Zod input schema (reuse from `types.ts` where possible)
-3. Register in `src/index.ts` via `server.tool(name, description, schema, handler)`
-4. Handler pattern: parse manifest internally, call pure function, return `{ content: [{ type: "text", text: JSON.stringify(result) }] }`
-5. Wrap in try/catch returning `{ isError: true }` on failure
-6. Add unit tests for the pure function + integration test in `src/index.test.ts`
+2. Add a `ToolDef` entry to the module's `tools.ts` (colocated with implementation)
+3. Handler returns a plain object — `registerTools()` wraps with JSON serialization + error handling
+4. Add unit tests for the pure function + integration test in `src/index.test.ts`
 
 ## Testing MCP Tools
 

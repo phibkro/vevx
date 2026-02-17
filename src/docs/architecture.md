@@ -6,7 +6,8 @@ Implementation details for the Varp MCP server. For the public API surface, see 
 
 ```
 src/
-  index.ts                    MCP server entry, 11 tool registrations
+  index.ts                    MCP server — tool definitions + server startup
+  tool-registry.ts            ToolDef type + registerTools() helper (JSON + error wrapping)
   types.ts                    Zod schemas -> TypeScript types (single source of truth)
   manifest/
     discovery.ts              Auto-discover README.md + docs/*.md for components
@@ -141,11 +142,12 @@ failed task --> deriveRestartStrategy() --> RestartStrategy
 
 ## MCP Server Wiring (`index.ts`)
 
-All 11 tools follow the same pattern:
-1. Parse `manifest_path` (default `./varp.yaml`) or other inputs via Zod
-2. Call the underlying pure function
-3. Return JSON as `{ content: [{ type: "text", text: JSON.stringify(result) }] }`
-4. Catch errors -> `{ isError: true }` with error message
+All 11 tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
+1. JSON serialization (`JSON.stringify(result, null, 2)`)
+2. Error handling (catch → `{ isError: true }`)
+3. MCP response formatting (`{ content: [{ type: "text", text }] }`)
+
+Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `TaskInputSchema`) are defined once and reused across tool definitions.
 
 Scheduler tools (`varp_compute_waves`, `varp_detect_hazards`, `varp_compute_critical_path`) accept inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 
