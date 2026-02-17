@@ -11,6 +11,8 @@ src/
   types.ts                    Zod schemas -> TypeScript types (single source of truth)
   manifest/
     discovery.ts              Auto-discover README.md + docs/*.md for components
+    ownership.ts              findOwningComponent() — longest-prefix match (shared by capabilities + links)
+    links.ts                  Markdown link scanner — extract, resolve, integrity + dep inference
     parser.ts                 Flat YAML -> Manifest (path resolution)
     resolver.ts               Touches x discovery -> doc paths with visibility
     freshness.ts              mtime comparison per component (uses discovery)
@@ -142,7 +144,7 @@ failed task --> deriveRestartStrategy() --> RestartStrategy
 
 ## MCP Server Wiring (`index.ts`)
 
-All 11 tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
+All 12 tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
 1. JSON serialization (`JSON.stringify(result, null, 2)`)
 2. Error handling (catch → `{ isError: true }`)
 3. MCP response formatting (`{ content: [{ type: "text", text }] }`)

@@ -13,6 +13,7 @@ import { parsePlanFile } from "./plan/parser.js";
 import { validatePlan } from "./plan/validator.js";
 import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
+import { scanLinks, type LinkScanMode } from "./manifest/links.js";
 import { registerTools, type ToolDef } from "./tool-registry.js";
 
 // ── Shared Schemas ──
@@ -124,6 +125,20 @@ const tools: ToolDef[] = [
     description: "Return the longest chain of RAW dependencies — the critical path for execution scheduling.",
     inputSchema: tasksInput,
     handler: async ({ tasks }) => computeCriticalPath(tasks),
+  },
+
+  // Link Scanner
+  {
+    name: "varp_scan_links",
+    description: "Scan component docs for markdown links. Infer cross-component dependencies, detect broken links, and compare against declared deps.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      mode: z.enum(["deps", "integrity", "all"]).describe("deps: infer dependencies from links. integrity: find broken links. all: both."),
+    },
+    handler: async ({ manifest_path, mode }) => {
+      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      return scanLinks(manifest, mode as LinkScanMode);
+    },
   },
 
   // Enforcement

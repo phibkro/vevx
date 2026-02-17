@@ -1,5 +1,5 @@
-import { resolve, relative } from "node:path";
 import type { Manifest, Touches, CapabilityReport, Violation } from "../types.js";
+import { findOwningComponent } from "../manifest/ownership.js";
 
 /**
  * Given modified file paths, check each falls within the declared write set's
@@ -13,27 +13,8 @@ export function verifyCapabilities(
   const violations: Violation[] = [];
   const writeComponents = new Set(touches.writes ?? []);
 
-  // Build a map of component paths for lookup, sorted by descending path length
-  // so longer (more specific) paths match first when components overlap
-  const componentPaths = Object.entries(manifest.components)
-    .map(([name, comp]) => ({
-      name,
-      path: resolve(comp.path),
-    }))
-    .sort((a, b) => b.path.length - a.path.length);
-
   for (const filePath of diffPaths) {
-    const absPath = resolve(filePath);
-
-    // Find which component this file belongs to
-    let actualComponent: string | null = null;
-    for (const { name, path } of componentPaths) {
-      const rel = relative(path, absPath);
-      if (!rel.startsWith("..") && !rel.startsWith("/")) {
-        actualComponent = name;
-        break;
-      }
-    }
+    const actualComponent = findOwningComponent(filePath, manifest);
 
     if (actualComponent === null) {
       // File is outside all components — may or may not be a violation

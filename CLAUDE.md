@@ -6,7 +6,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 | Command | Purpose |
 |---------|---------|
-| `bun test` | Run all tests (78 tests, 13 files) |
+| `bun test` | Run all tests (98 tests, 15 files) |
 | `bun run build` | TypeScript compile to `build/` |
 | `bun test src/index.test.ts` | MCP integration tests only |
 | `bun test src/scheduler/` | Scheduler tests only |
@@ -25,7 +25,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 `varp.yaml` is the source of truth for project structure. It defines components, their file paths, dependency graph, and doc locations.
 
 ```
-src/                    MCP server (11 tools)
+src/                    MCP server (12 tools)
   types.ts              Zod schemas -> TypeScript types
   manifest/             Manifest parsing, doc resolution, freshness, graph traversal
   scheduler/            Hazard detection, wave computation, critical path

@@ -1,0 +1,141 @@
+import { resolve, dirname } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import type { Manifest, BrokenLink, InferredDep, LinkScanResult } from "../types.js";
+import { discoverDocs } from "./discovery.js";
+import { findOwningComponent } from "./ownership.js";
+
+export type LinkScanMode = "deps" | "integrity" | "all";
+
+interface RawLink {
+  text: string;
+  target: string;
+}
+
+/**
+ * Extract relative markdown links from content.
+ * Filters out http(s):// URLs and #-only anchors.
+ */
+export function extractMarkdownLinks(content: string): RawLink[] {
+  const regex = /\[([^\]]*)\]\(([^)]+)\)/g;
+  const links: RawLink[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(content)) !== null) {
+    const target = match[2];
+    // Skip external URLs and fragment-only links
+    if (/^https?:\/\//.test(target) || target.startsWith("#")) {
+      continue;
+    }
+    links.push({ text: match[1], target });
+  }
+
+  return links;
+}
+
+/**
+ * Resolve a relative link target to an absolute path.
+ * Strips #anchor fragments before resolving.
+ */
+export function resolveLink(target: string, sourceDocPath: string): string {
+  const withoutAnchor = target.replace(/#.*$/, "");
+  return resolve(dirname(sourceDocPath), withoutAnchor);
+}
+
+/**
+ * Scan all component docs for markdown links.
+ * - "deps" mode: infer cross-component dependencies from links, compare against declared deps
+ * - "integrity" mode: check for broken links (files that don't exist)
+ * - "all" mode: both
+ */
+export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResult {
+  const brokenLinks: BrokenLink[] = [];
+  // Map: "from->to" => evidence array
+  const inferredDepsMap = new Map<string, { from: string; to: string; evidence: { source_doc: string; link_target: string }[] }>();
+  let totalLinksScanned = 0;
+  let totalDocsScanned = 0;
+
+  const checkIntegrity = mode === "integrity" || mode === "all";
+  const checkDeps = mode === "deps" || mode === "all";
+
+  for (const [compName, comp] of Object.entries(manifest.components)) {
+    const docPaths = discoverDocs(comp);
+
+    for (const docPath of docPaths) {
+      if (!existsSync(docPath)) continue;
+
+      let content: string;
+      try {
+        content = readFileSync(docPath, "utf-8");
+      } catch {
+        continue;
+      }
+
+      totalDocsScanned++;
+      const links = extractMarkdownLinks(content);
+
+      for (const link of links) {
+        totalLinksScanned++;
+        const resolved = resolveLink(link.target, docPath);
+
+        // Integrity check
+        if (checkIntegrity && !existsSync(resolved)) {
+          brokenLinks.push({
+            source_doc: docPath,
+            source_component: compName,
+            link_text: link.text,
+            link_target: link.target,
+            resolved_path: resolved,
+            reason: "file not found",
+          });
+        }
+
+        // Dependency inference
+        if (checkDeps) {
+          const targetOwner = findOwningComponent(resolved, manifest);
+          if (targetOwner !== null && targetOwner !== compName) {
+            const key = `${compName}->${targetOwner}`;
+            const existing = inferredDepsMap.get(key);
+            if (existing) {
+              existing.evidence.push({ source_doc: docPath, link_target: link.target });
+            } else {
+              inferredDepsMap.set(key, {
+                from: compName,
+                to: targetOwner,
+                evidence: [{ source_doc: docPath, link_target: link.target }],
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const inferredDeps: InferredDep[] = Array.from(inferredDepsMap.values());
+
+  // Compare inferred deps against declared deps
+  const declaredDepsSet = new Set<string>();
+  for (const [compName, comp] of Object.entries(manifest.components)) {
+    for (const dep of comp.deps ?? []) {
+      declaredDepsSet.add(`${compName}->${dep}`);
+    }
+  }
+
+  const inferredKeys = new Set(inferredDepsMap.keys());
+  const missingDeps = inferredDeps.filter((d) => !declaredDepsSet.has(`${d.from}->${d.to}`));
+  const extraDeps: { from: string; to: string }[] = [];
+  for (const declared of declaredDepsSet) {
+    if (!inferredKeys.has(declared)) {
+      const [from, to] = declared.split("->");
+      extraDeps.push({ from, to });
+    }
+  }
+
+  return {
+    inferred_deps: inferredDeps,
+    missing_deps: missingDeps,
+    extra_deps: extraDeps,
+    broken_links: brokenLinks,
+    total_links_scanned: totalLinksScanned,
+    total_docs_scanned: totalDocsScanned,
+  };
+}

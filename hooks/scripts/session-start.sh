@@ -90,6 +90,66 @@ if [ ${#stale_docs[@]} -gt 0 ]; then
   echo "Stale docs: ${stale_list}"
 fi
 
+# Check for broken markdown links in component docs
+broken_links=()
+current_comp=""
+current_path=""
+while IFS= read -r line; do
+  # Top-level key
+  if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
+    key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    if [ "$key" != "varp" ]; then
+      current_comp="$key"
+      current_path=""
+    fi
+    continue
+  fi
+  # Component path
+  if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  path:'; then
+    current_path=$(echo "$line" | sed 's/^  path:[[:space:]]*//')
+  fi
+done < "$MANIFEST"
+
+# For each component, scan README.md and docs/*.md for broken relative links
+for comp_entry in $(grep -E '^[a-zA-Z_][a-zA-Z0-9_-]*:' "$MANIFEST" | sed 's/:.*//'); do
+  [ "$comp_entry" = "varp" ] && continue
+  comp_path=$(awk "/^${comp_entry}:/{found=1; next} found && /^  path:/{print \$2; exit}" "$MANIFEST")
+  [ -z "$comp_path" ] && continue
+
+  # Collect doc files: README.md and docs/*.md
+  doc_files=()
+  [ -f "${comp_path}/README.md" ] && doc_files+=("${comp_path}/README.md")
+  if [ -d "${comp_path}/docs" ]; then
+    for f in "${comp_path}/docs/"*.md; do
+      [ -f "$f" ] && doc_files+=("$f")
+    done
+  fi
+
+  for doc_file in "${doc_files[@]}"; do
+    # Extract relative markdown links (skip http and fragment-only)
+    while IFS= read -r link_target; do
+      [ -z "$link_target" ] && continue
+      # Strip #anchor
+      clean_target=$(echo "$link_target" | sed 's/#.*//')
+      [ -z "$clean_target" ] && continue
+      # Resolve relative to doc's directory
+      doc_dir=$(dirname "$doc_file")
+      resolved="${doc_dir}/${clean_target}"
+      if [ ! -e "$resolved" ]; then
+        doc_basename=$(basename "$doc_file")
+        broken_links+=("${comp_entry}/${doc_basename}→${link_target}")
+      fi
+    done < <(grep -oE '\[[^]]*\]\([^)]+\)' "$doc_file" 2>/dev/null | sed 's/.*](\(.*\))/\1/' | grep -v '^https\?://' | grep -v '^#')
+  done
+done
+
+if [ ${#broken_links[@]} -gt 0 ]; then
+  echo "Broken links: ${#broken_links[@]} found"
+  for bl in "${broken_links[@]}"; do
+    echo "  - ${bl}"
+  done
+fi
+
 # Check for active plans
 if [ -d "plans/in-progress" ]; then
   active_plans=()

@@ -84,7 +84,7 @@ describe("MCP server integration", () => {
     try { require("fs").unlinkSync(TEST_PLAN_PATH); } catch {}
   });
 
-  test("lists all 11 tools", async () => {
+  test("lists all 12 tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -97,6 +97,7 @@ describe("MCP server integration", () => {
       "varp_parse_plan",
       "varp_read_manifest",
       "varp_resolve_docs",
+      "varp_scan_links",
       "varp_validate_plan",
       "varp_verify_capabilities",
     ]);
@@ -296,5 +297,44 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data.strategy).toBe("escalate");
+  });
+
+  // ── Link Scanner ──
+
+  const LINK_SCAN_MANIFEST = join(import.meta.dir, "..", "test-fixtures", "link-scan", "varp.yaml");
+
+  test("varp_scan_links with mode=all returns broken links and inferred deps", async () => {
+    const result = await client.callTool({
+      name: "varp_scan_links",
+      arguments: { manifest_path: LINK_SCAN_MANIFEST, mode: "all" },
+    });
+    const data = parseResult(result);
+    expect(data.total_docs_scanned).toBeGreaterThan(0);
+    expect(data.total_links_scanned).toBeGreaterThan(0);
+    expect(data.broken_links.length).toBeGreaterThan(0);
+    expect(data.inferred_deps.length).toBeGreaterThan(0);
+  });
+
+  test("varp_scan_links with mode=integrity returns broken links only", async () => {
+    const result = await client.callTool({
+      name: "varp_scan_links",
+      arguments: { manifest_path: LINK_SCAN_MANIFEST, mode: "integrity" },
+    });
+    const data = parseResult(result);
+    expect(data.broken_links.length).toBeGreaterThan(0);
+    // In integrity mode, deps are still returned (empty) but not actively checked
+    expect(data.total_links_scanned).toBeGreaterThan(0);
+  });
+
+  test("varp_scan_links with mode=deps returns dependency analysis", async () => {
+    const result = await client.callTool({
+      name: "varp_scan_links",
+      arguments: { manifest_path: LINK_SCAN_MANIFEST, mode: "deps" },
+    });
+    const data = parseResult(result);
+    expect(data.inferred_deps.length).toBeGreaterThan(0);
+    // auth links to api but doesn't declare dep → should be in missing_deps
+    const missingAuthToApi = data.missing_deps.find((d: any) => d.from === "auth" && d.to === "api");
+    expect(missingAuthToApi).toBeDefined();
   });
 });

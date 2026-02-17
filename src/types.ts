@@ -162,6 +162,41 @@ export type Violation = z.infer<typeof ViolationSchema>;
 export type CapabilityReport = z.infer<typeof CapabilityReportSchema>;
 export type RestartStrategy = z.infer<typeof RestartStrategySchema>;
 
+// ── Link Scanner ──
+
+export const BrokenLinkSchema = z.object({
+  source_doc: z.string(),
+  source_component: z.string(),
+  link_text: z.string(),
+  link_target: z.string(),
+  resolved_path: z.string(),
+  reason: z.string(),
+});
+
+export const InferredDepSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  evidence: z.array(
+    z.object({
+      source_doc: z.string(),
+      link_target: z.string(),
+    }),
+  ),
+});
+
+export const LinkScanResultSchema = z.object({
+  inferred_deps: z.array(InferredDepSchema),
+  missing_deps: z.array(InferredDepSchema),
+  extra_deps: z.array(z.object({ from: z.string(), to: z.string() })),
+  broken_links: z.array(BrokenLinkSchema),
+  total_links_scanned: z.number(),
+  total_docs_scanned: z.number(),
+});
+
+export type BrokenLink = z.infer<typeof BrokenLinkSchema>;
+export type InferredDep = z.infer<typeof InferredDepSchema>;
+export type LinkScanResult = z.infer<typeof LinkScanResultSchema>;
+
 // ── Validation ──
 
 export const ValidationResultSchema = z.object({
