@@ -116,6 +116,26 @@ If violations found (files modified outside declared write set):
 
 Capability violations are always errors.
 
+### Step 7b: Advisory Scope Check [if monorepo tool available]
+
+If the project has Nx, Turborepo, or moon installed, cross-check the task's actual impact against its declared `touches` using the tool's affected analysis. This is advisory — log discrepancies as warnings, don't block execution.
+
+**Nx:**
+```bash
+nx show projects --affected --files=<comma-separated modified files> --json
+```
+
+**Turborepo:**
+```bash
+turbo query '{ affectedPackages(base: "HEAD~1", head: "HEAD") { items { name reason { __typename } } } }'
+```
+
+Compare the affected set against the task's declared `touches`. If a project appears as affected but isn't in the task's read or write set, log an advisory warning: "Component X was structurally affected but not declared in touches — consider adding it as a read dependency."
+
+This catches undeclared read dependencies that `varp_verify_capabilities` cannot detect (it only checks writes). Structural impact != behavioral impact, so these are signals for the planner to review, not hard errors.
+
+Skip this step if no monorepo tool is available.
+
 ### Step 8: Verify Invariants [at wave boundaries]
 
 **When to run:** After all tasks in the current wave complete (not between individual tasks within a wave). In single-scope mode, this runs after each task since each task is its own "wave."
