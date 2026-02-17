@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { resolve, dirname, relative, isAbsolute } from "node:path";
 
-import { parse as parseYaml } from "yaml";
+const parseYaml = Bun.YAML.parse;
 
 import { ComponentSchema, type Manifest } from "../types.js";
 
