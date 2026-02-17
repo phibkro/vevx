@@ -163,6 +163,5 @@ export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResul
   }
 
   const result = analyzeLinks(docs, manifest, mode, existsSync);
-  result.missing_docs = missingDocs;
-  return result;
+  return { ...result, missing_docs: missingDocs };
 }

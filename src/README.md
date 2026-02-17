@@ -136,7 +136,7 @@ Planning workflow. Loads the planner protocol (design doc section 3.2.1) and the
 
 ### `/execute`
 
-Execution workflow. Loads the orchestrator protocol (design doc section 3.4) and the active plan from `plans/in-progress/`. Follows the 14-step chain of thought: select, verify, load, budget, dispatch, monitor, collect, verify capabilities, review, handle failure, observe, update, invalidate, advance. Writes `log.xml` as it progresses.
+Execution workflow. Loads the orchestrator protocol and the active plan from `~/.claude/projects/<project>/memory/plans/`. Follows a 10-step chain of thought: select, verify preconditions, resolve context, dispatch, collect, verify capabilities, verify invariants, handle failure, invalidate, advance. Writes `log.xml` as it progresses.
 
 ### `/review`
 

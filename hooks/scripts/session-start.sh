@@ -150,18 +150,21 @@ if [ ${#broken_links[@]} -gt 0 ]; then
   done
 fi
 
-# Check for active plans
-if [ -d "plans/in-progress" ]; then
+# Check for active plans in Claude Code project memory
+# Convention: ~/.claude/projects/-<pwd-with-slashes-replaced>}/memory/plans/
+project_key=$(echo "$PWD" | sed 's|/|-|g')
+plans_dir="$HOME/.claude/projects/${project_key}/memory/plans"
+if [ -d "$plans_dir" ]; then
   active_plans=()
-  for plan_dir in plans/in-progress/*/; do
-    if [ -d "$plan_dir" ]; then
+  for plan_dir in "$plans_dir"/*/; do
+    if [ -d "$plan_dir" ] && [ -f "${plan_dir}plan.xml" ]; then
       plan_name=$(basename "$plan_dir")
       active_plans+=("$plan_name")
     fi
   done
   if [ ${#active_plans[@]} -gt 0 ]; then
     for plan in "${active_plans[@]}"; do
-      echo "Active plan: ${plan} (plans/in-progress/${plan}/)"
+      echo "Active plan: ${plan}"
     done
   fi
 fi
