@@ -8,9 +8,10 @@ paths:
 ## Adding a New Tool
 
 1. Write the pure function in the appropriate module (`manifest/`, `scheduler/`, `plan/`, `enforcement/`)
-2. Add a `ToolDef` entry to the module's `tools.ts` (colocated with implementation)
-3. Handler returns a plain object — `registerTools()` wraps with JSON serialization + error handling
+2. Add Zod schemas to `src/types.ts` for any new return types
+3. Add a `ToolDef` entry to `src/index.ts` — handler returns a plain object, `registerTools()` wraps with JSON serialization + error handling
 4. Add unit tests for the pure function + integration test in `src/index.test.ts`
+5. Update `src/README.md` with tool documentation and any new types
 
 ## Testing MCP Tools
 
