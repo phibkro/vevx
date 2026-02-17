@@ -159,6 +159,10 @@ This is a mechanical decision derived from `touches`, not a judgment call.
 
 Skill names omit the `varp-` prefix — the plugin's namespace (`/varp:`) provides the prefix automatically.
 
+### `/init`
+
+Project bootstrapping. Scans an existing codebase to scaffold `varp.yaml`. Tries three strategies in priority order: import from monorepo tool graph (Nx, Turborepo, moon), parse workspace config files (pnpm, npm, tsconfig), or fall back to filesystem scanning. Infers component dependencies from imports, discovers existing docs, and validates the generated manifest.
+
 ### `/plan [feature-name]`
 
 Planning workflow. Loads the planner protocol (design doc section 3.2.1) and the manifest, turning the session into a planning conversation. Clarifies intent, decomposes into tasks, derives `touches`, sets budgets, writes contracts, outputs `plan.xml`.

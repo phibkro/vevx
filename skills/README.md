@@ -10,6 +10,14 @@ Five prompt-based skills for the varp orchestration lifecycle.
 | `/varp:review` | Wave or plan completion | Diff expected vs actual, surface decisions |
 | `/varp:status` | Anytime | Snapshot of components, freshness, active plans |
 
+## Monorepo Tool Integration
+
+When Nx, Turborepo, or moon is detected, skills leverage their graph data:
+
+- **init** imports the existing dependency graph instead of re-inferring it
+- **plan** suggests dependency-aware test runners (`turbo run test --filter=...`, `nx affected --target=test`) for verification commands
+- **execute** cross-checks task impact against declared `touches` using `nx affected` or `turbo query` (advisory, not blocking)
+
 ## Conventions
 
 - Each skill is a `SKILL.md` file with YAML frontmatter (`name` + `description`)

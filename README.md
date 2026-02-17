@@ -29,6 +29,7 @@ bun test
 2. Install the plugin: `claude plugin add /path/to/varp`
 3. Start a session — the `SessionStart` hook shows project state automatically
 4. Use skills:
+   - `/varp:init` — scaffold `varp.yaml` from project structure (supports Nx, Turborepo, moon)
    - `/varp:status` — project state report
    - `/varp:plan` — decompose a feature into a verifiable plan
    - `/varp:execute` — run a plan with capability enforcement
@@ -40,10 +41,10 @@ bun test
 varp.yaml                Source of truth for project structure
   |
   v
-MCP Server (12 tools)    Deterministic logic: parsing, scheduling, enforcement
+MCP Server (17 tools)    Deterministic logic: parsing, scheduling, enforcement
   |
   v
-Skills (4)               Workflow protocols: plan, execute, review, status
+Skills (5)               Workflow protocols: init, plan, execute, review, status
   |
   v
 Hooks (3)                Lifecycle: session context, subagent injection, freshness tracking
@@ -71,4 +72,4 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 - **MCP SDK**: `@modelcontextprotocol/sdk`
 - **Validation**: Zod (schema-first types)
 - **XML**: fast-xml-parser
-- **YAML**: yaml
+- **YAML**: Bun.YAML (built-in)
