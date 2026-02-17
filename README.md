@@ -10,30 +10,122 @@ Varp manages the gap between what agents know and what's actually true. It track
 - **Plans** (`plan.xml`) — declare tasks with read/write scopes, verified by contracts
 - **Orchestrator** — schedules tasks into parallel waves, enforces capability boundaries, handles failures
 
-## Quick Start
+## Install
+
+**Prerequisites:** [Bun](https://bun.sh), [Claude Code](https://claude.ai/claude-code) with plugin support.
 
 ```bash
-# Install dependencies
-bun install
-
-# Build the MCP server
-bun run build
-
-# Run tests
-bun test
+# From the marketplace
+/plugin marketplace add phibkro/varp
 ```
 
-### Using as a Claude Code Plugin
+Or install from source:
 
-1. Add a `varp.yaml` to your project root (see [Manifest Schema](src/manifest/README.md))
-2. Install the plugin: `claude plugin add /path/to/varp`
-3. Start a session — the `SessionStart` hook shows project state automatically
-4. Use skills:
-   - `/varp:init` — scaffold `varp.yaml` from project structure (supports Nx, Turborepo, moon)
-   - `/varp:status` — project state report
-   - `/varp:plan` — decompose a feature into a verifiable plan
-   - `/varp:execute` — run a plan with capability enforcement
-   - `/varp:review` — review execution results and decide next steps
+```bash
+git clone <repo-url> varp && cd varp
+bun install && bun run build
+claude plugin add /path/to/varp
+```
+
+## Setup
+
+### 1. Create a Manifest
+
+Create `varp.yaml` at your project root — or let Varp scaffold it:
+
+```
+/varp:init
+```
+
+The init skill scans your project structure, infers components and dependencies (with Nx, Turborepo, or moon graph import when available), and generates the manifest for your review.
+
+Or write one manually:
+
+```yaml
+varp: 0.1.0
+
+auth:
+  path: ./src/auth
+  tags: [security]
+  stability: stable
+
+api:
+  path: ./src/api
+  deps: [auth]
+  env: [DATABASE_URL]
+  test: "bun test src/api --timeout 5000"
+
+web:
+  path: ./src/web
+  deps: [auth, api]
+```
+
+Only `path` is required. See [Manifest Schema](src/manifest/README.md) for the full field reference.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | string | yes | Component source directory |
+| `deps` | string[] | no | Components this one depends on |
+| `docs` | string[] | no | Doc paths outside the component's directory |
+| `tags` | string[] | no | Freeform labels for filtering and grouping |
+| `test` | string | no | Custom test command (overrides `*.test.ts` discovery) |
+| `env` | string[] | no | Required environment variables (informational) |
+| `stability` | enum | no | `stable`, `active`, or `experimental` |
+
+### 2. Write Component Docs
+
+Each component uses the README.md convention for doc visibility:
+
+- **`{path}/README.md`** — Public. Loaded when tasks read from or write to the component. Auto-discovered.
+- **`{path}/docs/*.md`** — Private. Loaded only when tasks write to the component. Auto-discovered.
+- **`docs:` field** — Only needed for docs outside the component's path tree.
+
+Start minimal — even a few sentences per doc is useful.
+
+### 3. Verify
+
+Start a Claude Code session. You should see:
+
+```
+Varp project: v0.1.0
+Components: auth, api, web (3)
+```
+
+Run `/varp:status` for the full project state report.
+
+## Workflow
+
+### Plan
+
+```
+/varp:plan add rate limiting to auth endpoints
+```
+
+The planner loads your manifest, asks clarifying questions, decomposes the feature into tasks with read/write scopes (`touches`), sets resource budgets, writes contracts (preconditions, invariants, postconditions), and outputs `plan.xml`.
+
+### Execute
+
+```
+/varp:execute
+```
+
+The orchestrator computes execution waves from task dependencies, dispatches tasks to subagents with capability constraints, verifies file changes stay within declared scope, runs postconditions, handles failures with restart strategies derived from the dependency graph, and writes execution metrics to `log.xml`.
+
+### Review
+
+```
+/varp:review
+```
+
+Diffs plan expectations against actual results — which tasks completed, failed, or were skipped; per-task resource consumption vs budget; capability violations; doc freshness; and recommended next action.
+
+### Status
+
+```
+/varp:status
+```
+
+Project state at any time — component registry, doc freshness, active plan progress, data hazards, and critical path.
 
 ## Architecture
 
@@ -50,27 +142,33 @@ Skills (5)               Workflow protocols: init, plan, execute, review, status
 Hooks (3)                Lifecycle: session context, subagent injection, freshness tracking
 ```
 
-The MCP server exposes pure functions. Skills structure agent behavior by loading protocols. Hooks enforce conventions at lifecycle boundaries. See [Design Principles](docs/design-principles.md) for the full rationale.
+The MCP server exposes pure functions. Skills structure agent behavior by loading protocols. Hooks enforce conventions at lifecycle boundaries.
 
-## Documentation
+## Design Docs
 
 | Doc | Purpose |
 |-----|---------|
 | [Design Principles](docs/design-principles.md) | Problem, core principles, agent model |
 | [Architecture](docs/design-architecture.md) | Manifest, plans, orchestrator, concurrency |
-| [Design Notes](docs/design-notes.md) | Feedback loops, open questions, proposed extensions |
+| [Design Notes](docs/design-notes.md) | Feedback loops, open questions, extensions |
 | [Implementation Status](docs/implementation-status.md) | What's built, what changed, what's deferred |
-| [Getting Started](docs/getting-started.md) | Installation, setup, first workflow |
-| [Manifest Schema](src/manifest/README.md) | `varp.yaml` reference |
-| [Plan Schema](src/plan/README.md) | `plan.xml` reference |
-| [API Surface](src/README.md) | MCP tool API |
-| [Architecture (Internal)](src/docs/architecture.md) | Algorithms and data flow |
 
-## Stack
+## Developer Reference
 
-- **Runtime**: Bun
-- **Language**: TypeScript (ES2022)
-- **MCP SDK**: `@modelcontextprotocol/sdk`
-- **Validation**: Zod (schema-first types)
-- **XML**: fast-xml-parser
-- **YAML**: Bun.YAML (built-in)
+| Doc | Purpose |
+|-----|---------|
+| [Manifest Schema](src/manifest/README.md) | `varp.yaml` format reference |
+| [Plan Schema](src/plan/README.md) | `plan.xml` format reference |
+| [MCP Tool API](src/README.md) | Tool signatures and types |
+| [Internal Architecture](src/docs/architecture.md) | Algorithms and data flow |
+
+## Development
+
+```bash
+bun test              # 179 tests across 20 files
+bun run check         # format + lint + shellcheck + build
+bun run build         # bundle to build/
+bun run typecheck     # tsc --noEmit (not in CI gate)
+```
+
+**Stack:** Bun, TypeScript (ES2022, ESM only), Zod, MCP SDK, fast-xml-parser.
