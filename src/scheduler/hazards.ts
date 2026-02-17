@@ -1,12 +1,14 @@
 import type { Task, Hazard } from "../types.js";
 
+type TaskRef = Pick<Task, "id" | "touches">;
+
 /**
  * Pairwise hazard detection — O(n^2) over tasks, O(k) per pair over shared components.
  * For each unique pair (i, j), checks all components in their combined touch sets
  * for RAW (true dependency), WAW (output conflict), and WAR (anti-dependency).
  * WAR is suppressed when the reader also writes (already captured by WAW + RAW).
  */
-export function detectHazards(tasks: Task[]): Hazard[] {
+export function detectHazards(tasks: TaskRef[]): Hazard[] {
   const hazards: Hazard[] = [];
 
   for (let i = 0; i < tasks.length; i++) {

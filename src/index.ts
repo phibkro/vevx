@@ -27,23 +27,30 @@ import { registerTools, type ToolDef } from "./tool-registry.js";
 
 const manifestPath = z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)");
 
-const TaskInputSchema = {
+const touchesSchema = z.object({
+  reads: z.array(z.string()).optional(),
+  writes: z.array(z.string()).optional(),
+});
+
+const budgetSchema = z.object({
+  tokens: z.number().positive(),
+  minutes: z.number().positive(),
+});
+
+const taskRefSchema = z.object({ id: z.string(), touches: touchesSchema });
+
+const schedulableTaskSchema = z.object({
   id: z.string(),
-  description: z.string(),
-  action: z.string(),
-  values: z.array(z.string()),
-  touches: z.object({
-    reads: z.array(z.string()).optional(),
-    writes: z.array(z.string()).optional(),
-  }),
-  budget: z.object({
-    tokens: z.number().positive(),
-    minutes: z.number().positive(),
-  }),
+  touches: touchesSchema,
+  budget: budgetSchema,
+});
+
+const hazardTasksInput = {
+  tasks: z.array(taskRefSchema).describe("Tasks with touches declarations"),
 };
 
-const tasksInput = {
-  tasks: z.array(z.object(TaskInputSchema)).describe("Tasks with touches declarations"),
+const schedulerTasksInput = {
+  tasks: z.array(schedulableTaskSchema).describe("Tasks with touches declarations"),
 };
 
 // ── Tool Definitions ──
@@ -133,20 +140,20 @@ const tools: ToolDef[] = [
     name: "varp_compute_waves",
     description:
       "Group tasks into execution waves based on data dependencies. Tasks within a wave are safe to run in parallel.",
-    inputSchema: tasksInput,
+    inputSchema: schedulerTasksInput,
     handler: async ({ tasks }) => computeWaves(tasks),
   },
   {
     name: "varp_detect_hazards",
     description: "Return all data hazards (RAW/WAR/WAW) between tasks.",
-    inputSchema: tasksInput,
+    inputSchema: hazardTasksInput,
     handler: async ({ tasks }) => detectHazards(tasks),
   },
   {
     name: "varp_compute_critical_path",
     description:
       "Return the longest chain of RAW dependencies — the critical path for execution scheduling.",
-    inputSchema: tasksInput,
+    inputSchema: schedulerTasksInput,
     handler: async ({ tasks }) => computeCriticalPath(tasks),
   },
 
@@ -216,8 +223,8 @@ const tools: ToolDef[] = [
     description:
       "Given a failed task and execution state, derive restart strategy: isolated_retry, cascade_restart, or escalate.",
     inputSchema: {
-      failed_task: z.object(TaskInputSchema).describe("The task that failed"),
-      all_tasks: z.array(z.object(TaskInputSchema)).describe("All tasks in the plan"),
+      failed_task: taskRefSchema.describe("The task that failed"),
+      all_tasks: z.array(taskRefSchema).describe("All tasks in the plan"),
       completed_task_ids: z.array(z.string()).describe("IDs of completed tasks"),
       dispatched_task_ids: z.array(z.string()).describe("IDs of currently dispatched tasks"),
     },

@@ -2,6 +2,8 @@ import type { Task, Wave } from "../types.js";
 import { computeCriticalPath } from "./critical-path.js";
 import { detectHazards } from "./hazards.js";
 
+type SchedulableTask = Pick<Task, "id" | "touches" | "budget">;
+
 /**
  * Group tasks into parallel-safe execution waves via topological sort.
  * 1. Detect all hazards (O(n^2))
@@ -9,7 +11,7 @@ import { detectHazards } from "./hazards.js";
  * 3. Assign wave numbers via longest-path-from-roots: wave(t) = max(wave(dep)) + 1
  * 4. Sort tasks within each wave by critical path priority
  */
-export function computeWaves(tasks: Task[]): Wave[] {
+export function computeWaves(tasks: SchedulableTask[]): Wave[] {
   if (tasks.length === 0) return [];
 
   const hazards = detectHazards(tasks);
@@ -58,7 +60,7 @@ export function computeWaves(tasks: Task[]): Wave[] {
   }
 
   // Group by wave
-  const waveGroups = new Map<number, Task[]>();
+  const waveGroups = new Map<number, SchedulableTask[]>();
   for (const t of tasks) {
     const w = waveNumber.get(t.id)!;
     if (!waveGroups.has(w)) waveGroups.set(w, []);
@@ -80,7 +82,7 @@ export function computeWaves(tasks: Task[]): Wave[] {
       const bOnCritical = criticalSet.has(b.id) ? 0 : 1;
       return aOnCritical - bOnCritical;
     });
-    waves.push({ id: waveId, tasks: waveTasks });
+    waves.push({ id: waveId, tasks: waveTasks as Task[] });
   }
 
   return waves;

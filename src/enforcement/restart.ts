@@ -1,5 +1,7 @@
 import type { Task, RestartStrategy } from "../types.js";
 
+type TaskRef = Pick<Task, "id" | "touches">;
+
 /**
  * Given a failed task and execution state, derive the restart strategy:
  * - isolated_retry: failed task's writes are disjoint from downstream reads
@@ -7,8 +9,8 @@ import type { Task, RestartStrategy } from "../types.js";
  * - escalate: planning problem, not execution problem
  */
 export function deriveRestartStrategy(
-  failedTask: Task,
-  allTasks: Task[],
+  failedTask: TaskRef,
+  allTasks: TaskRef[],
   completedTaskIds: string[],
   dispatchedTaskIds: string[],
 ): RestartStrategy {
