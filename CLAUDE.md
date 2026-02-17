@@ -37,7 +37,7 @@ src/                    MCP server (17 tools)
   scheduler/            Hazard detection, wave computation, critical path
   plan/                 Plan XML parsing, validation, diff
   enforcement/          Capability verification, restart strategy
-skills/                 4 prompt-based skills (status, plan, execute, review)
+skills/                 5 prompt-based skills (init, status, plan, execute, review)
 hooks/                  3 lifecycle hooks (session-start, subagent-context, freshness-track)
 src/docs/               Architecture internals (private core doc)
 docs/                   Design docs, getting started, reference URLs
