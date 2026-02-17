@@ -152,6 +152,7 @@ Mark the task complete in log.xml and check progress:
 - If the current wave is complete, run invariant checks (Step 7) if not already run
 - If invariants pass, proceed to the next wave
 - If this was the final task/wave, run all postcondition checks and report results
+- If all postconditions pass, archive the plan: move its directory from `plans/<name>/` to `plans/archive/<name>/`
 
 ## What the Orchestrator Does NOT Do
 
