@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "varp": {
-      "command": "bun",
-      "args": ["build/index.js"],
-      "cwd": "."
-    }
-  }
-}

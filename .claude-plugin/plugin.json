@@ -1,5 +1,12 @@
 {
   "name": "varp",
   "version": "0.1.0",
-  "description": "Manifest-aware context management for agent orchestration"
+  "description": "Manifest-aware context management for agent orchestration",
+  "mcpServers": {
+    "varp": {
+      "command": "bun",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/build/index.js"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+    }
+  }
 }
