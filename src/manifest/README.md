@@ -109,13 +109,14 @@ Use `varp_read_manifest` to parse and validate. The response includes `dependenc
 
 - **Import deps** — scans source files for static imports, flags undeclared dependencies (error) and unused declared dependencies (warning)
 - **Link integrity** — scans component docs for markdown links, flags broken links (error) and undeclared link-inferred dependencies (warning)
-- **Doc freshness** — compares doc mtimes against source file mtimes, flags stale docs (warning)
+- **Doc freshness** — compares doc mtimes against source file mtimes (excluding doc files from the source scan), flags stale docs (warning). A 5-second tolerance threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other.
+- **Stability** — warns when a `stable` component has no explicit `test` command (relies on auto-discovery) and when an `experimental` component is depended on by a `stable` component
 
-Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | `links` | `freshness`), `message`, and optional `component` name. The pure `lint()` function accepts pre-computed `ImportScanResult`, `LinkScanResult`, and `FreshnessReport` — no I/O, fully testable with synthetic data. The `runLint()` wrapper performs the scans and delegates to `lint()`.
+Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | `links` | `freshness` | `stability`), `message`, and optional `component` name. The pure `lint()` function accepts pre-computed `ImportScanResult`, `LinkScanResult`, and `FreshnessReport` — no I/O, fully testable with synthetic data. The `runLint()` wrapper performs the scans and delegates to `lint()`.
 
 ## Scoped Tests
 
-`varp_scoped_tests` finds `*.test.ts` files under the component paths referenced by a `touches` declaration. Write components are always included; read components are included only when `include_read_tests` is true (default false). Collects `env` fields from all covered components into `required_env` (deduplicated, sorted). Returns absolute paths, covered component names, a ready-to-run `bun test` command with relative paths, and required environment variables.
+`varp_scoped_tests` finds `*.test.ts` files under the component paths referenced by a `touches` declaration. Write components are always included; read components are included only when `include_read_tests` is true (default false). When `tags` is provided, only components whose `tags` intersect with the filter are processed (components without tags are excluded). Collects `env` fields from all covered components into `required_env` (deduplicated, sorted). Returns absolute paths, covered component names, a ready-to-run `bun test` command with relative paths, and required environment variables.
 
 ## Minimal Example
 

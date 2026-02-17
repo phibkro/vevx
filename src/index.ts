@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
+import { checkEnv } from "./manifest/env-check.js";
 import { checkFreshness } from "./manifest/freshness.js";
 import { invalidationCascade, validateDependencyGraph } from "./manifest/graph.js";
 import { scanImports } from "./manifest/imports.js";
@@ -262,12 +263,19 @@ const tools: ToolDef[] = [
         .boolean()
         .optional()
         .describe("Include test files from read components (default false)"),
+      tags: z
+        .array(z.string())
+        .optional()
+        .describe("Only include components whose tags intersect with this filter"),
     },
-    handler: async ({ manifest_path, reads, writes, include_read_tests }) => {
+    handler: async ({ manifest_path, reads, writes, include_read_tests, tags }) => {
       const mp = manifest_path ?? "./varp.yaml";
       const manifest = parseManifest(mp);
       const manifestDir = dirname(resolve(mp));
-      return findScopedTests(manifest, { reads, writes }, manifestDir, include_read_tests ?? false);
+      return findScopedTests(manifest, { reads, writes }, manifestDir, {
+        includeReadTests: include_read_tests ?? false,
+        tags,
+      });
     },
   },
 
@@ -280,6 +288,21 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path }) => {
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
       return runLint(manifest, manifest_path ?? "./varp.yaml");
+    },
+  },
+
+  // Env Check
+  {
+    name: "varp_check_env",
+    description:
+      "Check environment variables required by components. Returns which are set and which are missing.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      components: z.array(z.string()).describe("Component names to check env vars for"),
+    },
+    handler: async ({ manifest_path, components }) => {
+      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      return checkEnv(manifest, components, process.env);
     },
   },
 ];

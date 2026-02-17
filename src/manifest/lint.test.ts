@@ -267,4 +267,66 @@ describe("lint", () => {
     expect(report.total_issues).toBe(report.issues.length);
     expect(report.total_issues).toBe(2);
   });
+
+  test("stable component without test field produces stability warning", () => {
+    const stableManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: "/project/src/auth", stability: "stable", docs: [] },
+        api: { path: "/project/src/api", stability: "stable", test: "bun test src/api", docs: [] },
+      },
+    };
+    const report = lint(
+      stableManifest,
+      makeImportResult(),
+      makeLinkResult(),
+      makeFreshnessReport(),
+    );
+    const stabilityIssues = report.issues.filter((i) => i.category === "stability");
+    expect(stabilityIssues).toHaveLength(1);
+    expect(stabilityIssues[0].severity).toBe("warning");
+    expect(stabilityIssues[0].component).toBe("auth");
+    expect(stabilityIssues[0].message).toContain("no explicit test command");
+  });
+
+  test("experimental dep of stable component produces stability warning", () => {
+    const mixedManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        core: { path: "/project/src/core", stability: "experimental", test: "bun test", docs: [] },
+        api: {
+          path: "/project/src/api",
+          stability: "stable",
+          test: "bun test",
+          deps: ["core"],
+          docs: [],
+        },
+      },
+    };
+    const report = lint(mixedManifest, makeImportResult(), makeLinkResult(), makeFreshnessReport());
+    const stabilityIssues = report.issues.filter((i) => i.category === "stability");
+    expect(stabilityIssues).toHaveLength(1);
+    expect(stabilityIssues[0].component).toBe("core");
+    expect(stabilityIssues[0].message).toContain("Experimental");
+    expect(stabilityIssues[0].message).toContain("api");
+  });
+
+  test("no stability warnings when all components have test and matching stability", () => {
+    const cleanManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: "/project/src/auth", stability: "stable", test: "bun test auth", docs: [] },
+        api: {
+          path: "/project/src/api",
+          stability: "stable",
+          test: "bun test api",
+          deps: ["auth"],
+          docs: [],
+        },
+      },
+    };
+    const report = lint(cleanManifest, makeImportResult(), makeLinkResult(), makeFreshnessReport());
+    const stabilityIssues = report.issues.filter((i) => i.category === "stability");
+    expect(stabilityIssues).toHaveLength(0);
+  });
 });

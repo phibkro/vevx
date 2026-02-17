@@ -6,8 +6,8 @@ Five prompt-based skills for the varp orchestration lifecycle.
 |-------|---------|---------|
 | `/varp:init` | New project onboarding | Scaffold `varp.yaml` by scanning project structure and imports |
 | `/varp:plan` | Feature request or task decomposition | Produce `plan.xml` with touches, budgets, contracts |
-| `/varp:execute` | Approved plan ready for implementation | Dispatch tasks to subagents with capability enforcement |
-| `/varp:review` | Wave or plan completion | Diff expected vs actual, surface decisions |
+| `/varp:execute` | Approved plan ready for implementation | Dispatch tasks to subagents with capability enforcement. Outputs a status snapshot (freshness + lint) on plan completion. |
+| `/varp:review` | Wave or plan completion | Diff expected vs actual, surface decisions. Appends a project status snapshot (freshness + lint). |
 | `/varp:status` | Anytime | Snapshot of components, freshness, active plans |
 
 ## Monorepo Tool Integration

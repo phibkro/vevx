@@ -79,7 +79,9 @@ describe("findScopedTests", () => {
   });
 
   test("include_read_tests returns tests for read components", () => {
-    const result = findScopedTests(manifest, { reads: ["auth"] }, TMP_DIR, true);
+    const result = findScopedTests(manifest, { reads: ["auth"] }, TMP_DIR, {
+      includeReadTests: true,
+    });
     expect(result.test_files).toHaveLength(2);
     expect(result.components_covered).toEqual(["auth"]);
     expect(result.run_command).toContain("bun test");
@@ -100,7 +102,9 @@ describe("findScopedTests", () => {
   });
 
   test("writes + reads with include_read_tests combines both", () => {
-    const result = findScopedTests(manifest, { writes: ["api"], reads: ["shared"] }, TMP_DIR, true);
+    const result = findScopedTests(manifest, { writes: ["api"], reads: ["shared"] }, TMP_DIR, {
+      includeReadTests: true,
+    });
     expect(result.test_files).toHaveLength(2); // 1 api + 1 shared
     expect(result.components_covered).toEqual(["api", "shared"]);
   });
@@ -119,7 +123,9 @@ describe("findScopedTests", () => {
   });
 
   test("deduplicates when component appears in both reads and writes", () => {
-    const result = findScopedTests(manifest, { writes: ["auth"], reads: ["auth"] }, TMP_DIR, true);
+    const result = findScopedTests(manifest, { writes: ["auth"], reads: ["auth"] }, TMP_DIR, {
+      includeReadTests: true,
+    });
     expect(result.test_files).toHaveLength(2); // no duplicates
     expect(result.components_covered).toEqual(["auth"]);
   });
@@ -191,5 +197,67 @@ describe("findScopedTests", () => {
     expect(result.run_command).toContain("bun test");
     expect(result.run_command).toContain(" && ");
     expect(result.run_command).toContain("npm test -- --filter api");
+  });
+
+  test("tag filter includes matching components", () => {
+    const manifestWithTags: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: join(TMP_DIR, "src/auth"), tags: ["security"], docs: [] },
+        api: { path: join(TMP_DIR, "src/api"), tags: ["backend"], docs: [] },
+      },
+    };
+
+    const result = findScopedTests(manifestWithTags, { writes: ["auth", "api"] }, TMP_DIR, {
+      tags: ["security"],
+    });
+    expect(result.components_covered).toEqual(["auth"]);
+    expect(result.test_files).toHaveLength(2); // auth's test files
+  });
+
+  test("tag filter excludes non-matching components", () => {
+    const manifestWithTags: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: join(TMP_DIR, "src/auth"), tags: ["security"], docs: [] },
+        api: { path: join(TMP_DIR, "src/api"), tags: ["backend"], docs: [] },
+      },
+    };
+
+    const result = findScopedTests(manifestWithTags, { writes: ["auth", "api"] }, TMP_DIR, {
+      tags: ["frontend"],
+    });
+    expect(result.components_covered).toEqual([]);
+    expect(result.test_files).toEqual([]);
+  });
+
+  test("empty tags array means no filter", () => {
+    const manifestWithTags: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: join(TMP_DIR, "src/auth"), tags: ["security"], docs: [] },
+        api: { path: join(TMP_DIR, "src/api"), tags: ["backend"], docs: [] },
+      },
+    };
+
+    const result = findScopedTests(manifestWithTags, { writes: ["auth", "api"] }, TMP_DIR, {
+      tags: [],
+    });
+    expect(result.components_covered).toEqual(["api", "auth"]);
+  });
+
+  test("tag filter works with components that have no tags", () => {
+    const manifestMixed: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: join(TMP_DIR, "src/auth"), tags: ["security"], docs: [] },
+        api: { path: join(TMP_DIR, "src/api"), docs: [] }, // no tags
+      },
+    };
+
+    const result = findScopedTests(manifestMixed, { writes: ["auth", "api"] }, TMP_DIR, {
+      tags: ["security"],
+    });
+    expect(result.components_covered).toEqual(["auth"]);
   });
 });

@@ -20,7 +20,8 @@ src/
     resolver.ts               Touches x discovery -> doc paths with visibility
     freshness.ts              mtime comparison per component (uses discovery)
     graph.ts                  Reverse-dep BFS, Kahn's cycle detection
-    lint.ts                   Aggregate health checks (imports, links, freshness)
+    env-check.ts              Check required env vars for components (set vs missing)
+    lint.ts                   Aggregate health checks (imports, links, freshness, stability)
   plan/
     parser.ts                 XML -> Plan via fast-xml-parser
     validator.ts              Plan-manifest consistency checks
@@ -149,7 +150,7 @@ failed task --> deriveRestartStrategy() --> RestartStrategy
 
 ## MCP Server Wiring (`index.ts`)
 
-All 17 tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
+All 18 tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
 1. JSON serialization (`JSON.stringify(result, null, 2)`)
 2. Error handling (catch → `{ isError: true }`)
 3. MCP response formatting (`{ content: [{ type: "text", text }] }`)
@@ -176,10 +177,10 @@ Results are deduplicated by path and returned as a flat array with `{ component,
 
 ## Freshness Detection (`freshness.ts`)
 
-Compares doc file mtime against the latest mtime of any file in the component's source directory (recursive scan via `readdirSync({ recursive: true })`). A doc is stale when its mtime predates the source directory's latest file mtime. Missing files are reported as `"N/A"` timestamps with `stale: true`.
+Compares doc file mtime against the latest mtime of any non-doc file in the component's source directory (recursive scan via `readdirSync({ recursive: true })`). Doc files (discovered via `discoverDocs()`) are excluded from the source mtime scan to prevent a race condition where editing a doc to fix staleness would inflate `source_last_modified` and make sibling docs appear stale. A doc is stale when its mtime is more than 5 seconds behind the source mtime — this threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other. Missing files are reported as `"N/A"` timestamps with `stale: true`.
 
 Uses `(entry as any).parentPath` to handle Bun/Node compatibility for `Dirent.parentPath` (added in Node 20.12).
 
 ## Testing
 
-184 tests across 20 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.
+206 tests across 21 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.

@@ -190,6 +190,31 @@ Mark the task complete in log.xml and check progress:
 - If this was the final task/wave, run all postcondition checks and report results
 - If all postconditions pass, archive the plan: move its directory from `plans/<name>/` to `plans/archive/<name>/`
 
+### Step 12: Status Report [on plan completion]
+
+When the final task/wave completes and all postconditions pass (plan is archived), generate a project status snapshot:
+
+1. Call `varp_read_manifest` to get the current component registry
+2. Call `varp_check_freshness` to get current doc staleness
+3. Call `varp_lint` to surface any new issues introduced during execution
+
+Output a summary section at the end of the execution report:
+
+```
+## Post-Execution Status
+
+### Doc Freshness
+| Component | Status |
+|-----------|--------|
+| <name>    | fresh / N stale docs |
+
+### Lint
+<total_issues> issues (<errors> errors, <warnings> warnings)
+<list any new issues, grouped by category>
+```
+
+This replaces the need to manually run `/varp:status` after execution completes.
+
 ## What the Orchestrator Does NOT Do
 
 - **Read implementation code.** The orchestrator resolves doc paths, not content. Subagents read the docs.
@@ -243,4 +268,5 @@ Write execution metrics to `log.xml` alongside the plan.
 | `varp_verify_capabilities` | Step 7 | All |
 | `varp_derive_restart_strategy` | Step 9 | All |
 | `varp_invalidation_cascade` | Step 10 | Parallel |
+| `varp_lint` | Step 12 | All (on completion) |
 | `varp_detect_hazards` | Diagnostics | As needed |

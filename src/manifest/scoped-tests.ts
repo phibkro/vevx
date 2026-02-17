@@ -38,8 +38,9 @@ export function findScopedTests(
   manifest: Manifest,
   touches: { reads?: string[]; writes?: string[] },
   manifestDir: string,
-  includeReadTests: boolean = false,
+  options: { includeReadTests?: boolean; tags?: string[] } = {},
 ): ScopedTestResult {
+  const { includeReadTests = false, tags } = options;
   const componentNames = new Set<string>();
   const testFileSet = new Set<string>();
   const customCommands: string[] = [];
@@ -47,6 +48,7 @@ export function findScopedTests(
   function processComponent(name: string) {
     const comp = manifest.components[name];
     if (!comp) return;
+    if (tags && tags.length > 0 && !comp.tags?.some((t) => tags.includes(t))) return;
     componentNames.add(name);
     if (comp.test) {
       customCommands.push(comp.test);

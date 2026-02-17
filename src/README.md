@@ -39,7 +39,7 @@ Given a list of components whose docs changed, walks `deps` to return all transi
 
 #### `varp_check_freshness`
 
-Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Used by `/status` and by the orchestrator before dispatching tasks.
+Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Doc files are excluded from the source mtime scan (prevents a race where editing a doc inflates source mtime). A 5-second tolerance threshold eliminates false positives from batch edits. Used by `/status` and by the orchestrator before dispatching tasks.
 
 **Parameters:** `{ manifest_path?: string }`
 
@@ -116,19 +116,27 @@ Given file paths that will be modified, suggests a `touches` declaration using o
 
 #### `varp_scoped_tests`
 
-Finds test files for a given `touches` declaration. For write components, recursively finds all `*.test.ts` files under the component's path. Read components are excluded by default but can be included via `include_read_tests`. Collects `env` fields from all covered components into `required_env` (deduplicated, sorted). Returns file paths, a ready-to-run `bun test` command, and required environment variables.
+Finds test files for a given `touches` declaration. For write components, recursively finds all `*.test.ts` files under the component's path. Read components are excluded by default but can be included via `include_read_tests`. Collects `env` fields from all covered components into `required_env` (deduplicated, sorted). When `tags` is provided, only components whose `tags` intersect with the filter are processed. Returns file paths, a ready-to-run `bun test` command, and required environment variables.
 
-**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[], include_read_tests?: boolean }`
+**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[], include_read_tests?: boolean, tags?: string[] }`
 
 **Returns:** `ScopedTestResult`
 
 #### `varp_lint`
 
-Runs all health checks against the manifest: import dependency verification, link integrity scanning, and doc freshness checking. Returns a unified report with categorized issues and severity levels.
+Runs all health checks against the manifest: import dependency verification, link integrity scanning, doc freshness checking, and stability analysis. Stability checks warn when a `stable` component has no explicit `test` command (relies on auto-discovery) and when an `experimental` component is depended on by a `stable` component.
 
 **Parameters:** `{ manifest_path?: string }`
 
 **Returns:** `LintReport`
+
+#### `varp_check_env`
+
+Checks environment variables required by a set of components. Collects `env` fields from the named components, deduplicates, and checks which are set vs missing in the current process environment.
+
+**Parameters:** `{ manifest_path?: string, components: string[] }`
+
+**Returns:** `EnvCheckResult`
 
 ### Enforcement
 
@@ -368,9 +376,15 @@ interface LintReport {
 
 interface LintIssue {
   severity: 'error' | 'warning'
-  category: 'imports' | 'links' | 'freshness'
+  category: 'imports' | 'links' | 'freshness' | 'stability'
   message: string
   component?: string
+}
+
+interface EnvCheckResult {
+  required: string[]   // all env vars from the components' `env` fields (deduplicated, sorted)
+  set: string[]        // subset of required that are present in process.env
+  missing: string[]    // subset of required that are missing from process.env
 }
 
 interface ExecutionMetrics {

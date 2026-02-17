@@ -91,6 +91,46 @@ export function lint(
     }
   }
 
+  // ── Stability issues ──
+
+  // Build reverse-dep map: component → components that depend on it
+  const reverseDeps = new Map<string, string[]>();
+  for (const [name, comp] of Object.entries(manifest.components)) {
+    for (const dep of comp.deps ?? []) {
+      const existing = reverseDeps.get(dep) ?? [];
+      existing.push(name);
+      reverseDeps.set(dep, existing);
+    }
+  }
+
+  for (const [compName, comp] of Object.entries(manifest.components)) {
+    // Stable component with no explicit test command → warning
+    if (comp.stability === "stable" && !comp.test) {
+      issues.push({
+        severity: "warning",
+        category: "stability",
+        message: `Stable component "${compName}" has no explicit test command — relies on auto-discovery`,
+        component: compName,
+      });
+    }
+
+    // Experimental component depended on by stable components → warning
+    if (comp.stability === "experimental") {
+      const dependents = reverseDeps.get(compName) ?? [];
+      for (const depName of dependents) {
+        const dependent = manifest.components[depName];
+        if (dependent?.stability === "stable") {
+          issues.push({
+            severity: "warning",
+            category: "stability",
+            message: `Experimental component "${compName}" is a dependency of stable component "${depName}"`,
+            component: compName,
+          });
+        }
+      }
+    }
+  }
+
   return {
     total_issues: issues.length,
     issues,

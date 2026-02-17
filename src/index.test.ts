@@ -85,10 +85,11 @@ describe("MCP server integration", () => {
     } catch {}
   });
 
-  test("lists all 17 tools", async () => {
+  test("lists all 18 tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
+      "varp_check_env",
       "varp_check_freshness",
       "varp_compute_critical_path",
       "varp_compute_waves",
@@ -503,7 +504,7 @@ describe("MCP server integration", () => {
     const data = parseResult(result);
     for (const issue of data.issues) {
       expect(["error", "warning"]).toContain(issue.severity);
-      expect(["imports", "links", "freshness"]).toContain(issue.category);
+      expect(["imports", "links", "freshness", "stability"]).toContain(issue.category);
       expect(typeof issue.message).toBe("string");
     }
   });
@@ -552,6 +553,42 @@ describe("MCP server integration", () => {
     expect(data.test_files).toEqual([]);
     expect(data.components_covered).toEqual([]);
     expect(data.run_command).toBe("");
+  });
+
+  test("varp_scoped_tests with tags filter returns only matching components", async () => {
+    const result = await client.callTool({
+      name: "varp_scoped_tests",
+      arguments: { manifest_path: MANIFEST_PATH, writes: ["auth", "web"], tags: ["security"] },
+    });
+    const data = parseResult(result);
+    // auth has tags: [security, api-boundary], web has tags: [frontend]
+    expect(data.components_covered).toEqual(["auth"]);
+  });
+
+  // ── Env Check ──
+
+  test("varp_check_env returns set and missing env vars", async () => {
+    const result = await client.callTool({
+      name: "varp_check_env",
+      arguments: { manifest_path: MANIFEST_PATH, components: ["api"] },
+    });
+    const data = parseResult(result);
+    expect(data.required).toEqual(["DATABASE_URL"]);
+    // DATABASE_URL may or may not be set in test env, just check structure
+    expect(Array.isArray(data.set)).toBe(true);
+    expect(Array.isArray(data.missing)).toBe(true);
+    expect([...data.set, ...data.missing].sort()).toEqual(["DATABASE_URL"]);
+  });
+
+  test("varp_check_env returns empty for components without env", async () => {
+    const result = await client.callTool({
+      name: "varp_check_env",
+      arguments: { manifest_path: MANIFEST_PATH, components: ["auth"] },
+    });
+    const data = parseResult(result);
+    expect(data.required).toEqual([]);
+    expect(data.set).toEqual([]);
+    expect(data.missing).toEqual([]);
   });
 
   test("varp_scan_links with mode=deps returns dependency analysis", async () => {

@@ -295,7 +295,7 @@ export type PlanDiff = z.infer<typeof PlanDiffSchema>;
 // ── Lint Report ──
 
 export const LintIssueSeveritySchema = z.enum(["error", "warning"]);
-export const LintIssueCategorySchema = z.enum(["imports", "links", "freshness"]);
+export const LintIssueCategorySchema = z.enum(["imports", "links", "freshness", "stability"]);
 
 export const LintIssueSchema = z.object({
   severity: LintIssueSeveritySchema,
@@ -325,6 +325,16 @@ export const ScopedTestResultSchema = z.object({
 });
 
 export type ScopedTestResult = z.infer<typeof ScopedTestResultSchema>;
+
+// ── Env Check ──
+
+export const EnvCheckResultSchema = z.object({
+  required: z.array(z.string()),
+  set: z.array(z.string()),
+  missing: z.array(z.string()),
+});
+
+export type EnvCheckResult = z.infer<typeof EnvCheckResultSchema>;
 
 // ── Execution Metrics ──
 

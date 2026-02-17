@@ -133,6 +133,28 @@ Output the report in this structure:
 <single clear recommendation for what to do next>
 ```
 
+### Step 6: Project Status Snapshot
+
+After the review report, always append a current project status snapshot. This gives the human full situational awareness without needing to run `/varp:status` separately.
+
+1. Call `varp_check_freshness` (already done in Step 2, reuse the result)
+2. Call `varp_lint` to check for issues introduced during execution
+
+Append to the report:
+
+```
+## Current Project Status
+
+### Doc Freshness
+| Component | Status |
+|-----------|--------|
+| <name>    | fresh / N stale docs |
+
+### Lint
+<total_issues> issues (<errors> errors, <warnings> warnings)
+<list issues grouped by category, if any>
+```
+
 ## Tool Reference
 
 | Tool | Purpose |
@@ -140,5 +162,6 @@ Output the report in this structure:
 | `varp_read_manifest` | Load component registry for cross-referencing |
 | `varp_parse_plan` | Load plan structure and contracts |
 | `varp_check_freshness` | Verify current doc freshness state |
+| `varp_lint` | Check for issues introduced during execution |
 | `varp_detect_hazards` | Re-analyze hazards if replanning is considered |
 | `varp_compute_waves` | Re-derive waves if tasks are added or removed |
