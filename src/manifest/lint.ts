@@ -1,3 +1,5 @@
+import { dirname, resolve } from "node:path";
+
 import type {
   Manifest,
   ImportScanResult,
@@ -142,8 +144,8 @@ export function lint(
  * Run all lint checks against a manifest.
  * Effectful wrapper — calls scanImports, scanLinks, checkFreshness, then delegates to pure lint().
  */
-export async function runLint(manifest: Manifest, _manifestPath: string): Promise<LintReport> {
-  const importResult = scanImports(manifest);
+export async function runLint(manifest: Manifest, manifestPath: string): Promise<LintReport> {
+  const importResult = scanImports(manifest, dirname(resolve(manifestPath)));
   const linkResult = scanLinks(manifest, "all");
   const freshnessReport = checkFreshness(manifest);
 

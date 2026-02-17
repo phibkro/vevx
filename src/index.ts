@@ -128,10 +128,11 @@ const tools: ToolDef[] = [
       manifest_path: manifestPath,
     },
     handler: async ({ plan_path, manifest_path }) => {
+      const mp = manifest_path ?? "./varp.yaml";
       const plan = parsePlanFile(plan_path);
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(mp);
       const hazards = detectHazards(plan.tasks);
-      const { import_deps } = scanImports(manifest);
+      const { import_deps } = scanImports(manifest, dirname(resolve(mp)));
       return validatePlan(plan, manifest, hazards, import_deps);
     },
   },
@@ -182,8 +183,9 @@ const tools: ToolDef[] = [
       "Scan source files for import statements. Infer cross-component dependencies from static imports.",
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
-      return scanImports(manifest);
+      const mp = manifest_path ?? "./varp.yaml";
+      const manifest = parseManifest(mp);
+      return scanImports(manifest, dirname(resolve(mp)));
     },
   },
 
@@ -197,8 +199,9 @@ const tools: ToolDef[] = [
       file_paths: z.array(z.string()).describe("File paths that will be modified"),
     },
     handler: async ({ manifest_path, file_paths }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
-      const { import_deps } = scanImports(manifest);
+      const mp = manifest_path ?? "./varp.yaml";
+      const manifest = parseManifest(mp);
+      const { import_deps } = scanImports(manifest, dirname(resolve(mp)));
       return suggestTouches(file_paths, manifest, import_deps);
     },
   },

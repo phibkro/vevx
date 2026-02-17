@@ -12,13 +12,103 @@ interface RawImport {
 
 export type SourceFile = { path: string; component: string; content: string };
 
+export interface PathMapping {
+  pattern: string;
+  targets: string[];
+}
+
+export interface PathAliases {
+  mappings: PathMapping[];
+  baseDir: string;
+}
+
 // ── Pure functions ──
 
 /**
- * Extract static import/export-from specifiers from source content.
- * Skips bare specifiers (external packages) and dynamic imports.
+ * Strip JSON comments (// and block comments) for tsconfig parsing.
  */
-export function extractImports(content: string): RawImport[] {
+function stripJsonComments(text: string): string {
+  return text.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
+/**
+ * Load tsconfig.json `compilerOptions.paths` from a directory.
+ * Returns null if tsconfig.json doesn't exist or has no paths.
+ */
+export function loadTsconfigPaths(dir: string): PathAliases | null {
+  const tsconfigPath = join(dir, "tsconfig.json");
+  let raw: string;
+  try {
+    raw = readFileSync(tsconfigPath, "utf-8");
+  } catch {
+    return null;
+  }
+
+  let parsed: { compilerOptions?: { paths?: Record<string, string[]>; baseUrl?: string } };
+  try {
+    parsed = JSON.parse(stripJsonComments(raw));
+  } catch {
+    return null;
+  }
+
+  const paths = parsed.compilerOptions?.paths;
+  if (!paths || Object.keys(paths).length === 0) return null;
+
+  const baseUrl = parsed.compilerOptions?.baseUrl ?? ".";
+  const baseDir = resolve(dir, baseUrl);
+
+  const mappings: PathMapping[] = Object.entries(paths).map(([pattern, targets]) => ({
+    pattern,
+    targets,
+  }));
+
+  return { mappings, baseDir };
+}
+
+/**
+ * Compute alias prefixes from path mappings for use in extractImports.
+ * Wildcard `#shared/*` → prefix `#shared/`, exact `#shared` → prefix `#shared`.
+ */
+export function aliasPrefixesFrom(aliases: PathAliases): string[] {
+  return aliases.mappings.map((m) =>
+    m.pattern.endsWith("/*") ? m.pattern.slice(0, -1) : m.pattern,
+  );
+}
+
+/**
+ * Resolve a path alias specifier to an absolute path.
+ * Returns null if the specifier doesn't match any alias pattern.
+ */
+export function resolveAlias(specifier: string, aliases: PathAliases): string | null {
+  for (const mapping of aliases.mappings) {
+    if (mapping.pattern.endsWith("/*")) {
+      // Wildcard: #shared/* matches #shared/types.js
+      const prefix = mapping.pattern.slice(0, -1); // "#shared/"
+      if (specifier.startsWith(prefix)) {
+        const rest = specifier.slice(prefix.length);
+        const target = mapping.targets[0];
+        if (!target) continue;
+        const targetBase = target.endsWith("/*") ? target.slice(0, -1) : target;
+        return resolve(aliases.baseDir, targetBase + rest);
+      }
+    } else {
+      // Exact match
+      if (specifier === mapping.pattern) {
+        const target = mapping.targets[0];
+        if (!target) continue;
+        return resolve(aliases.baseDir, target);
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract static import/export specifiers from source content.
+ * Skips bare specifiers (external packages) and dynamic imports.
+ * When aliasPrefixes is provided, also captures specifiers matching those prefixes.
+ */
+export function extractImports(content: string, aliasPrefixes?: string[]): RawImport[] {
   // Match static import/export-from statements with relative specifiers
   // Forms: import { x } from '...', import x from '...', import * as x from '...',
   //        import type { x } from '...', export { x } from '...', export * from '...'
@@ -29,27 +119,45 @@ export function extractImports(content: string): RawImport[] {
 
   while ((match = regex.exec(content)) !== null) {
     const specifier = match[1] ?? match[2];
-    // Skip bare specifiers (no ./ or ../ prefix) — external packages
-    if (!specifier.startsWith("./") && !specifier.startsWith("../")) {
+    // Accept relative specifiers
+    if (specifier.startsWith("./") || specifier.startsWith("../")) {
+      imports.push({ specifier });
       continue;
     }
-    imports.push({ specifier });
+    // Accept alias-prefixed specifiers
+    if (aliasPrefixes?.some((p) => specifier.startsWith(p) || specifier === p)) {
+      imports.push({ specifier });
+      continue;
+    }
+    // Skip bare specifiers — external packages
   }
 
   return imports;
 }
 
 /**
- * Resolve a relative import specifier to an absolute file path.
+ * Resolve an import specifier to an absolute file path.
  * Handles .js→.ts and .jsx→.tsx remapping, and directory→index resolution.
- * Accepts a fileExists predicate for testability.
+ * When aliases are provided, resolves alias specifiers before file resolution.
  */
 export function resolveImport(
   specifier: string,
   sourceFile: string,
   fileExists: (path: string) => boolean,
+  aliases?: PathAliases,
 ): string {
-  const base = resolve(dirname(sourceFile), specifier);
+  // Try alias resolution for non-relative specifiers
+  let base: string;
+  if (aliases && !specifier.startsWith("./") && !specifier.startsWith("../")) {
+    const aliased = resolveAlias(specifier, aliases);
+    if (aliased) {
+      base = aliased;
+    } else {
+      base = resolve(dirname(sourceFile), specifier);
+    }
+  } else {
+    base = resolve(dirname(sourceFile), specifier);
+  }
 
   // Try .js → .ts remapping
   if (base.endsWith(".js")) {
@@ -86,8 +194,10 @@ export function analyzeImports(
   files: SourceFile[],
   manifest: Manifest,
   fileExists: (path: string) => boolean,
+  aliases?: PathAliases,
 ): ImportScanResult {
   const componentPaths = buildComponentPaths(manifest);
+  const aliasPrefixes = aliases ? aliasPrefixesFrom(aliases) : undefined;
   const inferredDepsMap = new Map<
     string,
     { from: string; to: string; evidence: { source_file: string; import_specifier: string }[] }
@@ -95,11 +205,11 @@ export function analyzeImports(
   let totalImportsScanned = 0;
 
   for (const file of files) {
-    const rawImports = extractImports(file.content);
+    const rawImports = extractImports(file.content, aliasPrefixes);
 
     for (const imp of rawImports) {
       totalImportsScanned++;
-      const resolved = resolveImport(imp.specifier, file.path, fileExists);
+      const resolved = resolveImport(imp.specifier, file.path, fileExists, aliases);
       const targetOwner = findOwningComponent(resolved, manifest, componentPaths);
 
       if (targetOwner !== null && targetOwner !== file.component) {
@@ -169,8 +279,12 @@ function isSourceFile(name: string): boolean {
 /**
  * Scan all component source files for import statements.
  * Loads files from disk, then delegates to pure analyzeImports().
+ * Automatically loads tsconfig.json paths from the manifest directory.
  */
-export function scanImports(manifest: Manifest): ImportScanResult {
+export function scanImports(manifest: Manifest, manifestDir?: string): ImportScanResult {
+  // Load tsconfig path aliases from manifest directory
+  const aliases = manifestDir ? loadTsconfigPaths(manifestDir) : null;
+
   const files: SourceFile[] = [];
 
   for (const [compName, comp] of Object.entries(manifest.components)) {
@@ -200,5 +314,5 @@ export function scanImports(manifest: Manifest): ImportScanResult {
     }
   }
 
-  return analyzeImports(files, manifest, existsSync);
+  return analyzeImports(files, manifest, existsSync, aliases ?? undefined);
 }

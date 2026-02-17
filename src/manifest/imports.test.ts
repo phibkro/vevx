@@ -2,7 +2,15 @@ import { describe, test, expect } from "bun:test";
 
 import type { Manifest } from "#shared/types.js";
 
-import { extractImports, resolveImport, analyzeImports, type SourceFile } from "./imports.js";
+import {
+  extractImports,
+  resolveImport,
+  analyzeImports,
+  resolveAlias,
+  aliasPrefixesFrom,
+  type SourceFile,
+  type PathAliases,
+} from "./imports.js";
 
 describe("extractImports", () => {
   test("extracts \"import { x } from './foo.js'\"", () => {
@@ -65,6 +73,95 @@ import { b } from './bar.js';
     const result = extractImports("import { x } from '../utils/helper.js';");
     expect(result).toEqual([{ specifier: "../utils/helper.js" }]);
   });
+
+  test("captures alias-prefixed specifiers when aliasPrefixes provided", () => {
+    const content = `
+import { Manifest } from '#shared/types.js';
+import { z } from 'zod';
+import { foo } from './local.js';
+`;
+    const result = extractImports(content, ["#shared/"]);
+    expect(result).toEqual([{ specifier: "#shared/types.js" }, { specifier: "./local.js" }]);
+  });
+
+  test("still skips @scope packages even with alias prefixes", () => {
+    const result = extractImports(
+      'import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";',
+      ["#shared/"],
+    );
+    expect(result).toEqual([]);
+  });
+
+  test("captures exact alias match", () => {
+    const result = extractImports("import config from '#config';", ["#config"]);
+    expect(result).toEqual([{ specifier: "#config" }]);
+  });
+});
+
+describe("resolveAlias", () => {
+  const aliases: PathAliases = {
+    mappings: [
+      { pattern: "#shared/*", targets: ["src/shared/*"] },
+      { pattern: "#config", targets: ["src/config.ts"] },
+      { pattern: "@/*", targets: ["src/*"] },
+    ],
+    baseDir: "/project",
+  };
+
+  test("resolves wildcard alias", () => {
+    const result = resolveAlias("#shared/types.js", aliases);
+    expect(result).toBe("/project/src/shared/types.js");
+  });
+
+  test("resolves exact alias", () => {
+    const result = resolveAlias("#config", aliases);
+    expect(result).toBe("/project/src/config.ts");
+  });
+
+  test("resolves @/* alias", () => {
+    const result = resolveAlias("@/utils/helper.js", aliases);
+    expect(result).toBe("/project/src/utils/helper.js");
+  });
+
+  test("returns null for non-matching specifier", () => {
+    const result = resolveAlias("zod", aliases);
+    expect(result).toBeNull();
+  });
+
+  test("returns null for relative specifier", () => {
+    const result = resolveAlias("./foo.js", aliases);
+    expect(result).toBeNull();
+  });
+
+  test("handles multiple mappings — first match wins", () => {
+    const overlapping: PathAliases = {
+      mappings: [
+        { pattern: "#a/*", targets: ["first/*"] },
+        { pattern: "#a/*", targets: ["second/*"] },
+      ],
+      baseDir: "/project",
+    };
+    const result = resolveAlias("#a/foo.js", overlapping);
+    expect(result).toBe("/project/first/foo.js");
+  });
+});
+
+describe("aliasPrefixesFrom", () => {
+  test("converts wildcard pattern to prefix", () => {
+    const aliases: PathAliases = {
+      mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
+      baseDir: "/project",
+    };
+    expect(aliasPrefixesFrom(aliases)).toEqual(["#shared/"]);
+  });
+
+  test("keeps exact pattern as-is", () => {
+    const aliases: PathAliases = {
+      mappings: [{ pattern: "#config", targets: ["src/config.ts"] }],
+      baseDir: "/project",
+    };
+    expect(aliasPrefixesFrom(aliases)).toEqual(["#config"]);
+  });
 });
 
 describe("resolveImport", () => {
@@ -102,6 +199,26 @@ describe("resolveImport", () => {
     const exists = () => false;
     const result = resolveImport("../lib/util.js", "/project/src/sub/bar.ts", exists);
     expect(result).toBe("/project/src/lib/util.js");
+  });
+
+  test("resolves alias specifier with .js→.ts remapping", () => {
+    const aliases: PathAliases = {
+      mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
+      baseDir: "/project",
+    };
+    const exists = (p: string) => p === "/project/src/shared/types.ts";
+    const result = resolveImport("#shared/types.js", "/project/src/api/routes.ts", exists, aliases);
+    expect(result).toBe("/project/src/shared/types.ts");
+  });
+
+  test("alias resolution falls back when no alias matches", () => {
+    const aliases: PathAliases = {
+      mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
+      baseDir: "/project",
+    };
+    const exists = () => false;
+    const result = resolveImport("./foo.js", "/project/src/bar.ts", exists, aliases);
+    expect(result).toBe("/project/src/foo.js");
   });
 });
 
@@ -236,5 +353,59 @@ import { helper } from './utils.js';
     const result = analyzeImports(files, manifest, fileExists);
     expect(result.total_files_scanned).toBe(1);
     expect(result.total_imports_scanned).toBe(2);
+  });
+
+  test("detects cross-component dep via alias import", () => {
+    const aliasManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        shared: { path: "/project/src/shared", docs: [] },
+        api: { path: "/project/src/api", deps: ["shared"], docs: [] },
+      },
+    };
+    const aliases: PathAliases = {
+      mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
+      baseDir: "/project",
+    };
+    const exists = (p: string) => p === "/project/src/shared/types.ts";
+    const files: SourceFile[] = [
+      {
+        path: "/project/src/api/routes.ts",
+        component: "api",
+        content: "import type { Manifest } from '#shared/types.js';",
+      },
+    ];
+    const result = analyzeImports(files, aliasManifest, exists, aliases);
+    expect(result.import_deps).toHaveLength(1);
+    expect(result.import_deps[0].from).toBe("api");
+    expect(result.import_deps[0].to).toBe("shared");
+    expect(result.missing_deps).toHaveLength(0);
+    expect(result.extra_deps).toHaveLength(0);
+  });
+
+  test("alias import without declared dep appears in missing_deps", () => {
+    const aliasManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        shared: { path: "/project/src/shared", docs: [] },
+        api: { path: "/project/src/api", docs: [] },
+      },
+    };
+    const aliases: PathAliases = {
+      mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
+      baseDir: "/project",
+    };
+    const exists = (p: string) => p === "/project/src/shared/types.ts";
+    const files: SourceFile[] = [
+      {
+        path: "/project/src/api/routes.ts",
+        component: "api",
+        content: "import type { Manifest } from '#shared/types.js';",
+      },
+    ];
+    const result = analyzeImports(files, aliasManifest, exists, aliases);
+    expect(result.missing_deps).toHaveLength(1);
+    expect(result.missing_deps[0].from).toBe("api");
+    expect(result.missing_deps[0].to).toBe("shared");
   });
 });
