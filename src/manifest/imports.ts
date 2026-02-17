@@ -251,12 +251,19 @@ export function analyzeImports(
     }
   }
 
+  // Track which components had source files
+  const componentsWithSource = new Set<string>();
+  for (const file of files) {
+    componentsWithSource.add(file.component);
+  }
+
   return {
     import_deps,
     missing_deps,
     extra_deps,
     total_files_scanned: files.length,
     total_imports_scanned: totalImportsScanned,
+    components_with_source: Array.from(componentsWithSource),
   };
 }
 

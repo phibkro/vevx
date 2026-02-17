@@ -38,7 +38,10 @@ export function lint(
   }
 
   // Unused declared deps (from import perspective) → warning
+  // Only warn for components that had source files to scan
+  const sourceComponents = new Set(importResult.components_with_source);
   for (const dep of importResult.extra_deps) {
+    if (!sourceComponents.has(dep.from)) continue;
     issues.push({
       severity: "warning",
       category: "imports",

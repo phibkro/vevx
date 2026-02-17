@@ -224,6 +224,7 @@ export const ImportScanResultSchema = z.object({
   extra_deps: z.array(z.object({ from: z.string(), to: z.string() })),
   total_files_scanned: z.number(),
   total_imports_scanned: z.number(),
+  components_with_source: z.array(z.string()).describe("Components that had source files to scan"),
 });
 
 export type ImportEvidence = z.infer<typeof ImportEvidenceSchema>;

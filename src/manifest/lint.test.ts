@@ -19,6 +19,7 @@ function makeImportResult(overrides: Partial<ImportScanResult> = {}): ImportScan
     extra_deps: [],
     total_files_scanned: 0,
     total_imports_scanned: 0,
+    components_with_source: [],
     ...overrides,
   };
 }
@@ -92,11 +93,12 @@ describe("lint", () => {
     expect(report.issues[0].component).toBe("auth");
   });
 
-  test("unused import deps produce warning", () => {
+  test("unused import deps produce warning when component has source files", () => {
     const report = lint(
       MANIFEST,
       makeImportResult({
         extra_deps: [{ from: "api", to: "auth" }],
+        components_with_source: ["api"],
       }),
       makeLinkResult(),
       makeFreshnessReport(),
@@ -105,6 +107,20 @@ describe("lint", () => {
     expect(report.issues[0].severity).toBe("warning");
     expect(report.issues[0].category).toBe("imports");
     expect(report.issues[0].component).toBe("api");
+  });
+
+  test("unused import deps suppressed when component has no source files", () => {
+    const report = lint(
+      MANIFEST,
+      makeImportResult({
+        extra_deps: [{ from: "api", to: "auth" }],
+        components_with_source: [],
+      }),
+      makeLinkResult(),
+      makeFreshnessReport(),
+    );
+    const importIssues = report.issues.filter((i) => i.category === "imports");
+    expect(importIssues).toHaveLength(0);
   });
 
   test("broken links produce error", () => {
@@ -261,6 +277,7 @@ describe("lint", () => {
           { from: "api", to: "auth" },
           { from: "auth", to: "api" },
         ],
+        components_with_source: ["api", "auth"],
       }),
       makeLinkResult(),
       makeFreshnessReport(),
