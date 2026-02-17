@@ -4,12 +4,12 @@ Current state of Varp relative to the design documents. Updated February 2026.
 
 ## What's Built
 
-| Layer | Count | Details |
-|-------|-------|---------|
-| MCP tools | 17 | Manifest (8), Scheduler (3), Plan (3), Enforcement (2), Analysis (1) |
-| Skills | 5 | init, plan, execute, review, status |
-| Hooks | 3 | SessionStart, SubagentStart (PostToolUse), PostToolUse (freshness) |
-| Tests | 179 | 20 test files, co-located with source |
+| Layer | Details |
+|-------|---------|
+| MCP tools | Manifest, Scheduler, Plan, Enforcement, Analysis |
+| Skills | init, plan, execute, review, status |
+| Hooks | SessionStart, SubagentStart (PostToolUse), PostToolUse (freshness) |
+| Tests | Co-located `*.test.ts` files, run with `bun test` |
 
 ### MCP Tools by Category
 

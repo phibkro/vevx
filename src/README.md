@@ -100,7 +100,7 @@ Scans component docs for markdown links. Infers cross-component dependencies fro
 
 #### `varp_infer_imports`
 
-Scans `.ts/.tsx/.js/.jsx` source files for import statements. Infers cross-component dependencies from static imports, compares against declared `deps` in the manifest (producing `missing_deps` and `extra_deps`).
+Scans `.ts/.tsx/.js/.jsx` source files for import statements. Resolves tsconfig `paths` aliases (e.g. `#shared/*`) in addition to relative imports. Infers cross-component dependencies from static imports, compares against declared `deps` in the manifest (producing `missing_deps` and `extra_deps`).
 
 **Parameters:** `{ manifest_path?: string }`
 

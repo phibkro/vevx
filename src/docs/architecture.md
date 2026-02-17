@@ -15,7 +15,7 @@ src/
     ownership.ts              findOwningComponent() — longest-prefix match
   manifest/
     discovery.ts              Auto-discover README.md + docs/*.md for components
-    imports.ts                Static import scanner — extract, resolve, cross-component dep inference
+    imports.ts                Static import scanner — extract, resolve, cross-component dep inference (tsconfig path alias aware)
     links.ts                  Markdown link scanner — extract, resolve, integrity + dep inference
     scoped-tests.ts           Find test files scoped to a touches declaration
     touches.ts                Suggest touches declarations from file paths + import deps
