@@ -2,6 +2,13 @@ import type { Task, Wave } from "../types.js";
 import { detectHazards } from "./hazards.js";
 import { computeCriticalPath } from "./critical-path.js";
 
+/**
+ * Group tasks into parallel-safe execution waves via topological sort.
+ * 1. Detect all hazards (O(n^2))
+ * 2. Build DAG from RAW + WAW edges
+ * 3. Assign wave numbers via longest-path-from-roots: wave(t) = max(wave(dep)) + 1
+ * 4. Sort tasks within each wave by critical path priority
+ */
 export function computeWaves(tasks: Task[]): Wave[] {
   if (tasks.length === 0) return [];
 

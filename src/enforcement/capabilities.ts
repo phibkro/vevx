@@ -1,5 +1,5 @@
 import type { Manifest, Touches, CapabilityReport, Violation } from "../types.js";
-import { findOwningComponent, buildComponentPaths } from "../manifest/ownership.js";
+import { findOwningComponent, buildComponentPaths } from "../ownership.js";
 
 /**
  * Given modified file paths, check each falls within the declared write set's

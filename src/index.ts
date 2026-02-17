@@ -115,7 +115,8 @@ const tools: ToolDef[] = [
     handler: async ({ plan_path, manifest_path }) => {
       const plan = parsePlanFile(plan_path);
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
-      return validatePlan(plan, manifest);
+      const hazards = detectHazards(plan.tasks);
+      return validatePlan(plan, manifest, hazards);
     },
   },
 

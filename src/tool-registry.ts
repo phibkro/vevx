@@ -1,11 +1,12 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ZodRawShape } from "zod";
+import { z } from "zod";
 
-export type ToolDef = {
+export type ToolDef<T extends ZodRawShape = ZodRawShape> = {
   name: string;
   description: string;
-  inputSchema: ZodRawShape;
-  handler: (args: any) => Promise<any>;
+  inputSchema: T;
+  handler: (args: z.objectOutputType<T, z.ZodTypeAny>) => Promise<unknown>;
 };
 
 /**
@@ -20,7 +21,7 @@ export function registerTools(server: McpServer, tools: ToolDef[]): void {
         description: tool.description,
         inputSchema: tool.inputSchema,
       },
-      async (args: any) => {
+      async (args) => {
         try {
           const result = await tool.handler(args);
           return {

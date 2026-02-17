@@ -23,9 +23,10 @@ function buildReverseDeps(manifest: Manifest): Map<string, string[]> {
 }
 
 /**
- * Given a list of changed components, walk deps in reverse (BFS)
- * to return all transitively affected components.
- * The changed components themselves are included in the result.
+ * Reverse-dependency BFS from changed components.
+ * Builds reverse adjacency map (component -> who depends on it),
+ * then walks breadth-first to find all transitively affected components.
+ * O(V + E) where V = components, E = dependency edges.
  */
 export function invalidationCascade(manifest: Manifest, changed: string[]): string[] {
   const reverse = buildReverseDeps(manifest);
@@ -49,8 +50,9 @@ export function invalidationCascade(manifest: Manifest, changed: string[]): stri
 }
 
 /**
- * Validate the dependency graph for cycles using Kahn's algorithm (topological sort).
- * Returns null if acyclic, or the list of components involved in cycles.
+ * Cycle detection via Kahn's algorithm (topological sort).
+ * Iteratively removes zero-in-degree nodes. If any nodes remain,
+ * they form cycles. O(V + E).
  */
 export function validateDependencyGraph(
   manifest: Manifest,

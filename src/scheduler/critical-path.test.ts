@@ -1,23 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { computeCriticalPath } from "./critical-path.js";
-import type { Task } from "../types.js";
-
-function makeTask(
-  id: string,
-  writes?: string[],
-  reads?: string[],
-  tokens = 10000,
-  minutes = 5,
-): Task {
-  return {
-    id,
-    description: `Task ${id}`,
-    action: "implement",
-    values: ["correctness"],
-    touches: { writes, reads },
-    budget: { tokens, minutes },
-  };
-}
+import { makeTask } from "../test-helpers.js";
 
 describe("computeCriticalPath", () => {
   test("single task", () => {

@@ -1,7 +1,11 @@
-import type { Plan, Manifest, ValidationResult } from "../types.js";
-import { detectHazards } from "../scheduler/hazards.js";
+import type { Plan, Manifest, Hazard, ValidationResult } from "../types.js";
 
-export function validatePlan(plan: Plan, manifest: Manifest): ValidationResult {
+/**
+ * Validate plan consistency against manifest.
+ * Accepts optional pre-computed hazards for WAW warnings.
+ * When hazards are not provided, WAW checking is skipped.
+ */
+export function validatePlan(plan: Plan, manifest: Manifest, hazards?: Hazard[]): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   const componentNames = new Set(Object.keys(manifest.components));
@@ -51,13 +55,14 @@ export function validatePlan(plan: Plan, manifest: Manifest): ValidationResult {
     }
   }
 
-  // Detect WAW hazards as warnings
-  const hazards = detectHazards(plan.tasks);
-  for (const h of hazards) {
-    if (h.type === "WAW") {
-      warnings.push(
-        `WAW hazard: tasks ${h.source_task_id} and ${h.target_task_id} both write to "${h.component}"`,
-      );
+  // Report WAW hazards as warnings (if hazards provided)
+  if (hazards) {
+    for (const h of hazards) {
+      if (h.type === "WAW") {
+        warnings.push(
+          `WAW hazard: tasks ${h.source_task_id} and ${h.target_task_id} both write to "${h.component}"`,
+        );
+      }
     }
   }
 

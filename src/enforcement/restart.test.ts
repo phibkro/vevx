@@ -1,17 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { deriveRestartStrategy } from "./restart.js";
-import type { Task } from "../types.js";
-
-function makeTask(id: string, writes?: string[], reads?: string[]): Task {
-  return {
-    id,
-    description: `Task ${id}`,
-    action: "implement",
-    values: ["correctness"],
-    touches: { writes, reads },
-    budget: { tokens: 10000, minutes: 5 },
-  };
-}
+import { makeTask } from "../test-helpers.js";
 
 describe("deriveRestartStrategy", () => {
   test("isolated retry — no downstream reads of failed writes", () => {

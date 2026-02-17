@@ -21,9 +21,9 @@ describe("checkFreshness", () => {
     // README.md auto-discovered from src/
     expect(report.components.core.docs["README"]).toBeDefined();
     expect(report.components.core.docs["README"].path).toContain("README.md");
-    // docs/*.md auto-discovered from src/docs/
-    expect(report.components.core.docs["architecture"]).toBeDefined();
-    expect(typeof report.components.core.docs["architecture"].stale).toBe("boolean");
+    // docs/*.md auto-discovered from src/docs/ — keyed by relative path
+    expect(report.components.core.docs["docs/architecture"]).toBeDefined();
+    expect(typeof report.components.core.docs["docs/architecture"].stale).toBe("boolean");
   });
 
   test("handles missing doc files gracefully", () => {

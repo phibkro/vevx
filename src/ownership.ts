@@ -1,5 +1,5 @@
 import { resolve, relative } from "node:path";
-import type { Manifest } from "../types.js";
+import type { Manifest } from "./types.js";
 
 export type ComponentPathEntry = { name: string; path: string };
 

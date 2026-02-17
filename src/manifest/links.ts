@@ -2,7 +2,7 @@ import { resolve, dirname } from "node:path";
 import { readFileSync, existsSync } from "node:fs";
 import type { Manifest, BrokenLink, InferredDep, LinkScanResult } from "../types.js";
 import { discoverDocs } from "./discovery.js";
-import { findOwningComponent, buildComponentPaths } from "./ownership.js";
+import { findOwningComponent, buildComponentPaths } from "../ownership.js";
 
 export type LinkScanMode = "deps" | "integrity" | "all";
 
@@ -22,7 +22,6 @@ export function extractMarkdownLinks(content: string): RawLink[] {
 
   while ((match = regex.exec(content)) !== null) {
     const target = match[2];
-    // Skip external URLs and fragment-only links
     if (/^https?:\/\//.test(target) || target.startsWith("#")) {
       continue;
     }
@@ -41,77 +40,63 @@ export function resolveLink(target: string, sourceDocPath: string): string {
   return resolve(dirname(sourceDocPath), withoutAnchor);
 }
 
+// ── Pure analysis ──
+
+export type DocContent = { path: string; component: string; content: string };
+
 /**
- * Scan all component docs for markdown links.
- * - "deps" mode: infer cross-component dependencies from links, compare against declared deps
- * - "integrity" mode: check for broken links (files that don't exist)
- * - "all" mode: both
+ * Analyze pre-loaded docs for broken links and dependency inference.
+ * Pure function — no I/O, fully testable with synthetic data.
+ * Accepts a fileExists predicate for integrity checking without filesystem access.
  */
-export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResult {
+export function analyzeLinks(
+  docs: DocContent[],
+  manifest: Manifest,
+  mode: LinkScanMode,
+  fileExists: (path: string) => boolean,
+): LinkScanResult {
   const brokenLinks: BrokenLink[] = [];
-  const missingDocs: string[] = [];
-  // Map: "from->to" => evidence array
   const inferredDepsMap = new Map<
     string,
     { from: string; to: string; evidence: { source_doc: string; link_target: string }[] }
   >();
   let totalLinksScanned = 0;
-  let totalDocsScanned = 0;
 
   const checkIntegrity = mode === "integrity" || mode === "all";
   const checkDeps = mode === "deps" || mode === "all";
   const componentPaths = buildComponentPaths(manifest);
 
-  for (const [compName, comp] of Object.entries(manifest.components)) {
-    const docPaths = discoverDocs(comp);
+  for (const doc of docs) {
+    const links = extractMarkdownLinks(doc.content);
 
-    for (const docPath of docPaths) {
-      if (!existsSync(docPath)) {
-        missingDocs.push(docPath);
-        continue;
+    for (const link of links) {
+      totalLinksScanned++;
+      const resolved = resolveLink(link.target, doc.path);
+
+      if (checkIntegrity && !fileExists(resolved)) {
+        brokenLinks.push({
+          source_doc: doc.path,
+          source_component: doc.component,
+          link_text: link.text,
+          link_target: link.target,
+          resolved_path: resolved,
+          reason: "file not found",
+        });
       }
 
-      let content: string;
-      try {
-        content = readFileSync(docPath, "utf-8");
-      } catch {
-        continue;
-      }
-
-      totalDocsScanned++;
-      const links = extractMarkdownLinks(content);
-
-      for (const link of links) {
-        totalLinksScanned++;
-        const resolved = resolveLink(link.target, docPath);
-
-        // Integrity check
-        if (checkIntegrity && !existsSync(resolved)) {
-          brokenLinks.push({
-            source_doc: docPath,
-            source_component: compName,
-            link_text: link.text,
-            link_target: link.target,
-            resolved_path: resolved,
-            reason: "file not found",
-          });
-        }
-
-        // Dependency inference
-        if (checkDeps) {
-          const targetOwner = findOwningComponent(resolved, manifest, componentPaths);
-          if (targetOwner !== null && targetOwner !== compName) {
-            const key = `${compName}->${targetOwner}`;
-            const existing = inferredDepsMap.get(key);
-            if (existing) {
-              existing.evidence.push({ source_doc: docPath, link_target: link.target });
-            } else {
-              inferredDepsMap.set(key, {
-                from: compName,
-                to: targetOwner,
-                evidence: [{ source_doc: docPath, link_target: link.target }],
-              });
-            }
+      if (checkDeps) {
+        const targetOwner = findOwningComponent(resolved, manifest, componentPaths);
+        if (targetOwner !== null && targetOwner !== doc.component) {
+          const key = `${doc.component}->${targetOwner}`;
+          const existing = inferredDepsMap.get(key);
+          if (existing) {
+            existing.evidence.push({ source_doc: doc.path, link_target: link.target });
+          } else {
+            inferredDepsMap.set(key, {
+              from: doc.component,
+              to: targetOwner,
+              evidence: [{ source_doc: doc.path, link_target: link.target }],
+            });
           }
         }
       }
@@ -143,8 +128,41 @@ export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResul
     missing_deps: missingDeps,
     extra_deps: extraDeps,
     broken_links: brokenLinks,
-    missing_docs: missingDocs,
+    missing_docs: [],
     total_links_scanned: totalLinksScanned,
-    total_docs_scanned: totalDocsScanned,
+    total_docs_scanned: docs.length,
   };
+}
+
+// ── Effectful wrapper ──
+
+/**
+ * Scan all component docs for markdown links.
+ * Loads docs from disk, then delegates to pure analyzeLinks().
+ */
+export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResult {
+  const missingDocs: string[] = [];
+  const docs: DocContent[] = [];
+
+  for (const [compName, comp] of Object.entries(manifest.components)) {
+    const docPaths = discoverDocs(comp);
+
+    for (const docPath of docPaths) {
+      if (!existsSync(docPath)) {
+        missingDocs.push(docPath);
+        continue;
+      }
+
+      try {
+        const content = readFileSync(docPath, "utf-8");
+        docs.push({ path: docPath, component: compName, content });
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  const result = analyzeLinks(docs, manifest, mode, existsSync);
+  result.missing_docs = missingDocs;
+  return result;
 }
