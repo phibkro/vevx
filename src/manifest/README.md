@@ -115,7 +115,7 @@ Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | 
 
 ## Scoped Tests
 
-`varp_scoped_tests` finds `*.test.ts` files under the component paths referenced by a `touches` declaration. Write components are always included; read components are included only when `include_read_tests` is true (default false). Returns absolute paths, covered component names, and a ready-to-run `bun test` command with relative paths.
+`varp_scoped_tests` finds `*.test.ts` files under the component paths referenced by a `touches` declaration. Write components are always included; read components are included only when `include_read_tests` is true (default false). Collects `env` fields from all covered components into `required_env` (deduplicated, sorted). Returns absolute paths, covered component names, a ready-to-run `bun test` command with relative paths, and required environment variables.
 
 ## Minimal Example
 

@@ -116,7 +116,7 @@ Given file paths that will be modified, suggests a `touches` declaration using o
 
 #### `varp_scoped_tests`
 
-Finds test files for a given `touches` declaration. For write components, recursively finds all `*.test.ts` files under the component's path. Read components are excluded by default but can be included via `include_read_tests`. Returns file paths and a ready-to-run `bun test` command.
+Finds test files for a given `touches` declaration. For write components, recursively finds all `*.test.ts` files under the component's path. Read components are excluded by default but can be included via `include_read_tests`. Collects `env` fields from all covered components into `required_env` (deduplicated, sorted). Returns file paths, a ready-to-run `bun test` command, and required environment variables.
 
 **Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[], include_read_tests?: boolean }`
 
@@ -358,6 +358,7 @@ interface ScopedTestResult {
   components_covered: string[]   // component names that contributed tests
   run_command: string            // "bun test path1 path2 ..." (relative paths, empty if no tests)
   custom_commands: string[]      // custom test commands from component `test` fields
+  required_env: string[]         // deduplicated env vars from covered components' `env` fields
 }
 
 interface LintReport {

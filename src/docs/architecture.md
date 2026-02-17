@@ -182,4 +182,4 @@ Uses `(entry as any).parentPath` to handle Bun/Node compatibility for `Dirent.pa
 
 ## Testing
 
-174 tests across 20 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.
+184 tests across 20 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.
