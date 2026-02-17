@@ -127,7 +127,7 @@ describe("MCP server integration", () => {
       arguments: { manifest_path: "/nonexistent/varp.yaml" },
     });
     expect(result.isError).toBe(true);
-    expect((result.content[0] as any).text).toContain("Error");
+    expect((result.content as any)[0].text).toContain("Error");
   });
 
   test("varp_resolve_docs returns all docs for writes, README only for reads", async () => {
