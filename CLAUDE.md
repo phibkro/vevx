@@ -6,8 +6,8 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 | Command | Purpose |
 |---------|---------|
-| `bun test` | Run all tests (98 tests, 15 files) |
-| `bun run check` | Format check + lint + build (CI gate) |
+| `bun test` | Run all tests (135 tests, 17 files) |
+| `bun run check` | Format check + lint + shellcheck + build (CI gate) |
 | `bun run build` | TypeScript compile to `build/` |
 | `bun run lint` | Run oxlint |
 | `bun run format` | Auto-format with oxfmt |
@@ -30,9 +30,9 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 `varp.yaml` is the source of truth for project structure. It defines components, their file paths, dependency graph, and doc locations.
 
 ```
-src/                    MCP server (12 tools)
+src/                    MCP server (14 tools)
   types.ts              Zod schemas -> TypeScript types
-  manifest/             Manifest parsing, doc resolution, freshness, graph traversal
+  manifest/             Manifest parsing, doc resolution, freshness, graph, imports, touches
   scheduler/            Hazard detection, wave computation, critical path
   plan/                 Plan XML parsing and validation
   enforcement/          Capability verification, restart strategy
@@ -51,5 +51,5 @@ docs/                   Design docs, getting started, reference URLs
 - **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Tests**: Co-located with source (`*.test.ts`). Integration tests use `InMemoryTransport` + `Client`.
-- **Lint/Format**: Run `bun run check` before committing. oxfmt handles formatting — don't manually adjust style.
+- **Lint/Format**: Run `bun run check` before committing. oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality.
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).

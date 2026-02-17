@@ -10,6 +10,7 @@ Lifecycle hooks for varp-managed sessions.
 
 ## Conventions
 
-- No runtime dependencies (no jq/python) — parse with grep/sed/awk
+- No runtime dependencies (no jq/python) — parse with grep/sed/awk and bash parameter expansion
 - Exit 0 when `varp.yaml` is missing (graceful degradation)
 - Hook JSON output via `hooks.json` using nested `hooks` array format
+- All scripts pass `shellcheck` (enforced by `bun run check`)

@@ -9,10 +9,12 @@ src/
   index.ts                    MCP server — tool definitions + server startup
   tool-registry.ts            ToolDef type + registerTools() helper (JSON + error wrapping)
   types.ts                    Zod schemas -> TypeScript types (single source of truth)
+  ownership.ts                findOwningComponent() — longest-prefix match (shared by capabilities, links, imports)
   manifest/
     discovery.ts              Auto-discover README.md + docs/*.md for components
-    ownership.ts              findOwningComponent() — longest-prefix match (shared by capabilities + links)
+    imports.ts                Static import scanner — extract, resolve, cross-component dep inference
     links.ts                  Markdown link scanner — extract, resolve, integrity + dep inference
+    touches.ts                Suggest touches declarations from file paths + import deps
     parser.ts                 Flat YAML -> Manifest (path resolution)
     resolver.ts               Touches x discovery -> doc paths with visibility
     freshness.ts              mtime comparison per component (uses discovery)

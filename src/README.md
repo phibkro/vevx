@@ -101,6 +101,32 @@ Returns the longest chain of RAW dependencies from any root task to any leaf tas
 
 **Returns:** `CriticalPath`
 
+### Analysis
+
+#### `varp_scan_links`
+
+Scans component docs for markdown links. Infers cross-component dependencies from links, detects broken links, and compares against declared `deps` in the manifest.
+
+**Parameters:** `{ manifest_path?: string, mode: "deps" | "integrity" | "all" }`
+
+**Returns:** `LinkScanResult`
+
+#### `varp_infer_imports`
+
+Scans `.ts/.tsx/.js/.jsx` source files for import statements. Infers cross-component dependencies from static imports, compares against declared `deps` in the manifest (producing `missing_deps` and `extra_deps`).
+
+**Parameters:** `{ manifest_path?: string }`
+
+**Returns:** `ImportScanResult`
+
+#### `varp_suggest_touches`
+
+Given file paths that will be modified, suggests a `touches` declaration using ownership mapping (files → write components) and import dependency inference (write components → read components).
+
+**Parameters:** `{ manifest_path?: string, file_paths: string[] }`
+
+**Returns:** `Touches`
+
 ### Enforcement
 
 #### `varp_verify_capabilities`
@@ -136,7 +162,7 @@ Planning workflow. Loads the planner protocol (design doc section 3.2.1) and the
 
 ### `/execute`
 
-Execution workflow. Loads the orchestrator protocol and the active plan from `~/.claude/projects/<project>/memory/plans/`. Follows a 10-step chain of thought: select, verify preconditions, resolve context, dispatch, collect, verify capabilities, verify invariants, handle failure, invalidate, advance. Writes `log.xml` as it progresses.
+Execution workflow. Loads the orchestrator protocol and the active plan from `~/.claude/projects/<project>/memory/plans/`. Follows an 11-step chain of thought: select, verify preconditions, resolve context, dispatch, collect, verify freshness, verify capabilities, verify invariants, handle failure, invalidate, advance. Writes `log.xml` as it progresses.
 
 ### `/review`
 
@@ -256,6 +282,30 @@ interface RestartStrategy {
   strategy: 'isolated_retry' | 'cascade_restart' | 'escalate'
   reason: string
   affected_tasks: string[]  // task IDs impacted by cascade, empty for isolated/escalate
+}
+
+interface LinkScanResult {
+  inferred_deps: InferredDep[]
+  missing_deps: InferredDep[]    // inferred from links but not in manifest deps
+  extra_deps: { from: string; to: string }[]  // in manifest deps but not inferred
+  broken_links: BrokenLink[]
+  missing_docs: string[]
+  total_links_scanned: number
+  total_docs_scanned: number
+}
+
+interface ImportScanResult {
+  import_deps: ImportDep[]
+  missing_deps: ImportDep[]      // inferred from imports but not in manifest deps
+  extra_deps: { from: string; to: string }[]  // in manifest deps but not inferred
+  total_files_scanned: number
+  total_imports_scanned: number
+}
+
+interface ImportDep {
+  from: string
+  to: string
+  evidence: { source_file: string; import_specifier: string }[]
 }
 
 interface ValidationResult {

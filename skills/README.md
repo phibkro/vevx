@@ -15,3 +15,4 @@ Four prompt-based skills for the varp orchestration lifecycle.
 - Skills are prompt-only — no code, no runtime dependencies
 - Skills reference varp MCP tools by name (e.g., `varp_read_manifest`)
 - Plans are stored in project memory (`~/.claude/projects/<project>/memory/plans/`), not the repo
+- Completed plans are auto-archived to `plans/archive/` by the execute skill

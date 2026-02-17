@@ -78,9 +78,10 @@ Send the task to a subagent using the Task tool. Assemble the prompt:
 
 The subagent prompt must mandate:
 1. Read the resolved docs before starting work
-2. Implementation + tests + doc updates for the scope (all in one task)
-3. Run postcondition verification commands before reporting completion
-4. Report exit status: `COMPLETE | PARTIAL | BLOCKED | NEEDS_REPLAN`
+2. Implementation + tests for the scope
+3. Update any docs within the write scope that are affected by the changes (README.md, docs/*.md). If the task adds new public API surface, types, or tools, the component's README.md must reflect them.
+4. Run postcondition verification commands before reporting completion
+5. Report exit status: `COMPLETE | PARTIAL | BLOCKED | NEEDS_REPLAN`
 
 **Budget:** Set `max_turns` on the Task tool based on the plan's per-task budget. If this is a retry, increase by 1.5x.
 
@@ -93,7 +94,16 @@ Receive the result. Record in log.xml:
 - Files modified (from the subagent's report)
 - Any observations the subagent surfaced
 
-### Step 6: Verify Capabilities
+### Step 6: Verify Freshness
+
+Call `varp_check_freshness` for the task's write components. If any docs are stale after the subagent completed:
+- The subagent failed to update docs as required
+- Resume the subagent with: "The following docs are stale after your changes: [list]. Update them to reflect what you implemented."
+- Re-collect and re-check freshness
+
+This catches the common failure mode where subagents implement code + tests but skip doc updates.
+
+### Step 7: Verify Capabilities
 
 Call `varp_verify_capabilities` with:
 - The task's declared `touches` (reads and writes)
@@ -106,7 +116,7 @@ If violations found (files modified outside declared write set):
 
 Capability violations are always errors.
 
-### Step 7: Verify Invariants [at wave boundaries]
+### Step 8: Verify Invariants [at wave boundaries]
 
 **When to run:** After all tasks in the current wave complete (not between individual tasks within a wave). In single-scope mode, this runs after each task since each task is its own "wave."
 
@@ -122,7 +132,7 @@ If a non-critical invariant fails:
 - Log a warning
 - Continue but flag for human review
 
-### Step 8: Handle Failure
+### Step 9: Handle Failure
 
 If the task's exit status is not `COMPLETE`:
 
@@ -136,7 +146,7 @@ Call `varp_derive_restart_strategy` with the failed task, all tasks, and complet
 
 After 2 failed retries on the same task, escalate regardless.
 
-### Step 9: Invalidate [parallel mode only]
+### Step 10: Invalidate [parallel mode only]
 
 Call `varp_invalidation_cascade` with the components whose docs were updated.
 
@@ -145,11 +155,11 @@ For each affected component:
 
 Skip this step in single-scope mode — there are no cross-component dependencies to invalidate.
 
-### Step 10: Advance
+### Step 11: Advance
 
 Mark the task complete in log.xml and check progress:
 
-- If the current wave is complete, run invariant checks (Step 7) if not already run
+- If the current wave is complete, run invariant checks (Step 8) if not already run
 - If invariants pass, proceed to the next wave
 - If this was the final task/wave, run all postcondition checks and report results
 - If all postconditions pass, archive the plan: move its directory from `plans/<name>/` to `plans/archive/<name>/`
@@ -203,8 +213,8 @@ Write execution metrics to `log.xml` alongside the plan.
 | `varp_compute_waves` | Initialization | Sequential, Parallel |
 | `varp_compute_critical_path` | Initialization | Parallel |
 | `varp_resolve_docs` | Step 3 | All |
-| `varp_verify_capabilities` | Step 6 | All |
-| `varp_derive_restart_strategy` | Step 8 | All |
-| `varp_invalidation_cascade` | Step 9 | Parallel |
-| `varp_check_freshness` | As needed | All |
+| `varp_check_freshness` | Step 6 | All |
+| `varp_verify_capabilities` | Step 7 | All |
+| `varp_derive_restart_strategy` | Step 9 | All |
+| `varp_invalidation_cascade` | Step 10 | Parallel |
 | `varp_detect_hazards` | Diagnostics | As needed |
