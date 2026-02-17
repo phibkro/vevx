@@ -21,7 +21,7 @@ current_key=""
 while IFS= read -r line; do
   # Top-level key (no leading space, has colon)
   if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
-    current_key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    current_key="${line%%:*}"
     # Skip the 'varp' key
     if [ "$current_key" = "varp" ]; then
       current_key=""
@@ -49,7 +49,7 @@ in_docs=false
 while IFS= read -r line; do
   # Top-level key
   if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
-    key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    key="${line%%:*}"
     if [ "$key" != "varp" ]; then
       current_comp="$key"
       current_path=""
@@ -59,7 +59,8 @@ while IFS= read -r line; do
   fi
   # Component path
   if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  path:'; then
-    current_path=$(echo "$line" | sed 's/^  path:[[:space:]]*//')
+    current_path="${line#  path:}"
+    current_path="${current_path#"${current_path%%[! ]*}"}"
   fi
   # Docs array start
   if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  docs:'; then
@@ -68,7 +69,8 @@ while IFS= read -r line; do
   fi
   # Doc entry (list item: "    - ./path/to/doc.md")
   if $in_docs && echo "$line" | grep -qE '^    - '; then
-    doc_path=$(echo "$line" | sed 's/^    - [[:space:]]*//')
+    doc_path="${line#    - }"
+    doc_path="${doc_path#"${doc_path%%[! ]*}"}"
     if [ -n "$current_path" ] && [ -f "$doc_path" ]; then
       # Find most recently modified source file in component path
       newest_source=$(find "$current_path" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.py' -o -name '*.go' -o -name '*.rs' \) -newer "$doc_path" 2>/dev/null | head -1)
@@ -97,7 +99,7 @@ current_path=""
 while IFS= read -r line; do
   # Top-level key
   if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
-    key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    key="${line%%:*}"
     if [ "$key" != "varp" ]; then
       current_comp="$key"
       current_path=""
@@ -106,12 +108,13 @@ while IFS= read -r line; do
   fi
   # Component path
   if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  path:'; then
-    current_path=$(echo "$line" | sed 's/^  path:[[:space:]]*//')
+    current_path="${line#  path:}"
+    current_path="${current_path#"${current_path%%[! ]*}"}"
   fi
 done < "$MANIFEST"
 
 # For each component, scan README.md and docs/*.md for broken relative links
-for comp_entry in $(grep -E '^[a-zA-Z_][a-zA-Z0-9_-]*:' "$MANIFEST" | sed 's/:.*//'); do
+while IFS= read -r comp_entry; do
   [ "$comp_entry" = "varp" ] && continue
   comp_path=$(awk "/^${comp_entry}:/{found=1; next} found && /^  path:/{print \$2; exit}" "$MANIFEST")
   [ -z "$comp_path" ] && continue
@@ -130,7 +133,7 @@ for comp_entry in $(grep -E '^[a-zA-Z_][a-zA-Z0-9_-]*:' "$MANIFEST" | sed 's/:.*
     while IFS= read -r link_target; do
       [ -z "$link_target" ] && continue
       # Strip #anchor
-      clean_target=$(echo "$link_target" | sed 's/#.*//')
+      clean_target="${link_target%%#*}"
       [ -z "$clean_target" ] && continue
       # Resolve relative to doc's directory
       doc_dir=$(dirname "$doc_file")
@@ -141,7 +144,7 @@ for comp_entry in $(grep -E '^[a-zA-Z_][a-zA-Z0-9_-]*:' "$MANIFEST" | sed 's/:.*
       fi
     done < <(grep -oE '\[[^]]*\]\([^)]+\)' "$doc_file" 2>/dev/null | sed 's/.*](\(.*\))/\1/' | grep -v '^https\?://' | grep -v '^#')
   done
-done
+done < <(grep -E '^[a-zA-Z_][a-zA-Z0-9_-]*:' "$MANIFEST" | sed 's/:.*//')
 
 if [ ${#broken_links[@]} -gt 0 ]; then
   echo "Broken links: ${#broken_links[@]} found"
@@ -152,7 +155,7 @@ fi
 
 # Check for active plans in Claude Code project memory
 # Convention: ~/.claude/projects/-<pwd-with-slashes-replaced>}/memory/plans/
-project_key=$(echo "$PWD" | sed 's|/|-|g')
+project_key="${PWD//\//-}"
 plans_dir="$HOME/.claude/projects/${project_key}/memory/plans"
 if [ -d "$plans_dir" ]; then
   active_plans=()

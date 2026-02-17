@@ -49,7 +49,7 @@ matched_comp=""
 while IFS= read -r line; do
   # Top-level key (no leading space)
   if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
-    current_key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    current_key="${line%%:*}"
     if [ "$current_key" = "varp" ]; then
       current_key=""
     fi
@@ -58,7 +58,8 @@ while IFS= read -r line; do
   fi
   # Component path (2 spaces indent)
   if [ -n "$current_key" ] && echo "$line" | grep -qE '^  path:'; then
-    current_path=$(echo "$line" | sed 's/^  path:[[:space:]]*//')
+    current_path="${line#  path:}"
+    current_path="${current_path#"${current_path%%[! ]*}"}"
     # Normalize: strip leading ./
     current_path="${current_path#./}"
 
@@ -83,7 +84,7 @@ in_docs=false
 while IFS= read -r line; do
   # Top-level key
   if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
-    key=$(echo "$line" | sed 's/^\([a-zA-Z_][a-zA-Z0-9_-]*\):.*/\1/')
+    key="${line%%:*}"
     if [ "$key" = "$matched_comp" ]; then
       found_comp=true
     elif $found_comp; then
@@ -97,7 +98,8 @@ while IFS= read -r line; do
       continue
     fi
     if $in_docs && echo "$line" | grep -qE '^    - '; then
-      entry=$(echo "$line" | sed 's/^    - [[:space:]]*//')
+      entry="${line#    - }"
+      entry="${entry#"${entry%%[! ]*}"}"
       # Prefer README.md
       if echo "$entry" | grep -q 'README.md'; then
         doc_path="$entry"
