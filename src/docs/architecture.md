@@ -38,7 +38,7 @@ src/
 
 **Zod as single source of truth.** Every type is defined as a Zod schema first, then inferred via `z.infer<>`. MCP tool input validation and internal type safety use the same schemas. No type drift.
 
-**Flat YAML format.** The manifest uses a flat format: `varp` holds the version string, and all other top-level keys are component names. No `components:` wrapper, no `name:` field. The parser extracts `varp`, then treats everything else as a component entry validated by `ComponentSchema`.
+**Flat YAML format.** The manifest uses a flat format: `varp` holds the version string, and all other top-level keys are component names. No `components:` wrapper, no `name:` field. The parser uses `Bun.YAML.parse` (built-in Zig-native YAML 1.2), extracts `varp`, then treats everything else as a component entry validated by `ComponentSchema`.
 
 **Docs are plain strings.** Component docs are string paths, not objects. The README.md convention replaces `load_on` tags: docs with `basename === 'README.md'` are public (loaded for reads+writes), all others are private (loaded for writes only). Auto-discovery checks `{component.path}/README.md` and `{component.path}/docs/*.md` on disk and includes them if present. The `docs:` field is only for docs outside the component's path tree.
 

@@ -6,9 +6,10 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 | Command | Purpose |
 |---------|---------|
-| `bun test` | Run all tests (135 tests, 17 files) |
+| `bun test` | Run all tests (174 tests, 20 files) |
 | `bun run check` | Format check + lint + shellcheck + build (CI gate) |
-| `bun run build` | TypeScript compile to `build/` |
+| `bun run build` | Bundle to `build/` via bun build |
+| `bun run typecheck` | Type-check via tsc --noEmit (not in CI gate) |
 | `bun run lint` | Run oxlint |
 | `bun run format` | Auto-format with oxfmt |
 | `bun test src/index.test.ts` | MCP integration tests only |
@@ -21,7 +22,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 - **MCP SDK**: `@modelcontextprotocol/sdk` (see `docs/reference-urls.md` for current SDK docs)
 - **Validation**: Zod (schemas are single source of truth for types)
 - **XML**: fast-xml-parser (plan.xml parsing)
-- **YAML**: yaml (varp.yaml manifest parsing)
+- **YAML**: Bun.YAML (built-in Zig-native YAML 1.2 parser)
 - **Lint**: oxlint (TypeScript plugin, correctness rules)
 - **Format**: oxfmt (100-char width, double quotes, trailing commas)
 
@@ -30,11 +31,11 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 `varp.yaml` is the source of truth for project structure. It defines components, their file paths, dependency graph, and doc locations.
 
 ```
-src/                    MCP server (14 tools)
+src/                    MCP server (17 tools)
   types.ts              Zod schemas -> TypeScript types
-  manifest/             Manifest parsing, doc resolution, freshness, graph, imports, touches
+  manifest/             Manifest parsing, doc resolution, freshness, graph, imports, touches, lint, scoped-tests
   scheduler/            Hazard detection, wave computation, critical path
-  plan/                 Plan XML parsing and validation
+  plan/                 Plan XML parsing, validation, diff
   enforcement/          Capability verification, restart strategy
 skills/                 4 prompt-based skills (status, plan, execute, review)
 hooks/                  3 lifecycle hooks (session-start, subagent-context, freshness-track)
