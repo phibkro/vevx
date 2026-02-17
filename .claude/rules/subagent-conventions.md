@@ -10,7 +10,7 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 - Build: `bun run build` (tsc to `build/`).
 - MCP tools: Accept `manifest_path` param, parse internally, return JSON as text content.
 - Hooks: No runtime deps (no jq/python). grep/sed/awk only. Exit 0 when `varp.yaml` missing.
-- Skills/hooks/MCP specs change frequently — check `docs/reference-urls.md` for current docs before modifying.
+- Skills/hooks/MCP specs change frequently — check `src/docs/reference-urls.md` for current docs before modifying.
 
 **Module structure**: `src/manifest/` (parser, resolver, freshness, graph), `src/scheduler/` (hazards, waves, critical-path), `src/plan/` (parser, validator), `src/enforcement/` (capabilities, restart).
 

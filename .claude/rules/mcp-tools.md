@@ -16,7 +16,7 @@ paths:
 
 ## Testing MCP Tools
 
-Integration tests use in-process transport (no subprocess/stdio). See `src/index.test.ts` for the current pattern — import paths for `Client`, `InMemoryTransport`, and `McpServer` change across SDK versions. Check `docs/reference-urls.md` → MCP TypeScript SDK for current imports.
+Integration tests use in-process transport (no subprocess/stdio). See `src/index.test.ts` for the current pattern — import paths for `Client`, `InMemoryTransport`, and `McpServer` change across SDK versions. Check `src/docs/reference-urls.md` → MCP TypeScript SDK for current imports.
 
 ## Zod Convention
 

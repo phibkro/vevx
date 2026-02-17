@@ -1,6 +1,6 @@
-import { basename, join } from "node:path";
-import { existsSync } from "node:fs";
+import { basename } from "node:path";
 import type { Manifest, Touches, ResolvedDocs } from "../types.js";
+import { discoverDocs } from "./discovery.js";
 
 export function resolveDocs(manifest: Manifest, touches: Touches): ResolvedDocs {
   const docs: { component: string; doc: string; path: string }[] = [];
@@ -17,15 +17,7 @@ export function resolveDocs(manifest: Manifest, touches: Touches): ResolvedDocs 
     }
 
     const isWrite = writeSet.has(name);
-
-    // Collect all doc paths including auto-discovered README.md
-    const docPaths = [...component.docs];
-
-    // Auto-discover README.md at component root
-    const readmePath = join(component.path, "README.md");
-    if (existsSync(readmePath) && !docPaths.includes(readmePath)) {
-      docPaths.push(readmePath);
-    }
+    const docPaths = discoverDocs(component);
 
     for (const docPath of docPaths) {
       const isPublic = basename(docPath) === "README.md";

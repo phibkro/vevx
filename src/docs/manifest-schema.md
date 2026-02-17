@@ -9,23 +9,16 @@ varp: 0.1.0
 
 auth:
   path: ./src/auth
-  docs:
-    - ./docs/auth/README.md
-    - ./docs/auth/internal.md
 
 api:
   path: ./src/api
   deps: [auth]
-  docs:
-    - ./docs/api/README.md
-    - ./docs/api/internal.md
 
 web:
   path: ./src/web
   deps: [auth, api]
   docs:
-    - ./docs/web/README.md
-    - ./docs/web/internal.md
+    - ./docs/shared/migration-guide.md  # only needed for docs outside component path
 ```
 
 ## Format
@@ -44,7 +37,7 @@ There is no `name` field, no `components:` wrapper. The YAML is flat: `varp` is 
 |-------|------|----------|-------------|
 | `path` | string | yes | Directory path for source files. Relative paths resolved from manifest directory. |
 | `deps` | string[] | no | Component names this component depends on. Structural dependencies — "this component consumes that component's interface." |
-| `docs` | string[] | no | File paths to documentation (defaults to `[]`). Relative paths resolved from manifest directory. |
+| `docs` | string[] | no | Additional doc paths beyond auto-discovered ones (defaults to `[]`). Only needed for docs outside the component's path. Relative paths resolved from manifest directory. |
 
 ## README.md Convention
 
@@ -59,7 +52,18 @@ This replaces the old `load_on` tag system. Name your public-facing docs `README
 
 ## Auto-Discovery
 
-If `{component.path}/README.md` exists on disk, it is automatically included as a public doc even if not listed in `docs`. This means a component with `path: ./src/auth` automatically gets `./src/auth/README.md` as a public doc if that file exists.
+Two locations are auto-discovered without needing to be listed in `docs`:
+
+| Path | Visibility | Description |
+|------|-----------|-------------|
+| `{component.path}/README.md` | Public | Component interface doc, loaded for reads and writes |
+| `{component.path}/docs/*.md` | Private | Internal docs, loaded for writes only |
+
+This means a component with `path: ./src/auth` automatically gets:
+- `./src/auth/README.md` as a public doc (if it exists)
+- `./src/auth/docs/*.md` files as private docs (if the directory exists)
+
+The `docs:` field is only needed for documentation files that live outside the component's path tree.
 
 ## Path Resolution
 

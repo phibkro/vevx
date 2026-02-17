@@ -25,7 +25,7 @@ bun test
 
 ### Using as a Claude Code Plugin
 
-1. Add a `varp.yaml` to your project root (see [Manifest Schema](docs/manifest-schema.md))
+1. Add a `varp.yaml` to your project root (see [Manifest Schema](src/docs/manifest-schema.md))
 2. Install the plugin: `claude plugin add /path/to/varp`
 3. Start a session — the `SessionStart` hook shows project state automatically
 4. Use skills:
@@ -49,18 +49,20 @@ Skills (4)               Workflow protocols: plan, execute, review, status
 Hooks (3)                Lifecycle: session context, subagent injection, freshness tracking
 ```
 
-The MCP server exposes pure functions. Skills structure agent behavior by loading protocols. Hooks enforce conventions at lifecycle boundaries. See [Design Document](docs/varp-design-document.md) for the full rationale.
+The MCP server exposes pure functions. Skills structure agent behavior by loading protocols. Hooks enforce conventions at lifecycle boundaries. See [Design Principles](src/docs/design-principles.md) for the full rationale.
 
 ## Documentation
 
 | Doc | Purpose |
 |-----|---------|
-| [Design Document](docs/varp-design-document.md) | Architecture, principles, concurrency model |
-| [Getting Started](docs/getting-started.md) | Installation, setup, first workflow |
-| [Manifest Schema](docs/manifest-schema.md) | `varp.yaml` reference |
-| [Plan Schema](docs/plan-schema.md) | `plan.xml` reference |
-| [Interface](docs/core/README.md) | MCP tool API surface |
-| [Internal](docs/core/internal.md) | Algorithms and data flow |
+| [Design Principles](src/docs/design-principles.md) | Problem, core principles, agent model |
+| [Architecture](src/docs/design-architecture.md) | Manifest, plans, orchestrator, concurrency |
+| [Design Notes](src/docs/design-notes.md) | Feedback loops, open questions, related work |
+| [Getting Started](src/docs/getting-started.md) | Installation, setup, first workflow |
+| [Manifest Schema](src/docs/manifest-schema.md) | `varp.yaml` reference |
+| [Plan Schema](src/docs/plan-schema.md) | `plan.xml` reference |
+| [API Surface](src/README.md) | MCP tool API |
+| [Architecture (Internal)](src/docs/architecture.md) | Algorithms and data flow |
 
 ## Stack
 

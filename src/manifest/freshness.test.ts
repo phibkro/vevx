@@ -5,24 +5,25 @@ import { resolve } from "node:path";
 const PROJECT_ROOT = resolve(import.meta.dir, "../..");
 
 describe("checkFreshness", () => {
-  test("checks freshness of project's own manifest", () => {
+  test("auto-discovers docs from component path", () => {
     const manifest = {
       varp: "0.1.0",
       components: {
         core: {
           path: resolve(PROJECT_ROOT, "src"),
-          docs: [
-            resolve(PROJECT_ROOT, "docs/core/README.md"),
-            resolve(PROJECT_ROOT, "docs/core/internal.md"),
-          ],
+          docs: [],
         },
       },
     };
 
     const report = checkFreshness(manifest);
     expect(report.components.core).toBeDefined();
+    // README.md auto-discovered from src/
+    expect(report.components.core.docs["README"]).toBeDefined();
     expect(report.components.core.docs["README"].path).toContain("README.md");
-    expect(typeof report.components.core.docs["README"].stale).toBe("boolean");
+    // docs/*.md auto-discovered from src/docs/
+    expect(report.components.core.docs["architecture"]).toBeDefined();
+    expect(typeof report.components.core.docs["architecture"].stale).toBe("boolean");
   });
 
   test("handles missing doc files gracefully", () => {

@@ -212,13 +212,4 @@ Use `varp_validate_plan` to check a plan against the manifest. Validation catche
 
 ## File Location
 
-Plans live in `plans/<status>/<feature-name>/plan.xml`:
-
-```
-plans/
-  backlog/rate-limiting/plan.xml       # Not yet started
-  in-progress/auth-refactor/plan.xml   # Currently executing
-  in-review/dark-mode/plan.xml         # Awaiting human review
-  blocked/payments/plan.xml            # External dependency
-  done/initial-setup/plan.xml          # Completed
-```
+Plans live in project memory: `~/.claude/projects/<project>/memory/plans/<feature-name>/plan.xml`. Completed plans are archived to `memory/plans/archive/`.

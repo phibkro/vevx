@@ -1,6 +1,7 @@
 import { statSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import type { Manifest, FreshnessReport } from "../types.js";
+import { discoverDocs } from "./discovery.js";
 
 function getLatestMtime(dirPath: string): Date | null {
   try {
@@ -44,7 +45,8 @@ export function checkFreshness(manifest: Manifest): FreshnessReport {
     const sourceTs = sourceMtime?.toISOString() ?? "N/A";
 
     const docs: Record<string, { path: string; last_modified: string; stale: boolean }> = {};
-    for (const docPath of component.docs) {
+    const allDocs = discoverDocs(component);
+    for (const docPath of allDocs) {
       const docMtime = getFileMtime(docPath);
       const docKey = basename(docPath, ".md");
       docs[docKey] = {

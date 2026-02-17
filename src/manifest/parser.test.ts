@@ -14,9 +14,8 @@ describe("parseManifest", () => {
     expect(manifest.components.core.path).toBe(
       resolve(PROJECT_ROOT, "src"),
     );
-    expect(manifest.components.core.docs[0]).toBe(
-      resolve(PROJECT_ROOT, "src/docs/architecture.md"),
-    );
+    // No explicit docs — all auto-discovered from src/README.md and src/docs/*.md
+    expect(manifest.components.core.docs).toEqual([]);
   });
 
   test("parses manifest with dependencies", () => {

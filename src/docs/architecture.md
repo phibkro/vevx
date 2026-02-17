@@ -9,9 +9,10 @@ src/
   index.ts                    MCP server entry, 11 tool registrations
   types.ts                    Zod schemas -> TypeScript types (single source of truth)
   manifest/
+    discovery.ts              Auto-discover README.md + docs/*.md for components
     parser.ts                 Flat YAML -> Manifest (path resolution)
-    resolver.ts               Touches x README.md convention -> doc paths
-    freshness.ts              mtime comparison per component
+    resolver.ts               Touches x discovery -> doc paths with visibility
+    freshness.ts              mtime comparison per component (uses discovery)
     graph.ts                  Reverse-dep BFS, Kahn's cycle detection
   plan/
     parser.ts                 XML -> Plan via fast-xml-parser
@@ -31,7 +32,7 @@ src/
 
 **Flat YAML format.** The manifest uses a flat format: `varp` holds the version string, and all other top-level keys are component names. No `components:` wrapper, no `name:` field. The parser extracts `varp`, then treats everything else as a component entry validated by `ComponentSchema`.
 
-**Docs are plain strings.** Component docs are string paths, not objects. The README.md convention replaces `load_on` tags: docs with `basename === 'README.md'` are public (loaded for reads+writes), all others are private (loaded for writes only). Auto-discovery checks `{component.path}/README.md` on disk and includes it if present.
+**Docs are plain strings.** Component docs are string paths, not objects. The README.md convention replaces `load_on` tags: docs with `basename === 'README.md'` are public (loaded for reads+writes), all others are private (loaded for writes only). Auto-discovery checks `{component.path}/README.md` and `{component.path}/docs/*.md` on disk and includes them if present. The `docs:` field is only for docs outside the component's path tree.
 
 **Manifest tools accept `manifest_path` parameter.** Each tool reads and parses the manifest internally rather than receiving a pre-parsed manifest. Keeps the MCP interface simple (string path in, JSON out) at the cost of redundant parsing. Acceptable because parsing is ~1ms.
 
@@ -148,12 +149,19 @@ All 11 tools follow the same pattern:
 
 Scheduler tools (`varp_compute_waves`, `varp_detect_hazards`, `varp_compute_critical_path`) accept inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 
+## Doc Discovery (`discovery.ts`)
+
+Shared helper used by both resolver and freshness. Given a component, returns all doc paths: explicit (`docs:` field) + auto-discovered. Auto-discovers:
+- `{component.path}/README.md` — public doc
+- `{component.path}/docs/*.md` — private docs
+
+Deduplicates by exact path match.
+
 ## Doc Resolution (`resolver.ts`)
 
-Uses the README.md convention to determine doc visibility:
+Uses discovery to get all docs, then applies visibility rules:
 - Docs with `basename(path) === 'README.md'` are public — loaded for both reads and writes
 - All other docs are private — loaded for writes only
-- Auto-discovers `{component.path}/README.md` if it exists on disk and is not already listed
 
 Results are deduplicated by path and returned as a flat array with `{ component, doc, path }` entries where `doc` is `basename(path, '.md')`.
 

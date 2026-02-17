@@ -2,8 +2,6 @@ varp: 0.1.0
 
 core:
   path: ./src
-  docs:
-    - ./src/docs/architecture.md
 
 skills:
   path: ./skills

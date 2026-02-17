@@ -6,7 +6,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 | Command | Purpose |
 |---------|---------|
-| `bun test` | Run all tests (68 tests, 12 files) |
+| `bun test` | Run all tests (78 tests, 13 files) |
 | `bun run build` | TypeScript compile to `build/` |
 | `bun test src/index.test.ts` | MCP integration tests only |
 | `bun test src/scheduler/` | Scheduler tests only |
@@ -15,7 +15,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 - **Runtime**: Bun (install, test, run)
 - **Language**: TypeScript (ES2022, bundler moduleResolution)
-- **MCP SDK**: `@modelcontextprotocol/sdk` (see `docs/reference-urls.md` for current SDK docs)
+- **MCP SDK**: `@modelcontextprotocol/sdk` (see `src/docs/reference-urls.md` for current SDK docs)
 - **Validation**: Zod (schemas are single source of truth for types)
 - **XML**: fast-xml-parser (plan.xml parsing)
 - **YAML**: yaml (varp.yaml manifest parsing)
@@ -33,16 +33,16 @@ src/                    MCP server (11 tools)
   enforcement/          Capability verification, restart strategy
 skills/                 4 prompt-based skills (status, plan, execute, review)
 hooks/                  3 lifecycle hooks (session-start, subagent-context, freshness-track)
-docs/core/              Interface doc (API surface) + internal doc (algorithms, data flow)
+src/docs/               Design docs, schemas, reference URLs (private core docs)
 ```
 
-**Details**: See `docs/core/internal.md` for algorithms and data flow. See `docs/core/README.md` for tool API surface. See `docs/manifest-schema.md` and `docs/plan-schema.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
+**Details**: See `src/docs/architecture.md` for algorithms and data flow. See `src/README.md` for tool API surface. See `src/docs/manifest-schema.md` and `src/docs/plan-schema.md` for format references. See `src/docs/reference-urls.md` for canonical doc URLs.
 
 ## Key Conventions
 
 - **Types**: Define Zod schema first, infer TypeScript type via `z.infer<>`. Never define types separately.
 - **MCP tools**: Accept `manifest_path` parameter (default `./varp.yaml`), parse internally, return JSON as text content.
-- **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `docs/reference-urls.md` before modifying.
-- **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
+- **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `src/docs/reference-urls.md` before modifying.
+- **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `src/docs/reference-urls.md` before modifying.
 - **Tests**: Co-located with source (`*.test.ts`). Integration tests use `InMemoryTransport` + `Client`.
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).

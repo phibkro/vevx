@@ -49,7 +49,7 @@ server.tool(
 
 server.tool(
   "varp_resolve_docs",
-  "Given a task's touches declaration, returns doc paths to load based on README.md convention. Reads load docs tagged as public (README.md). Writes load all docs.",
+  "Given a task's touches declaration, returns doc paths to load. Auto-discovers README.md (public) and docs/*.md (private) within component paths. Reads load public docs only. Writes load all docs.",
   {
     manifest_path: z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)"),
     reads: z.array(z.string()).optional().describe("Components this task reads from"),

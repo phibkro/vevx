@@ -11,13 +11,13 @@ paths:
 
 Skills are prompt-based — SKILL.md content becomes conversation context when invoked. Skills load at session start — changes require restart.
 
-**Spec**: Frontmatter fields, plugin.json format, and namespace rules change frequently. Search the web before modifying — see `docs/reference-urls.md` → Claude Code Skills.
+**Spec**: Frontmatter fields, plugin.json format, and namespace rules change frequently. Search the web before modifying — see `src/docs/reference-urls.md` → Claude Code Skills.
 
 **Project convention**: Skills in `skills/` are invoked as `/varp:skillname`. See existing SKILL.md files for the current pattern.
 
 ## Hooks
 
-**Spec**: Hook event types, JSON schemas, and output format change frequently. Search the web before modifying — see `docs/reference-urls.md` → Claude Code Hooks.
+**Spec**: Hook event types, JSON schemas, and output format change frequently. Search the web before modifying — see `src/docs/reference-urls.md` → Claude Code Hooks.
 
 **Project conventions** (stable):
 - Use `#!/bin/bash` with `set -euo pipefail`
