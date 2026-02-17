@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 
-import type { Plan } from "../types.js";
+import type { Plan } from "#shared/types.js";
+
 import { diffPlans } from "./diff.js";
 
 function makePlan(overrides: Partial<Plan> = {}): Plan {

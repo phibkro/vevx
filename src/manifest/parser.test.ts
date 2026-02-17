@@ -11,12 +11,22 @@ describe("parseManifest", () => {
     const manifest = parseManifest(resolve(PROJECT_ROOT, "varp.yaml"));
 
     expect(manifest.varp).toBe("0.1.0");
-    expect(manifest.components.core).toBeDefined();
-    expect(manifest.components.core.path).toBe(resolve(PROJECT_ROOT, "src"));
-    // Explicit docs for submodule READMEs (outside auto-discovery scope)
-    expect(manifest.components.core.docs).toHaveLength(2);
-    expect(manifest.components.core.docs[0]).toContain("manifest/README.md");
-    expect(manifest.components.core.docs[1]).toContain("plan/README.md");
+    expect(Object.keys(manifest.components)).toHaveLength(8);
+    expect(manifest.components.shared).toBeDefined();
+    expect(manifest.components.shared.path).toBe(resolve(PROJECT_ROOT, "src/shared"));
+    expect(manifest.components.shared.stability).toBe("stable");
+    expect(manifest.components.server).toBeDefined();
+    expect(manifest.components.server.path).toBe(resolve(PROJECT_ROOT, "src"));
+    expect(manifest.components.server.deps).toEqual([
+      "shared",
+      "manifest",
+      "plan",
+      "scheduler",
+      "enforcement",
+    ]);
+    expect(manifest.components.manifest).toBeDefined();
+    expect(manifest.components.manifest.path).toBe(resolve(PROJECT_ROOT, "src/manifest"));
+    expect(manifest.components.manifest.deps).toEqual(["shared"]);
   });
 
   test("parses manifest with dependencies", () => {
@@ -55,7 +65,8 @@ describe("parseManifest", () => {
     const manifest = parseManifest(resolve(PROJECT_ROOT, "varp.yaml"));
 
     // Should have components directly from top-level keys
-    expect(manifest.components.core).toBeDefined();
+    expect(manifest.components.shared).toBeDefined();
+    expect(manifest.components.server).toBeDefined();
     expect(manifest.components.skills).toBeDefined();
     expect(manifest.components.hooks).toBeDefined();
     // Should not have 'name' on manifest
@@ -65,8 +76,11 @@ describe("parseManifest", () => {
   test("resolves doc paths to absolute paths", () => {
     const manifest = parseManifest(resolve(PROJECT_ROOT, "varp.yaml"));
 
-    for (const doc of manifest.components.core.docs) {
-      expect(doc).toMatch(/^\//); // absolute path
+    // server component has no explicit docs; manifest component docs are auto-discovered
+    for (const component of Object.values(manifest.components)) {
+      for (const doc of component.docs) {
+        expect(doc).toMatch(/^\//); // absolute path
+      }
     }
   });
 });

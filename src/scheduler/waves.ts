@@ -1,4 +1,5 @@
-import type { Task, Wave } from "../types.js";
+import type { Task, Wave } from "#shared/types.js";
+
 import { computeCriticalPath } from "./critical-path.js";
 import { detectHazards } from "./hazards.js";
 

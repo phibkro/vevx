@@ -1,8 +1,9 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 
-import { findOwningComponent, buildComponentPaths } from "../ownership.js";
-import type { Manifest, BrokenLink, InferredDep, LinkScanResult } from "../types.js";
+import { findOwningComponent, buildComponentPaths } from "#shared/ownership.js";
+import type { Manifest, BrokenLink, InferredDep, LinkScanResult } from "#shared/types.js";
+
 import { discoverDocs } from "./discovery.js";
 
 export type LinkScanMode = "deps" | "integrity" | "all";

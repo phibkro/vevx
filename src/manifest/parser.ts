@@ -3,7 +3,7 @@ import { resolve, dirname, relative, isAbsolute } from "node:path";
 
 const parseYaml = Bun.YAML.parse;
 
-import { ComponentSchema, type Manifest } from "../types.js";
+import { ComponentSchema, type Manifest } from "#shared/types.js";
 
 const manifestCache = new Map<string, { mtimeMs: number; manifest: Manifest }>();
 

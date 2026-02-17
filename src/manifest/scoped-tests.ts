@@ -1,7 +1,7 @@
 import { readdirSync, existsSync } from "node:fs";
 import { resolve, relative } from "node:path";
 
-import type { Manifest, ScopedTestResult } from "../types.js";
+import type { Manifest, ScopedTestResult } from "#shared/types.js";
 
 /**
  * Recursively find all *.test.ts files under a directory.

@@ -1,4 +1,4 @@
-import type { Task, RestartStrategy } from "../types.js";
+import type { Task, RestartStrategy } from "#shared/types.js";
 
 type TaskRef = Pick<Task, "id" | "touches">;
 

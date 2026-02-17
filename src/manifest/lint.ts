@@ -5,7 +5,8 @@ import type {
   FreshnessReport,
   LintReport,
   LintIssue,
-} from "../types.js";
+} from "#shared/types.js";
+
 import { checkFreshness } from "./freshness.js";
 import { scanImports } from "./imports.js";
 import { scanLinks } from "./links.js";

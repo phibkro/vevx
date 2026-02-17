@@ -2,7 +2,8 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-import type { Manifest } from "../types.js";
+import type { Manifest } from "#shared/types.js";
+
 import { findScopedTests } from "./scoped-tests.js";
 
 const TMP_DIR = join(import.meta.dir, "..", "..", "test-fixtures", "scoped-tests-tmp");

@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 
-import type { Manifest } from "../types.js";
+import type { Manifest } from "#shared/types.js";
+
 import { invalidationCascade, validateDependencyGraph } from "./graph.js";
 
 function makeManifest(components: Record<string, { deps?: string[] }>): Manifest {

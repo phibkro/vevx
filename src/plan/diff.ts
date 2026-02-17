@@ -5,7 +5,7 @@ import type {
   ContractChange,
   TaskChange,
   TaskFieldChange,
-} from "../types.js";
+} from "#shared/types.js";
 
 /**
  * Structurally diff two parsed plans.

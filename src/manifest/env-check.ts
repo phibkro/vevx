@@ -1,4 +1,4 @@
-import type { EnvCheckResult, Manifest } from "../types.js";
+import type { EnvCheckResult, Manifest } from "#shared/types.js";
 
 /**
  * Check environment variables required by a set of components.

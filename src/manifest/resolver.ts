@@ -1,6 +1,7 @@
 import { basename, relative } from "node:path";
 
-import type { Manifest, Touches, ResolvedDocs } from "../types.js";
+import type { Manifest, Touches, ResolvedDocs } from "#shared/types.js";
+
 import { discoverDocs } from "./discovery.js";
 
 export function resolveDocs(manifest: Manifest, touches: Touches): ResolvedDocs {

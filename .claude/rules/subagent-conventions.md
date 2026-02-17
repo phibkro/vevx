@@ -14,6 +14,6 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 - Hooks: No runtime deps (no jq/python). grep/sed/awk + bash parameter expansion. Exit 0 when `varp.yaml` missing. Must pass shellcheck.
 - Skills/hooks/MCP specs change frequently — check `docs/reference-urls.md` for current docs before modifying.
 
-**Module structure**: `src/` (types, ownership, tool-registry, index), `src/manifest/` (parser, resolver, freshness, graph, links, imports, touches, discovery, lint, scoped-tests), `src/scheduler/` (hazards, waves, critical-path), `src/plan/` (parser, validator, diff), `src/enforcement/` (capabilities, restart).
+**Components** (8): `shared` = `src/shared/` (types, ownership), `server` = `src/` (index, tool-registry — depends on all domain components), `manifest` = `src/manifest/` (parser, resolver, freshness, graph, links, imports, touches, discovery, lint, scoped-tests, env-check), `plan` = `src/plan/` (parser, validator, diff), `scheduler` = `src/scheduler/` (hazards, waves, critical-path), `enforcement` = `src/enforcement/` (capabilities, restart), `skills` = `skills/`, `hooks` = `hooks/`. Domain components import shared types via `#shared/*` alias. Skills/hooks depend on manifest.
 
 If you modify component files, note which components were affected in your response.

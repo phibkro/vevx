@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 
-import type { Manifest, ImportScanResult, LinkScanResult, FreshnessReport } from "../types.js";
+import type { Manifest, ImportScanResult, LinkScanResult, FreshnessReport } from "#shared/types.js";
+
 import { lint } from "./lint.js";
 
 const MANIFEST: Manifest = {

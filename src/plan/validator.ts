@@ -1,4 +1,4 @@
-import type { Plan, Manifest, Hazard, ValidationResult, ImportDep } from "../types.js";
+import type { Plan, Manifest, Hazard, ValidationResult, ImportDep } from "#shared/types.js";
 
 /**
  * Validate plan consistency against manifest.

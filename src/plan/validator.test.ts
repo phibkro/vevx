@@ -1,7 +1,8 @@
 import { describe, test, expect } from "bun:test";
 
+import type { Manifest } from "#shared/types.js";
+
 import { detectHazards } from "../scheduler/hazards.js";
-import type { Manifest } from "../types.js";
 import { validatePlan } from "./validator.js";
 
 const manifest: Manifest = {
@@ -12,7 +13,7 @@ const manifest: Manifest = {
   },
 };
 
-import { makeTask, makePlan } from "../test-helpers.js";
+import { makeTask, makePlan } from "#shared/test-helpers.js";
 
 describe("validatePlan", () => {
   test("valid plan passes", () => {

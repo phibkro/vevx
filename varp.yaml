@@ -1,21 +1,48 @@
 varp: 0.1.0
 
-core:
+shared:
+  path: ./src/shared
+  tags: [shared]
+  stability: stable
+
+server:
   path: ./src
-  tags: [mcp, manifest, scheduler]
+  deps: [shared, manifest, plan, scheduler, enforcement]
+  tags: [mcp]
+  stability: stable
+
+manifest:
+  path: ./src/manifest
+  deps: [shared]
+  tags: [mcp]
   stability: active
-  docs:
-    - ./src/manifest/README.md
-    - ./src/plan/README.md
+
+plan:
+  path: ./src/plan
+  deps: [shared]
+  tags: [mcp]
+  stability: active
+
+scheduler:
+  path: ./src/scheduler
+  deps: [shared]
+  tags: [mcp]
+  stability: active
+
+enforcement:
+  path: ./src/enforcement
+  deps: [shared]
+  tags: [mcp]
+  stability: active
 
 skills:
   path: ./skills
-  deps: [core]
+  deps: [manifest]
   tags: [prompt]
   stability: active
 
 hooks:
   path: ./hooks
-  deps: [core]
+  deps: [manifest]
   tags: [lifecycle]
   stability: active

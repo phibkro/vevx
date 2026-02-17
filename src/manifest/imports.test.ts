@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 
-import type { Manifest } from "../types.js";
+import type { Manifest } from "#shared/types.js";
+
 import { extractImports, resolveImport, analyzeImports, type SourceFile } from "./imports.js";
 
 describe("extractImports", () => {

@@ -1,4 +1,4 @@
-import type { Task, Hazard } from "../types.js";
+import type { Task, Hazard } from "#shared/types.js";
 
 type TaskRef = Pick<Task, "id" | "touches">;
 

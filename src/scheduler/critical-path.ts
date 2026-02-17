@@ -1,4 +1,5 @@
-import type { Task, Hazard, CriticalPath, Budget } from "../types.js";
+import type { Task, Hazard, CriticalPath, Budget } from "#shared/types.js";
+
 import { detectHazards } from "./hazards.js";
 
 type SchedulableTask = Pick<Task, "id" | "touches" | "budget">;

@@ -1,4 +1,4 @@
-import type { Manifest } from "../types.js";
+import type { Manifest } from "#shared/types.js";
 
 /**
  * Build a reverse dependency map: for each component, which components depend on it.

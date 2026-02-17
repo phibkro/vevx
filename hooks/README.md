@@ -14,7 +14,7 @@ Lightweight component detection. When a Write or Edit touches a source file with
 
 Output example:
 ```
-Varp: modified component "core"
+Varp: modified component "manifest"
 ```
 
 Exits silently when the file is outside any component or is a markdown file.

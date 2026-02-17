@@ -6,7 +6,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 | Command | Purpose |
 |---------|---------|
-| `bun test` | Run all tests (179 tests, 20 files) |
+| `bun test` | Run all tests (206 tests, 21 files) |
 | `bun run check` | Format check + lint + shellcheck + build (CI gate) |
 | `bun run build` | Bundle to `build/` via bun build |
 | `bun run typecheck` | Type-check via tsc --noEmit (not in CI gate) |
@@ -28,18 +28,18 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 ## Architecture
 
-`varp.yaml` is the source of truth for project structure. It defines components, their file paths, dependency graph, and doc locations.
+`varp.yaml` is the source of truth for project structure. It defines 8 components: shared (types), server (MCP wiring), manifest/plan/scheduler/enforcement (domain tools), skills (prompts), hooks (lifecycle). Import alias `#shared/*` maps to `src/shared/*`.
 
 ```
-src/                    MCP server (17 tools)
-  types.ts              Zod schemas -> TypeScript types
+src/                    MCP server — 18 tools, 8 components
+  shared/               Shared types + utilities (types.ts, ownership.ts)
   manifest/             Manifest parsing, doc resolution, freshness, graph, imports, touches, lint, scoped-tests
-  scheduler/            Hazard detection, wave computation, critical path
   plan/                 Plan XML parsing, validation, diff
+  scheduler/            Hazard detection, wave computation, critical path
   enforcement/          Capability verification, restart strategy
 skills/                 5 prompt-based skills (init, status, plan, execute, review)
 hooks/                  3 lifecycle hooks (session-start, subagent-context, freshness-track)
-src/docs/               Architecture internals (private core doc)
+src/docs/               Architecture internals (private server doc)
 docs/                   Design docs, getting started, reference URLs
 ```
 

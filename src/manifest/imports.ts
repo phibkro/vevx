@@ -1,8 +1,8 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 
-import { findOwningComponent, buildComponentPaths } from "../ownership.js";
-import type { Manifest, ImportScanResult, ImportDep } from "../types.js";
+import { findOwningComponent, buildComponentPaths } from "#shared/ownership.js";
+import type { Manifest, ImportScanResult, ImportDep } from "#shared/types.js";
 
 // ── Pure types ──
 
