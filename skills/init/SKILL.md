@@ -20,20 +20,51 @@ Check if `varp.yaml` exists in the project root.
 
 ### Step 2: Detect Project Structure
 
-Scan for monorepo configuration files to discover components automatically:
+Try these strategies in order. Stop at the first one that produces results.
 
-1. **`package.json`** — check for a `workspaces` field (array of glob patterns)
-2. **`pnpm-workspace.yaml`** — check for a `packages` array
-3. **`tsconfig.json`** — check for `references` array (TypeScript project references)
-4. **`turbo.json`**, **`nx.json`** — monorepo tool markers
+#### Strategy A: Import from monorepo tool graph
 
-**If monorepo config found:** Extract component names and paths from workspace/package definitions. Each workspace entry becomes a component. Use the directory basename as the component name.
+If the project uses a monorepo tool with a dependency graph, import it directly — don't re-infer what's already declared.
 
-**If no monorepo config found:** Fall back to filesystem scanning. Use Glob to find directories containing TypeScript or JavaScript source files. Check common patterns: `src/`, `packages/*`, `apps/*`, `lib/*`, and top-level directories with `*.ts` or `*.js` files. Each distinct source directory becomes a component.
+**Nx** (detected by `nx.json`):
+```bash
+nx graph --file=/tmp/graph.json
+```
+Parse the JSON: `graph.nodes` gives component names, paths (`data.root`), and project types. `graph.dependencies` gives typed edges (`static`/`dynamic`/`implicit`). Map each node to a varp component. Map `static` + `implicit` deps to varp `deps`.
+
+**Turborepo** (detected by `turbo.json`):
+```bash
+turbo query '{ packages { items { name path directDependencies { items { name } } } } }'
+```
+Parse the JSON: each package becomes a component. `directDependencies` maps to varp `deps`.
+
+**moon** (detected by `.moon/workspace.yml`):
+```bash
+moon query projects --json
+```
+Parse the JSON: each project becomes a component. Read each project's `moon.yml` for `dependsOn` entries to populate varp `deps`.
+
+If a tool graph is imported, **skip Step 3** (deps are already known). Proceed to Step 4.
+
+#### Strategy B: Workspace config files
+
+If no monorepo tool graph is available, scan for workspace configuration:
+
+1. **`pnpm-workspace.yaml`** — `packages` array of glob patterns
+2. **`package.json`** — `workspaces` field (array of glob patterns)
+3. **`tsconfig.json`** — `references` array (TypeScript project references)
+
+Resolve glob patterns to actual directories. Each resolved directory becomes a component. Use the directory basename (or `package.json` `name` field if present) as the component name.
+
+#### Strategy C: Filesystem scanning
+
+If no workspace config found, fall back to filesystem scanning. Use Glob to find directories containing TypeScript or JavaScript source files. Check common patterns: `src/`, `packages/*`, `apps/*`, `lib/*`, and top-level directories with `*.ts` or `*.js` files. Each distinct source directory becomes a component.
 
 Present the discovered components to the user for confirmation before proceeding.
 
 ### Step 3: Infer Dependencies
+
+**Skip this step if deps were imported from a monorepo tool graph in Step 2A.**
 
 For each discovered component, scan its source files (`*.ts`, `*.tsx`, `*.js`, `*.jsx`) for import statements that resolve into another component's directory.
 
@@ -80,6 +111,8 @@ Generate the file, then show it to the user for review before validation.
 Call `varp_read_manifest` on the generated file to verify it parses correctly and the dependency graph is acyclic. If parsing fails, fix the issues and retry.
 
 Then call `varp_infer_imports` to cross-check the declared deps against actual import patterns. Report any discrepancies (missing or extra deps) so the user can decide whether to adjust.
+
+If the project has Nx or Turborepo, note their availability for ongoing `touches` validation — the execute skill can use `nx affected` or `turbo query affectedPackages` to advisory-check task scope declarations.
 
 Output a summary:
 
