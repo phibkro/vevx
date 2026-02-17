@@ -9,7 +9,7 @@ Current state of Varp relative to the design documents. Updated February 2026.
 | MCP tools | 17 | Manifest (8), Scheduler (3), Plan (3), Enforcement (2), Analysis (1) |
 | Skills | 5 | init, plan, execute, review, status |
 | Hooks | 3 | SessionStart, SubagentStart (PostToolUse), PostToolUse (freshness) |
-| Tests | 174 | 20 test files, co-located with source |
+| Tests | 179 | 20 test files, co-located with source |
 
 ### MCP Tools by Category
 
@@ -81,14 +81,14 @@ Not in design doc. Parser caches by `(absolutePath, mtimeMs)` to avoid re-parsin
 | Medium loop UX | 7.1 | Partial | `/varp:review` skill exists but UX is underspecified |
 | Decision authority matrix | 7.3 | Open | Escalation thresholds need empirical tuning |
 
-### Proposed Extensions (Not in Design Doc)
+### Extensions (Not in Original Design Doc)
 
 | Extension | Purpose | Status |
 |-----------|---------|--------|
-| `tags` on components | Freeform labels for filtering and grouping | Proposed |
-| `test` on components | Per-component test command | Proposed |
-| `env` on components | Runtime prerequisites | Proposed |
-| `stability` on components | stable/active/experimental | Proposed |
+| `tags` on components | Freeform labels for filtering and grouping | Implemented |
+| `test` on components | Per-component test command (overrides `*.test.ts` discovery in `varp_scoped_tests`) | Implemented |
+| `env` on components | Runtime prerequisites (informational) | Implemented |
+| `stability` on components | `stable` / `active` / `experimental` | Implemented |
 | Three-graph separation | Project/task/action graph decomposition | Documented in architecture |
 | Named mutexes on tasks | Exclusive resource locks beyond component graph | Under consideration |
 

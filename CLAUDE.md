@@ -6,7 +6,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 | Command | Purpose |
 |---------|---------|
-| `bun test` | Run all tests (174 tests, 20 files) |
+| `bun test` | Run all tests (179 tests, 20 files) |
 | `bun run check` | Format check + lint + shellcheck + build (CI gate) |
 | `bun run build` | Bundle to `build/` via bun build |
 | `bun run typecheck` | Type-check via tsc --noEmit (not in CI gate) |

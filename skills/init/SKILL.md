@@ -103,6 +103,7 @@ Rules:
 - Only include `deps:` when the component has dependencies
 - Only include `docs:` for documentation outside the component's path tree (auto-discovery handles README.md and docs/*.md within the path)
 - Component names use lowercase kebab-case derived from directory names
+- Optional fields (`tags`, `test`, `env`, `stability`) can be added later — don't include them in the initial scaffold unless the user requests them
 
 Generate the file, then show it to the user for review before validation.
 

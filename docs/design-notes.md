@@ -68,9 +68,9 @@ Initial resource budgets are set by the planner based on task complexity estimat
 
 Resuming a subagent session preserves its accumulated context, but that context may be stale if other tasks have modified components in its scope since the session was suspended. The orchestrator checks doc freshness before dispatch, but a warm agent's *implicit* understanding (patterns it noticed, assumptions it formed) can't be freshness-checked. Whether warm agent resumption should be limited to cases where no intervening writes occurred, or whether a freshness summary injected at resumption is sufficient, is an open question.
 
-## 8. Proposed Manifest Extensions
+## 8. Manifest Extensions
 
-The current manifest schema (`varp`, `path`, `deps`, `docs`) covers structural dependencies and documentation. Several extensions would give the planner and orchestrator richer signals without changing the core scheduling model.
+Four optional component fields that give the planner and orchestrator richer signals without changing the core scheduling model. All are implemented — see [Manifest Schema](../src/manifest/README.md) for the full reference.
 
 ### 8.1 `tags` — Freeform Labels
 
@@ -80,7 +80,7 @@ auth:
   tags: [security, critical, api-boundary]
 ```
 
-Arbitrary string labels for filtering and grouping. The planner could scope questions ("which security-tagged components does this affect?"), and the orchestrator could apply per-tag policies (e.g., require review for `critical` components). No schema validation beyond string array — users define their own taxonomy.
+Arbitrary string labels for filtering and grouping. The planner can scope questions ("which security-tagged components does this affect?"), and the orchestrator can apply per-tag policies (e.g., require review for `critical` components). No schema validation beyond string array — users define their own taxonomy.
 
 ### 8.2 `test` — Per-Component Test Command
 
@@ -90,7 +90,7 @@ auth:
   test: bun test src/auth/
 ```
 
-Overrides the default test discovery (`varp_scoped_tests` recursively finds `*.test.ts` under the component path). Useful when components have non-standard test setups, integration tests that require flags, or monorepo tools with their own test runners (`nx run auth:test`, `turbo run test --filter=auth`).
+Overrides the default test discovery (`varp_scoped_tests` recursively finds `*.test.ts` under the component path). When set, the command appears in `custom_commands` on the scoped test result, and `run_command` uses it instead of (or in addition to) discovered test files. Useful when components have non-standard test setups, integration tests that require flags, or monorepo tools with their own test runners (`nx run auth:test`, `turbo run test --filter=auth`).
 
 ### 8.3 `env` — Runtime Prerequisites
 
@@ -100,7 +100,7 @@ database:
   env: [POSTGRES_URL, REDIS_URL]
 ```
 
-Environment variables or external services the component requires. The orchestrator checks these before dispatching tasks — a subagent working on `database` needs `POSTGRES_URL` to run integration tests. Prevents wasted agent work on tasks that will fail at verification time due to missing prerequisites.
+Environment variables or external services the component requires. Informational — the orchestrator can check these before dispatching tasks to prevent wasted agent work on tasks that will fail at verification time due to missing prerequisites.
 
 ### 8.4 `stability` — Change Frequency Signal
 
@@ -118,7 +118,7 @@ Three levels: `stable` (rarely changes, many dependents), `active` (regular deve
 
 ### 8.5 Design Considerations
 
-These extensions are additive — all fields are optional with sensible defaults. They enrich the planner and orchestrator's decision-making without changing the scheduling model (`touches` + hazard detection remains the core). Implementation priority should follow usage evidence: add fields when real workflows demonstrate the need.
+These extensions are additive — all fields are optional with sensible defaults. They enrich the planner and orchestrator's decision-making without changing the scheduling model (`touches` + hazard detection remains the core).
 
 Named **mutexes** (exclusive resource locks on plan tasks, e.g., `mutex: ["db-migration"]`) are a complementary concept for resource contention that can't be inferred from the component graph. Unlike hazard detection which is automatic from `touches`, mutexes are explicit declarations for shared resources (database connections, GPU, CI runners) that cross component boundaries. These belong in the plan schema rather than the manifest, since they're per-task operational constraints, not structural properties.
 

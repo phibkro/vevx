@@ -28,19 +28,23 @@ varp: 0.1.0
 
 auth:
   path: ./src/auth
+  tags: [security]
+  stability: stable
   docs:
     - ./docs/auth/internal.md
 
 api:
   path: ./src/api
   deps: [auth]
+  env: [DATABASE_URL]
+  test: "bun test src/api --timeout 5000"
 
 web:
   path: ./src/web
   deps: [auth, api]
 ```
 
-See [Manifest Schema](../src/manifest/README.md) for the full reference. See [Plan Schema](../src/plan/README.md) for the plan XML format.
+Only `path` is required. Optional fields like `tags`, `stability`, `env`, and `test` give the planner richer context but can be added incrementally. See [Manifest Schema](../src/manifest/README.md) for the full reference. See [Plan Schema](../src/plan/README.md) for the plan XML format.
 
 ### 2. Write Component Docs
 
