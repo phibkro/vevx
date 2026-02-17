@@ -1,5 +1,6 @@
 import { statSync, readdirSync } from "node:fs";
 import { join, relative, basename } from "node:path";
+
 import type { Manifest, FreshnessReport } from "../types.js";
 import { discoverDocs } from "./discovery.js";
 

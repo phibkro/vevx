@@ -1,9 +1,11 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createServer } from "./index.js";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+
+import { createServer } from "./index.js";
 
 const MANIFEST_PATH = join(import.meta.dir, "..", "test-fixtures", "multi-component.yaml");
 const PLAN_DIR = join(import.meta.dir, "..", "test-fixtures");
@@ -83,7 +85,7 @@ describe("MCP server integration", () => {
     } catch {}
   });
 
-  test("lists all 14 tools", async () => {
+  test("lists all 17 tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -92,12 +94,15 @@ describe("MCP server integration", () => {
       "varp_compute_waves",
       "varp_derive_restart_strategy",
       "varp_detect_hazards",
+      "varp_diff_plan",
       "varp_infer_imports",
       "varp_invalidation_cascade",
+      "varp_lint",
       "varp_parse_plan",
       "varp_read_manifest",
       "varp_resolve_docs",
       "varp_scan_links",
+      "varp_scoped_tests",
       "varp_suggest_touches",
       "varp_validate_plan",
       "varp_verify_capabilities",
@@ -381,6 +386,152 @@ describe("MCP server integration", () => {
     const data = parseResult(result);
     expect(data).toHaveProperty("writes");
     expect(data.writes).toContain("api");
+  });
+
+  // ── Plan Diff ──
+
+  test("varp_diff_plan returns empty diff for identical plans", async () => {
+    const result = await client.callTool({
+      name: "varp_diff_plan",
+      arguments: { plan_a_path: TEST_PLAN_PATH, plan_b_path: TEST_PLAN_PATH },
+    });
+    const data = parseResult(result);
+    expect(data.metadata).toEqual([]);
+    expect(data.contracts).toEqual([]);
+    expect(data.tasks).toEqual([]);
+  });
+
+  test("varp_diff_plan detects differences between two plans", async () => {
+    // Create a second plan with differences
+    const planB = join(PLAN_DIR, "test-plan-b.xml");
+    writeFileSync(
+      planB,
+      `<plan>
+  <metadata>
+    <feature>Modified Feature</feature>
+    <created>2026-02-17</created>
+  </metadata>
+  <contract>
+    <preconditions>
+      <condition id="pre-1">
+        <description>Source exists</description>
+        <verify>test -d src</verify>
+      </condition>
+    </preconditions>
+    <invariants>
+      <invariant critical="true">
+        <description>Tests pass</description>
+        <verify>bun test</verify>
+      </invariant>
+    </invariants>
+    <postconditions>
+      <condition id="post-1">
+        <description>Feature works</description>
+        <verify>bun test --filter=feature</verify>
+      </condition>
+    </postconditions>
+  </contract>
+  <tasks>
+    <task id="1">
+      <description>Implement auth changes v2</description>
+      <action>implement</action>
+      <values>correctness, simplicity</values>
+      <touches writes="auth" reads="api" />
+      <budget tokens="40000" minutes="15" />
+    </task>
+    <task id="3">
+      <description>New task</description>
+      <action>test</action>
+      <values>coverage</values>
+      <touches reads="auth" />
+      <budget tokens="10000" minutes="5" />
+    </task>
+  </tasks>
+</plan>`,
+    );
+
+    try {
+      const result = await client.callTool({
+        name: "varp_diff_plan",
+        arguments: { plan_a_path: TEST_PLAN_PATH, plan_b_path: planB },
+      });
+      const data = parseResult(result);
+      // Metadata changed
+      expect(data.metadata.length).toBeGreaterThan(0);
+      // Task 2 removed, task 3 added, task 1 modified
+      const removed = data.tasks.filter((t: any) => t.type === "removed");
+      const added = data.tasks.filter((t: any) => t.type === "added");
+      const modified = data.tasks.filter((t: any) => t.type === "modified");
+      expect(removed.some((t: any) => t.id === "2")).toBe(true);
+      expect(added.some((t: any) => t.id === "3")).toBe(true);
+      expect(modified.some((t: any) => t.id === "1")).toBe(true);
+    } finally {
+      try {
+        require("fs").unlinkSync(planB);
+      } catch {}
+    }
+  });
+
+  test("varp_diff_plan returns error for missing file", async () => {
+    const result = await client.callTool({
+      name: "varp_diff_plan",
+      arguments: { plan_a_path: TEST_PLAN_PATH, plan_b_path: "/nonexistent/plan.xml" },
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  // ── Lint ──
+
+  test("varp_lint returns lint report with expected structure", async () => {
+    const result = await client.callTool({
+      name: "varp_lint",
+      arguments: { manifest_path: MANIFEST_PATH },
+    });
+    const data = parseResult(result);
+    expect(data).toHaveProperty("total_issues");
+    expect(data).toHaveProperty("issues");
+    expect(typeof data.total_issues).toBe("number");
+    expect(Array.isArray(data.issues)).toBe(true);
+    expect(data.total_issues).toBe(data.issues.length);
+  });
+
+  test("varp_lint issues have correct shape", async () => {
+    const result = await client.callTool({
+      name: "varp_lint",
+      arguments: { manifest_path: MANIFEST_PATH },
+    });
+    const data = parseResult(result);
+    for (const issue of data.issues) {
+      expect(["error", "warning"]).toContain(issue.severity);
+      expect(["imports", "links", "freshness"]).toContain(issue.category);
+      expect(typeof issue.message).toBe("string");
+    }
+  });
+
+  // ── Scoped Tests ──
+
+  test("varp_scoped_tests returns test files for write components", async () => {
+    const result = await client.callTool({
+      name: "varp_scoped_tests",
+      arguments: { manifest_path: MANIFEST_PATH, writes: ["auth"] },
+    });
+    const data = parseResult(result);
+    expect(data).toHaveProperty("test_files");
+    expect(data).toHaveProperty("components_covered");
+    expect(data).toHaveProperty("run_command");
+    expect(Array.isArray(data.test_files)).toBe(true);
+    expect(data.components_covered).toContain("auth");
+  });
+
+  test("varp_scoped_tests returns empty for reads by default", async () => {
+    const result = await client.callTool({
+      name: "varp_scoped_tests",
+      arguments: { manifest_path: MANIFEST_PATH, reads: ["auth"] },
+    });
+    const data = parseResult(result);
+    expect(data.test_files).toEqual([]);
+    expect(data.components_covered).toEqual([]);
+    expect(data.run_command).toBe("");
   });
 
   test("varp_scan_links with mode=deps returns dependency analysis", async () => {

@@ -14,14 +14,17 @@ src/
     discovery.ts              Auto-discover README.md + docs/*.md for components
     imports.ts                Static import scanner — extract, resolve, cross-component dep inference
     links.ts                  Markdown link scanner — extract, resolve, integrity + dep inference
+    scoped-tests.ts           Find test files scoped to a touches declaration
     touches.ts                Suggest touches declarations from file paths + import deps
     parser.ts                 Flat YAML -> Manifest (path resolution)
     resolver.ts               Touches x discovery -> doc paths with visibility
     freshness.ts              mtime comparison per component (uses discovery)
     graph.ts                  Reverse-dep BFS, Kahn's cycle detection
+    lint.ts                   Aggregate health checks (imports, links, freshness)
   plan/
     parser.ts                 XML -> Plan via fast-xml-parser
     validator.ts              Plan-manifest consistency checks
+    diff.ts                   Structural plan diff (metadata, contracts, tasks)
   scheduler/
     hazards.ts                O(n^2) pairwise RAW/WAR/WAW detection
     waves.ts                  Topological sort with wave grouping
@@ -146,7 +149,7 @@ failed task --> deriveRestartStrategy() --> RestartStrategy
 
 ## MCP Server Wiring (`index.ts`)
 
-All 12 tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
+All 17 tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
 1. JSON serialization (`JSON.stringify(result, null, 2)`)
 2. Error handling (catch → `{ isError: true }`)
 3. MCP response formatting (`{ content: [{ type: "text", text }] }`)
@@ -179,4 +182,4 @@ Uses `(entry as any).parentPath` to handle Bun/Node compatibility for `Dirent.pa
 
 ## Testing
 
-98 tests across 15 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.
+174 tests across 20 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.

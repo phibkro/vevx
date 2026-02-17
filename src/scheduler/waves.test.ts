@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { computeWaves } from "./waves.js";
+
 import { makeTask } from "../test-helpers.js";
+import { computeWaves } from "./waves.js";
 
 describe("computeWaves", () => {
   test("independent tasks in single wave", () => {

@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { deriveRestartStrategy } from "./restart.js";
+
 import { makeTask } from "../test-helpers.js";
+import { deriveRestartStrategy } from "./restart.js";
 
 describe("deriveRestartStrategy", () => {
   test("isolated retry — no downstream reads of failed writes", () => {

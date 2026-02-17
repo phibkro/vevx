@@ -1,6 +1,7 @@
 #!/bin/bash
 # Varp freshness-track hook
 # Warns when edited files fall within a component's scope
+# Lists ALL stale docs per component (explicit + auto-discovered)
 # Receives tool use context as JSON on stdin
 
 set -euo pipefail
@@ -45,6 +46,7 @@ fi
 current_key=""
 current_path=""
 matched_comp=""
+matched_path=""
 
 while IFS= read -r line; do
   # Top-level key (no leading space)
@@ -67,6 +69,7 @@ while IFS= read -r line; do
     file_check="${file_path_rel#./}"
     if echo "$file_check" | grep -q "^${current_path}"; then
       matched_comp="$current_key"
+      matched_path="$current_path"
       break
     fi
   fi
@@ -77,8 +80,8 @@ if [ -z "$matched_comp" ]; then
   exit 0
 fi
 
-# Find the first doc for this component (look for README.md first)
-doc_path=""
+# Collect explicit docs from varp.yaml for the matched component
+declare -a doc_paths=()
 found_comp=false
 in_docs=false
 while IFS= read -r line; do
@@ -100,23 +103,92 @@ while IFS= read -r line; do
     if $in_docs && echo "$line" | grep -qE '^    - '; then
       entry="${line#    - }"
       entry="${entry#"${entry%%[! ]*}"}"
-      # Prefer README.md
-      if echo "$entry" | grep -q 'README.md'; then
-        doc_path="$entry"
-        break
-      fi
-      # Otherwise take the first doc
-      if [ -z "$doc_path" ]; then
-        doc_path="$entry"
-      fi
+      # Normalize: strip leading ./
+      entry="${entry#./}"
+      doc_paths+=("$entry")
     elif $in_docs && ! echo "$line" | grep -qE '^    - |^$'; then
       in_docs=false
     fi
   fi
 done < "$MANIFEST"
 
-if [ -n "$doc_path" ]; then
-  echo "Note: Modified file in component \"${matched_comp}\" scope. Consider updating ${doc_path} if the API surface changed."
-else
+# Auto-discover README.md at component root
+readme_path="${matched_path}/README.md"
+if [ -f "$readme_path" ]; then
+  # Add if not already in explicit docs
+  already_listed=false
+  for dp in "${doc_paths[@]+"${doc_paths[@]}"}"; do
+    if [ "$dp" = "$readme_path" ]; then
+      already_listed=true
+      break
+    fi
+  done
+  if ! $already_listed; then
+    doc_paths+=("$readme_path")
+  fi
+fi
+
+# Auto-discover docs/*.md within component path
+docs_dir="${matched_path}/docs"
+if [ -d "$docs_dir" ]; then
+  for md_file in "$docs_dir"/*.md; do
+    # Guard against no-match glob expansion
+    [ -f "$md_file" ] || continue
+    # Strip leading ./
+    md_file_norm="${md_file#./}"
+    already_listed=false
+    for dp in "${doc_paths[@]+"${doc_paths[@]}"}"; do
+      if [ "$dp" = "$md_file_norm" ]; then
+        already_listed=true
+        break
+      fi
+    done
+    if ! $already_listed; then
+      doc_paths+=("$md_file_norm")
+    fi
+  done
+fi
+
+# If no docs found at all, emit a generic note
+if [ ${#doc_paths[@]} -eq 0 ]; then
   echo "Note: Modified file in component \"${matched_comp}\" scope. Consider updating component docs if the API surface changed."
+  exit 0
+fi
+
+# Find latest source file mtime in the component (seconds since epoch)
+# Exclude .md files from source mtime calculation
+latest_source_mtime=0
+while IFS= read -r src_file; do
+  # Skip markdown files — they are docs, not source
+  case "$src_file" in
+    *.md) continue ;;
+  esac
+  if [ -f "$src_file" ]; then
+    file_mtime=$(stat -f '%m' "$src_file" 2>/dev/null || stat -c '%Y' "$src_file" 2>/dev/null || echo 0)
+    if [ "$file_mtime" -gt "$latest_source_mtime" ]; then
+      latest_source_mtime="$file_mtime"
+    fi
+  fi
+done < <(find "$matched_path" -type f 2>/dev/null)
+
+# Compare each doc's mtime against latest source mtime
+declare -a stale_docs=()
+for doc in "${doc_paths[@]}"; do
+  if [ ! -f "$doc" ]; then
+    # Missing doc counts as stale
+    stale_docs+=("$doc (missing)")
+    continue
+  fi
+  doc_mtime=$(stat -f '%m' "$doc" 2>/dev/null || stat -c '%Y' "$doc" 2>/dev/null || echo 0)
+  if [ "$doc_mtime" -lt "$latest_source_mtime" ]; then
+    stale_docs+=("$doc")
+  fi
+done
+
+# Report stale docs
+if [ ${#stale_docs[@]} -gt 0 ]; then
+  echo "Note: Modified file in component \"${matched_comp}\" scope. The following docs may be stale:"
+  for stale in "${stale_docs[@]}"; do
+    echo "  - ${stale}"
+  done
 fi

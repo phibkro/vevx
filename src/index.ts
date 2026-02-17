@@ -1,21 +1,26 @@
+import { dirname, resolve } from "node:path";
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import { parseManifest } from "./manifest/parser.js";
-import { resolveDocs } from "./manifest/resolver.js";
-import { invalidationCascade, validateDependencyGraph } from "./manifest/graph.js";
-import { checkFreshness } from "./manifest/freshness.js";
-import { detectHazards } from "./scheduler/hazards.js";
-import { computeWaves } from "./scheduler/waves.js";
-import { computeCriticalPath } from "./scheduler/critical-path.js";
-import { parsePlanFile } from "./plan/parser.js";
-import { validatePlan } from "./plan/validator.js";
 import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
-import { scanLinks, type LinkScanMode } from "./manifest/links.js";
+import { checkFreshness } from "./manifest/freshness.js";
+import { invalidationCascade, validateDependencyGraph } from "./manifest/graph.js";
 import { scanImports } from "./manifest/imports.js";
+import { scanLinks, type LinkScanMode } from "./manifest/links.js";
+import { runLint } from "./manifest/lint.js";
+import { parseManifest } from "./manifest/parser.js";
+import { resolveDocs } from "./manifest/resolver.js";
+import { findScopedTests } from "./manifest/scoped-tests.js";
 import { suggestTouches } from "./manifest/touches.js";
+import { diffPlans } from "./plan/diff.js";
+import { parsePlanFile } from "./plan/parser.js";
+import { validatePlan } from "./plan/validator.js";
+import { computeCriticalPath } from "./scheduler/critical-path.js";
+import { detectHazards } from "./scheduler/hazards.js";
+import { computeWaves } from "./scheduler/waves.js";
 import { registerTools, type ToolDef } from "./tool-registry.js";
 
 // ── Shared Schemas ──
@@ -218,6 +223,56 @@ const tools: ToolDef[] = [
     },
     handler: async ({ failed_task, all_tasks, completed_task_ids, dispatched_task_ids }) => {
       return deriveRestartStrategy(failed_task, all_tasks, completed_task_ids, dispatched_task_ids);
+    },
+  },
+
+  // Plan Diff
+  {
+    name: "varp_diff_plan",
+    description:
+      "Structurally diff two parsed plans. Compares metadata, contracts, and tasks by ID.",
+    inputSchema: {
+      plan_a_path: z.string().describe("Path to first plan.xml"),
+      plan_b_path: z.string().describe("Path to second plan.xml"),
+    },
+    handler: async ({ plan_a_path, plan_b_path }) => {
+      const planA = parsePlanFile(plan_a_path);
+      const planB = parsePlanFile(plan_b_path);
+      return diffPlans(planA, planB);
+    },
+  },
+
+  // Scoped Tests
+  {
+    name: "varp_scoped_tests",
+    description:
+      "Find test files for a given touches declaration. Returns test file paths and a bun test command scoped to the affected components.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      reads: z.array(z.string()).optional().describe("Components this task reads from"),
+      writes: z.array(z.string()).optional().describe("Components this task writes to"),
+      include_read_tests: z
+        .boolean()
+        .optional()
+        .describe("Include test files from read components (default false)"),
+    },
+    handler: async ({ manifest_path, reads, writes, include_read_tests }) => {
+      const mp = manifest_path ?? "./varp.yaml";
+      const manifest = parseManifest(mp);
+      const manifestDir = dirname(resolve(mp));
+      return findScopedTests(manifest, { reads, writes }, manifestDir, include_read_tests ?? false);
+    },
+  },
+
+  // Lint
+  {
+    name: "varp_lint",
+    description:
+      "Run all health checks: import deps, link integrity, doc freshness. Returns unified report with issues and severity.",
+    inputSchema: { manifest_path: manifestPath },
+    handler: async ({ manifest_path }) => {
+      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      return runLint(manifest, manifest_path ?? "./varp.yaml");
     },
   },
 ];

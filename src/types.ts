@@ -233,6 +233,90 @@ export const ValidationResultSchema = z.object({
 
 export type ValidationResult = z.infer<typeof ValidationResultSchema>;
 
+// ── Plan Diff ──
+
+export const MetadataChangeSchema = z.object({
+  field: z.string(),
+  old_value: z.string(),
+  new_value: z.string(),
+});
+
+export const ContractChangeSchema = z.object({
+  id: z.string(),
+  section: z.enum(["preconditions", "invariants", "postconditions"]),
+  type: z.enum(["added", "removed", "modified"]),
+  old_value: z
+    .object({
+      description: z.string(),
+      verify: z.string(),
+      critical: z.boolean().optional(),
+    })
+    .optional(),
+  new_value: z
+    .object({
+      description: z.string(),
+      verify: z.string(),
+      critical: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+export const TaskFieldChangeSchema = z.object({
+  field: z.string(),
+  old_value: z.unknown(),
+  new_value: z.unknown(),
+});
+
+export const TaskChangeSchema = z.object({
+  id: z.string(),
+  type: z.enum(["added", "removed", "modified"]),
+  changes: z.array(TaskFieldChangeSchema).optional(),
+});
+
+export const PlanDiffSchema = z.object({
+  metadata: z.array(MetadataChangeSchema),
+  contracts: z.array(ContractChangeSchema),
+  tasks: z.array(TaskChangeSchema),
+});
+
+export type MetadataChange = z.infer<typeof MetadataChangeSchema>;
+export type ContractChange = z.infer<typeof ContractChangeSchema>;
+export type TaskFieldChange = z.infer<typeof TaskFieldChangeSchema>;
+export type TaskChange = z.infer<typeof TaskChangeSchema>;
+export type PlanDiff = z.infer<typeof PlanDiffSchema>;
+
+// ── Lint Report ──
+
+export const LintIssueSeveritySchema = z.enum(["error", "warning"]);
+export const LintIssueCategorySchema = z.enum(["imports", "links", "freshness"]);
+
+export const LintIssueSchema = z.object({
+  severity: LintIssueSeveritySchema,
+  category: LintIssueCategorySchema,
+  message: z.string(),
+  component: z.string().optional(),
+});
+
+export const LintReportSchema = z.object({
+  total_issues: z.number(),
+  issues: z.array(LintIssueSchema),
+});
+
+export type LintIssueSeverity = z.infer<typeof LintIssueSeveritySchema>;
+export type LintIssueCategory = z.infer<typeof LintIssueCategorySchema>;
+export type LintIssue = z.infer<typeof LintIssueSchema>;
+export type LintReport = z.infer<typeof LintReportSchema>;
+
+// ── Scoped Tests ──
+
+export const ScopedTestResultSchema = z.object({
+  test_files: z.array(z.string()),
+  components_covered: z.array(z.string()),
+  run_command: z.string(),
+});
+
+export type ScopedTestResult = z.infer<typeof ScopedTestResultSchema>;
+
 // ── Execution Metrics ──
 
 export const ExecutionMetricsSchema = z.object({

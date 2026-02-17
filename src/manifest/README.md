@@ -94,6 +94,20 @@ The manifest is validated at parse time by Zod schemas. Validation errors includ
 
 Use `varp_read_manifest` to parse and validate. The response includes `dependency_graph_valid: true|false` and any detected cycles.
 
+## Linting
+
+`varp_lint` runs all manifest health checks in a single pass and returns a unified report:
+
+- **Import deps** — scans source files for static imports, flags undeclared dependencies (error) and unused declared dependencies (warning)
+- **Link integrity** — scans component docs for markdown links, flags broken links (error) and undeclared link-inferred dependencies (warning)
+- **Doc freshness** — compares doc mtimes against source file mtimes, flags stale docs (warning)
+
+Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | `links` | `freshness`), `message`, and optional `component` name. The pure `lint()` function accepts pre-computed `ImportScanResult`, `LinkScanResult`, and `FreshnessReport` — no I/O, fully testable with synthetic data. The `runLint()` wrapper performs the scans and delegates to `lint()`.
+
+## Scoped Tests
+
+`varp_scoped_tests` finds `*.test.ts` files under the component paths referenced by a `touches` declaration. Write components are always included; read components are included only when `include_read_tests` is true (default false). Returns absolute paths, covered component names, and a ready-to-run `bun test` command with relative paths.
+
 ## Minimal Example
 
 The smallest valid manifest:

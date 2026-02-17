@@ -1,6 +1,8 @@
-import { parse as parseYaml } from "yaml";
 import { readFileSync, statSync } from "node:fs";
 import { resolve, dirname, relative, isAbsolute } from "node:path";
+
+import { parse as parseYaml } from "yaml";
+
 import { ComponentSchema, type Manifest } from "../types.js";
 
 const manifestCache = new Map<string, { mtimeMs: number; manifest: Manifest }>();

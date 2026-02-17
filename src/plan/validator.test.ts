@@ -1,7 +1,8 @@
 import { describe, test, expect } from "bun:test";
-import { validatePlan } from "./validator.js";
+
 import { detectHazards } from "../scheduler/hazards.js";
 import type { Manifest } from "../types.js";
+import { validatePlan } from "./validator.js";
 
 const manifest: Manifest = {
   varp: "0.1.0",

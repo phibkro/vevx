@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
+
 import { XMLParser } from "fast-xml-parser";
+
 import { PlanSchema, type Plan } from "../types.js";
 
 const xmlParser = new XMLParser({

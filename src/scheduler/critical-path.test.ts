@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { computeCriticalPath } from "./critical-path.js";
+
 import { makeTask } from "../test-helpers.js";
+import { computeCriticalPath } from "./critical-path.js";
 
 describe("computeCriticalPath", () => {
   test("single task", () => {

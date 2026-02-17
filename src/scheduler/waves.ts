@@ -1,6 +1,6 @@
 import type { Task, Wave } from "../types.js";
-import { detectHazards } from "./hazards.js";
 import { computeCriticalPath } from "./critical-path.js";
+import { detectHazards } from "./hazards.js";
 
 /**
  * Group tasks into parallel-safe execution waves via topological sort.

@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { parseManifest } from "./parser.js";
 import { resolve } from "node:path";
+
+import { parseManifest } from "./parser.js";
 
 const FIXTURE_DIR = resolve(import.meta.dir, "../../test-fixtures");
 const PROJECT_ROOT = resolve(import.meta.dir, "../..");

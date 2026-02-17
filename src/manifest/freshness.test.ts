@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { checkFreshness } from "./freshness.js";
 import { resolve } from "node:path";
+
+import { checkFreshness } from "./freshness.js";
 
 const PROJECT_ROOT = resolve(import.meta.dir, "../..");
 

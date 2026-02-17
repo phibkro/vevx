@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { resolveDocs } from "./resolver.js";
+
 import type { Manifest } from "../types.js";
+import { resolveDocs } from "./resolver.js";
 
 const manifest: Manifest = {
   varp: "0.1.0",

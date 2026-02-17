@@ -68,6 +68,14 @@ Checks plan consistency against the manifest:
 
 **Returns:** `ValidationResult`
 
+#### `varp_diff_plan`
+
+Structurally diffs two parsed plans. Compares metadata, contracts (by ID), and tasks (by ID) — reports added, removed, and modified entries with field-level detail.
+
+**Parameters:** `{ plan_a_path: string, plan_b_path: string }`
+
+**Returns:** `PlanDiff`
+
 ### Scheduler
 
 #### `varp_compute_waves`
@@ -126,6 +134,22 @@ Given file paths that will be modified, suggests a `touches` declaration using o
 **Parameters:** `{ manifest_path?: string, file_paths: string[] }`
 
 **Returns:** `Touches`
+
+#### `varp_scoped_tests`
+
+Finds test files for a given `touches` declaration. For write components, recursively finds all `*.test.ts` files under the component's path. Read components are excluded by default but can be included via `include_read_tests`. Returns file paths and a ready-to-run `bun test` command.
+
+**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[], include_read_tests?: boolean }`
+
+**Returns:** `ScopedTestResult`
+
+#### `varp_lint`
+
+Runs all health checks against the manifest: import dependency verification, link integrity scanning, and doc freshness checking. Returns a unified report with categorized issues and severity levels.
+
+**Parameters:** `{ manifest_path?: string }`
+
+**Returns:** `LintReport`
 
 ### Enforcement
 
@@ -312,6 +336,50 @@ interface ValidationResult {
   valid: boolean
   errors: string[]
   warnings: string[]
+}
+
+interface PlanDiff {
+  metadata: MetadataChange[]
+  contracts: ContractChange[]
+  tasks: TaskChange[]
+}
+
+interface MetadataChange {
+  field: string
+  old_value: string
+  new_value: string
+}
+
+interface ContractChange {
+  id: string
+  section: 'preconditions' | 'invariants' | 'postconditions'
+  type: 'added' | 'removed' | 'modified'
+  old_value?: { description: string; verify: string; critical?: boolean }
+  new_value?: { description: string; verify: string; critical?: boolean }
+}
+
+interface TaskChange {
+  id: string
+  type: 'added' | 'removed' | 'modified'
+  changes?: { field: string; old_value: unknown; new_value: unknown }[]
+}
+
+interface ScopedTestResult {
+  test_files: string[]           // absolute paths to *.test.ts files
+  components_covered: string[]   // component names that contributed tests
+  run_command: string            // "bun test path1 path2 ..." (relative paths, empty if no tests)
+}
+
+interface LintReport {
+  total_issues: number
+  issues: LintIssue[]
+}
+
+interface LintIssue {
+  severity: 'error' | 'warning'
+  category: 'imports' | 'links' | 'freshness'
+  message: string
+  component?: string
 }
 
 interface ExecutionMetrics {

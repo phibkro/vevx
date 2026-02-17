@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { suggestTouches } from "./touches.js";
+
 import type { Manifest, ImportDep } from "../types.js";
+import { suggestTouches } from "./touches.js";
 
 const manifest: Manifest = {
   varp: "0.1.0",

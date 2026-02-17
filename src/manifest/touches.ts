@@ -1,5 +1,5 @@
-import type { Manifest, Touches, ImportDep } from "../types.js";
 import { findOwningComponent, buildComponentPaths } from "../ownership.js";
+import type { Manifest, Touches, ImportDep } from "../types.js";
 
 /**
  * Suggest touches declaration from file paths and import dependencies.

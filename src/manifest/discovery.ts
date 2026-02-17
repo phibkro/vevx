@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Returns all doc paths for a component: explicit + auto-discovered.

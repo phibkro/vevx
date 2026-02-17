@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { invalidationCascade, validateDependencyGraph } from "./graph.js";
+
 import type { Manifest } from "../types.js";
+import { invalidationCascade, validateDependencyGraph } from "./graph.js";
 
 function makeManifest(components: Record<string, { deps?: string[] }>): Manifest {
   const result: Manifest = {

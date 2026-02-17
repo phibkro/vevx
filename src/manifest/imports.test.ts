@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { extractImports, resolveImport, analyzeImports, type SourceFile } from "./imports.js";
+
 import type { Manifest } from "../types.js";
+import { extractImports, resolveImport, analyzeImports, type SourceFile } from "./imports.js";
 
 describe("extractImports", () => {
   test("extracts \"import { x } from './foo.js'\"", () => {

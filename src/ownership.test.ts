@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+
 import { findOwningComponent } from "./ownership.js";
 import type { Manifest } from "./types.js";
 

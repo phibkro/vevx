@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { discoverDocs } from "./discovery.js";
 import { resolve } from "node:path";
+
+import { discoverDocs } from "./discovery.js";
 
 const PROJECT_ROOT = resolve(import.meta.dir, "../..");
 

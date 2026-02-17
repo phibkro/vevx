@@ -210,6 +210,16 @@ Use `varp_validate_plan` to check a plan against the manifest. Validation catche
 - Missing or invalid budgets (must be positive numbers)
 - WAW hazards (reported as warnings, not errors)
 
+## Diffing
+
+`varp_diff_plan` structurally compares two parsed plans and returns a `PlanDiff` with three sections:
+
+- **`metadata`** — field-level changes to `feature` and `created`
+- **`contracts`** — added, removed, or modified conditions/invariants, matched by `id` across preconditions, invariants, and postconditions
+- **`tasks`** — added, removed, or modified tasks, matched by `id` with field-level detail (description, action, values, touches, budget)
+
+The pure `diffPlans()` function accepts two `Plan` objects and performs no I/O. Matching is by ID — reordered entries with the same IDs don't produce changes, only content differences are surfaced.
+
 ## File Location
 
 Plans live in project memory: `~/.claude/projects/<project>/memory/plans/<feature-name>/plan.xml`. Completed plans are archived to `memory/plans/archive/`.

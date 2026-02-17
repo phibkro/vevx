@@ -1,4 +1,5 @@
 import { basename, relative } from "node:path";
+
 import type { Manifest, Touches, ResolvedDocs } from "../types.js";
 import { discoverDocs } from "./discovery.js";
 

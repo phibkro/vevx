@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { join } from "node:path";
+
 import { extractMarkdownLinks, resolveLink, scanLinks } from "./links.js";
 import { parseManifest } from "./parser.js";
 

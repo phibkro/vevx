@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { detectHazards } from "./hazards.js";
+
 import { makeTask } from "../test-helpers.js";
+import { detectHazards } from "./hazards.js";
 
 describe("detectHazards", () => {
   test("detects RAW hazard", () => {
