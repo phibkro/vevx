@@ -1,6 +1,6 @@
 # Core Internal
 
-Implementation details for the Varp MCP server. For the public API surface, see [README.md](./README.md).
+Implementation details for the Varp MCP server. For the public API surface, see [README.md](../README.md).
 
 ## Module Map
 
@@ -37,11 +37,11 @@ src/
 
 **Docs are plain strings.** Component docs are string paths, not objects. The README.md convention replaces `load_on` tags: docs with `basename === 'README.md'` are public (loaded for reads+writes), all others are private (loaded for writes only). Auto-discovery checks `{component.path}/README.md` and `{component.path}/docs/*.md` on disk and includes them if present. The `docs:` field is only for docs outside the component's path tree.
 
-**Manifest tools accept `manifest_path` parameter.** Each tool reads and parses the manifest internally rather than receiving a pre-parsed manifest. Keeps the MCP interface simple (string path in, JSON out) at the cost of redundant parsing. Acceptable because parsing is ~1ms.
+**Manifest tools accept `manifest_path` parameter.** Each tool reads and parses the manifest internally rather than receiving a pre-parsed manifest. Keeps the MCP interface simple (string path in, JSON out). Manifests are cached by (absolutePath, mtimeMs) so repeated calls skip re-parsing.
 
 **Hazard detection is O(n^2) by design.** Plans rarely exceed 20 tasks. The pairwise comparison in `hazards.ts` checks every component across every task pair. Three hazard types are detected independently per component per pair.
 
-**Wave computation depends on hazards and critical path.** `waves.ts` imports both `detectHazards` and `computeCriticalPath`. Hazards define the dependency graph; critical path determines sort order within waves. This means hazard detection runs twice when computing waves (once for deps, once inside critical path). Acceptable at plan sizes <100 tasks.
+**Wave computation depends on hazards and critical path.** `waves.ts` imports both `detectHazards` and `computeCriticalPath`. Hazards define the dependency graph; critical path determines sort order within waves. Hazards are computed once in `computeWaves` and passed through to `computeCriticalPath` to avoid redundant O(n^2) detection.
 
 **Plan XML uses `fast-xml-parser` with attribute extraction.** Attributes like `writes="auth" reads="api"` and `tokens="30000" minutes="10"` are parsed via the `@_` prefix convention. The `isArray` option forces `condition`, `invariant`, and `task` elements to always be arrays even when singular.
 
@@ -177,4 +177,4 @@ Uses `(entry as any).parentPath` to handle Bun/Node compatibility for `Dirent.pa
 
 ## Testing
 
-73 tests across 12 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.
+98 tests across 15 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.

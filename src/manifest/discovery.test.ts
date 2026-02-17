@@ -15,13 +15,12 @@ describe("discoverDocs", () => {
   });
 
   test("discovers docs/*.md as private docs", () => {
-    // src/docs/ contains architecture.md and others
+    // src/docs/ contains architecture.md
     const docs = discoverDocs({
       path: resolve(PROJECT_ROOT, "src"),
       docs: [],
     });
     expect(docs.some((d) => d.endsWith("architecture.md"))).toBe(true);
-    expect(docs.some((d) => d.endsWith("design-principles.md"))).toBe(true);
   });
 
   test("does not duplicate explicitly listed docs", () => {

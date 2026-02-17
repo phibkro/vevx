@@ -40,7 +40,7 @@ web:
   deps: [auth, api]
 ```
 
-See [Manifest Schema](manifest-schema.md) for the full reference. See [Plan Schema](plan-schema.md) for the plan XML format.
+See [Manifest Schema](../src/manifest/README.md) for the full reference. See [Plan Schema](../src/plan/README.md) for the plan XML format.
 
 ### 2. Write Component Docs
 
@@ -124,5 +124,5 @@ Shows current project state at any time — component registry, doc freshness, a
 ## Next Steps
 
 - Read the [Design Principles](design-principles.md) and [Architecture](design-architecture.md) for the full rationale
-- See [Manifest Schema](manifest-schema.md) and [Plan Schema](plan-schema.md) for format references
-- See the core [README](../README.md) for the MCP tool API surface
+- See [Manifest Schema](../src/manifest/README.md) and [Plan Schema](../src/plan/README.md) for format references
+- See the core [README](../src/README.md) for the MCP tool API surface

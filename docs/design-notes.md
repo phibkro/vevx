@@ -100,7 +100,7 @@ Resuming a subagent session preserves its accumulated context, but that context 
 
 ## 9. Implementation Path
 
-All build steps (1-8) are complete. See the [architecture doc](architecture.md) for current module structure and algorithms.
+All build steps (1-8) are complete. See the [architecture doc](../src/docs/architecture.md) for current module structure and algorithms.
 
 ### 9.3 Technical Choices
 

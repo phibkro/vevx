@@ -18,7 +18,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 
 - **Runtime**: Bun (install, test, run)
 - **Language**: TypeScript (ES2022, bundler moduleResolution)
-- **MCP SDK**: `@modelcontextprotocol/sdk` (see `src/docs/reference-urls.md` for current SDK docs)
+- **MCP SDK**: `@modelcontextprotocol/sdk` (see `docs/reference-urls.md` for current SDK docs)
 - **Validation**: Zod (schemas are single source of truth for types)
 - **XML**: fast-xml-parser (plan.xml parsing)
 - **YAML**: yaml (varp.yaml manifest parsing)
@@ -38,17 +38,18 @@ src/                    MCP server (12 tools)
   enforcement/          Capability verification, restart strategy
 skills/                 4 prompt-based skills (status, plan, execute, review)
 hooks/                  3 lifecycle hooks (session-start, subagent-context, freshness-track)
-src/docs/               Design docs, schemas, reference URLs (private core docs)
+src/docs/               Architecture internals (private core doc)
+docs/                   Design docs, getting started, reference URLs
 ```
 
-**Details**: See `src/docs/architecture.md` for algorithms and data flow. See `src/README.md` for tool API surface. See `src/docs/manifest-schema.md` and `src/docs/plan-schema.md` for format references. See `src/docs/reference-urls.md` for canonical doc URLs.
+**Details**: See `src/docs/architecture.md` for algorithms and data flow. See `src/README.md` for tool API surface. See `src/manifest/README.md` and `src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
 
 ## Key Conventions
 
 - **Types**: Define Zod schema first, infer TypeScript type via `z.infer<>`. Never define types separately.
 - **MCP tools**: Accept `manifest_path` parameter (default `./varp.yaml`), parse internally, return JSON as text content.
-- **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `src/docs/reference-urls.md` before modifying.
-- **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `src/docs/reference-urls.md` before modifying.
+- **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `docs/reference-urls.md` before modifying.
+- **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Tests**: Co-located with source (`*.test.ts`). Integration tests use `InMemoryTransport` + `Client`.
 - **Lint/Format**: Run `bun run check` before committing. oxfmt handles formatting — don't manually adjust style.
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).

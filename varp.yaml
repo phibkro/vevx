@@ -2,6 +2,9 @@ varp: 0.1.0
 
 core:
   path: ./src
+  docs:
+    - ./src/manifest/README.md
+    - ./src/plan/README.md
 
 skills:
   path: ./skills

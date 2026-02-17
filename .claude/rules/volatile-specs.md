@@ -22,4 +22,4 @@ These specs evolve on ~monthly cycles. Hardcoded knowledge from training data or
 
 ## Reference
 
-Canonical URLs are maintained in `src/docs/reference-urls.md`.
+Canonical URLs are maintained in `docs/reference-urls.md`.

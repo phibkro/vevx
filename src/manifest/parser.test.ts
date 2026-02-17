@@ -12,8 +12,10 @@ describe("parseManifest", () => {
     expect(manifest.varp).toBe("0.1.0");
     expect(manifest.components.core).toBeDefined();
     expect(manifest.components.core.path).toBe(resolve(PROJECT_ROOT, "src"));
-    // No explicit docs — all auto-discovered from src/README.md and src/docs/*.md
-    expect(manifest.components.core.docs).toEqual([]);
+    // Explicit docs for submodule READMEs (outside auto-discovery scope)
+    expect(manifest.components.core.docs).toHaveLength(2);
+    expect(manifest.components.core.docs[0]).toContain("manifest/README.md");
+    expect(manifest.components.core.docs[1]).toContain("plan/README.md");
   });
 
   test("parses manifest with dependencies", () => {
