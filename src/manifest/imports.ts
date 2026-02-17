@@ -31,30 +31,111 @@ function stripJsonComments(text: string): string {
   return text.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+interface TsconfigCompilerOptions {
+  paths?: Record<string, string[]>;
+  baseUrl?: string;
+}
+
+interface TsconfigRaw {
+  extends?: string;
+  compilerOptions?: TsconfigCompilerOptions;
+}
+
+/**
+ * Read and parse a single tsconfig file. Returns null on read/parse failure.
+ */
+function readTsconfig(filePath: string): TsconfigRaw | null {
+  let raw: string;
+  try {
+    raw = readFileSync(filePath, "utf-8");
+  } catch {
+    return null;
+  }
+  try {
+    return JSON.parse(stripJsonComments(raw));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve a tsconfig `extends` specifier to an absolute path.
+ * Supports relative paths and bare package names (resolved via node_modules).
+ */
+function resolveExtendsPath(specifier: string, fromDir: string): string | null {
+  // Relative path
+  if (specifier.startsWith("./") || specifier.startsWith("../")) {
+    const resolved = resolve(fromDir, specifier);
+    // Add .json if missing
+    if (!resolved.endsWith(".json")) {
+      if (existsSync(resolved + ".json")) return resolved + ".json";
+      // Try as-is (could be a directory with tsconfig.json inside, but uncommon)
+      if (existsSync(resolved)) return resolved;
+      return resolved + ".json";
+    }
+    return resolved;
+  }
+
+  // Bare specifier — look in node_modules
+  // Try: node_modules/<specifier>, node_modules/<specifier>.json,
+  //       node_modules/<specifier>/tsconfig.json
+  const nmBase = join(fromDir, "node_modules", specifier);
+  if (existsSync(nmBase) && !nmBase.endsWith(".json")) {
+    // Could be a directory — try tsconfig.json inside
+    const inner = join(nmBase, "tsconfig.json");
+    if (existsSync(inner)) return inner;
+  }
+  if (existsSync(nmBase)) return nmBase;
+  if (!nmBase.endsWith(".json") && existsSync(nmBase + ".json")) return nmBase + ".json";
+
+  return null;
+}
+
+/**
+ * Recursively resolve tsconfig compilerOptions, following `extends` chains.
+ * Parent options are overridden by child options. Paths are merged key-by-key.
+ */
+function resolveTsconfigOptions(
+  filePath: string,
+  visited: Set<string>,
+): TsconfigCompilerOptions | null {
+  const abs = resolve(filePath);
+  if (visited.has(abs)) return null; // cycle
+  visited.add(abs);
+
+  const parsed = readTsconfig(abs);
+  if (!parsed) return null;
+
+  let parentOptions: TsconfigCompilerOptions = {};
+  if (parsed.extends) {
+    const parentPath = resolveExtendsPath(parsed.extends, dirname(abs));
+    if (parentPath) {
+      parentOptions = resolveTsconfigOptions(parentPath, visited) ?? {};
+    }
+  }
+
+  // Merge: child overrides parent. Paths are merged key-by-key.
+  const mergedPaths = { ...parentOptions.paths, ...parsed.compilerOptions?.paths };
+  return {
+    baseUrl: parsed.compilerOptions?.baseUrl ?? parentOptions.baseUrl,
+    paths: Object.keys(mergedPaths).length > 0 ? mergedPaths : undefined,
+  };
+}
+
 /**
  * Load tsconfig.json `compilerOptions.paths` from a directory.
+ * Follows `extends` chains to inherit paths from parent configs.
  * Returns null if tsconfig.json doesn't exist or has no paths.
  */
 export function loadTsconfigPaths(dir: string): PathAliases | null {
   const tsconfigPath = join(dir, "tsconfig.json");
-  let raw: string;
-  try {
-    raw = readFileSync(tsconfigPath, "utf-8");
-  } catch {
-    return null;
-  }
+  const options = resolveTsconfigOptions(tsconfigPath, new Set());
+  if (!options) return null;
 
-  let parsed: { compilerOptions?: { paths?: Record<string, string[]>; baseUrl?: string } };
-  try {
-    parsed = JSON.parse(stripJsonComments(raw));
-  } catch {
-    return null;
-  }
-
-  const paths = parsed.compilerOptions?.paths;
+  const paths = options.paths;
   if (!paths || Object.keys(paths).length === 0) return null;
 
-  const baseUrl = parsed.compilerOptions?.baseUrl ?? ".";
+  const baseUrl = options.baseUrl ?? ".";
   const baseDir = resolve(dir, baseUrl);
 
   const mappings: PathMapping[] = Object.entries(paths).map(([pattern, targets]) => ({
