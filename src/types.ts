@@ -198,6 +198,29 @@ export type BrokenLink = z.infer<typeof BrokenLinkSchema>;
 export type InferredDep = z.infer<typeof InferredDepSchema>;
 export type LinkScanResult = z.infer<typeof LinkScanResultSchema>;
 
+// ── Import Scanner ──
+
+export const ImportEvidenceSchema = z.object({
+  source_file: z.string(),
+  import_specifier: z.string(),
+});
+
+export const ImportDepSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  evidence: z.array(ImportEvidenceSchema),
+});
+
+export const ImportScanResultSchema = z.object({
+  import_deps: z.array(ImportDepSchema),
+  total_files_scanned: z.number(),
+  total_imports_scanned: z.number(),
+});
+
+export type ImportEvidence = z.infer<typeof ImportEvidenceSchema>;
+export type ImportDep = z.infer<typeof ImportDepSchema>;
+export type ImportScanResult = z.infer<typeof ImportScanResultSchema>;
+
 // ── Validation ──
 
 export const ValidationResultSchema = z.object({

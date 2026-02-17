@@ -1,11 +1,17 @@
-import type { Plan, Manifest, Hazard, ValidationResult } from "../types.js";
+import type { Plan, Manifest, Hazard, ValidationResult, ImportDep } from "../types.js";
 
 /**
  * Validate plan consistency against manifest.
  * Accepts optional pre-computed hazards for WAW warnings.
  * When hazards are not provided, WAW checking is skipped.
+ * Accepts optional import deps for undeclared-read warnings.
  */
-export function validatePlan(plan: Plan, manifest: Manifest, hazards?: Hazard[]): ValidationResult {
+export function validatePlan(
+  plan: Plan,
+  manifest: Manifest,
+  hazards?: Hazard[],
+  importDeps?: ImportDep[],
+): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   const componentNames = new Set(Object.keys(manifest.components));
@@ -62,6 +68,25 @@ export function validatePlan(plan: Plan, manifest: Manifest, hazards?: Hazard[])
         warnings.push(
           `WAW hazard: tasks ${h.source_task_id} and ${h.target_task_id} both write to "${h.component}"`,
         );
+      }
+    }
+  }
+
+  // Report undeclared import dependencies as warnings (if importDeps provided)
+  if (importDeps) {
+    for (const task of plan.tasks) {
+      const writeComps = task.touches.writes ?? [];
+      const readComps = task.touches.reads ?? [];
+      const declaredComps = new Set([...writeComps, ...readComps]);
+
+      for (const writeComp of writeComps) {
+        for (const dep of importDeps) {
+          if (dep.from === writeComp && !declaredComps.has(dep.to)) {
+            warnings.push(
+              `Task ${task.id} writes to "${writeComp}" which imports from "${dep.to}" — consider adding reads: ["${dep.to}"]`,
+            );
+          }
+        }
       }
     }
   }

@@ -14,6 +14,7 @@ import { validatePlan } from "./plan/validator.js";
 import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
 import { scanLinks, type LinkScanMode } from "./manifest/links.js";
+import { scanImports } from "./manifest/imports.js";
 import { registerTools, type ToolDef } from "./tool-registry.js";
 
 // ── Shared Schemas ──
@@ -116,7 +117,8 @@ const tools: ToolDef[] = [
       const plan = parsePlanFile(plan_path);
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
       const hazards = detectHazards(plan.tasks);
-      return validatePlan(plan, manifest, hazards);
+      const { import_deps } = scanImports(manifest);
+      return validatePlan(plan, manifest, hazards, import_deps);
     },
   },
 
@@ -156,6 +158,18 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path, mode }) => {
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
       return scanLinks(manifest, mode as LinkScanMode);
+    },
+  },
+
+  // Import Scanner
+  {
+    name: "varp_infer_imports",
+    description:
+      "Scan source files for import statements. Infer cross-component dependencies from static imports.",
+    inputSchema: { manifest_path: manifestPath },
+    handler: async ({ manifest_path }) => {
+      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      return scanImports(manifest);
     },
   },
 

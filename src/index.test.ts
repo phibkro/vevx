@@ -83,7 +83,7 @@ describe("MCP server integration", () => {
     } catch {}
   });
 
-  test("lists all 12 tools", async () => {
+  test("lists all 13 tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -92,6 +92,7 @@ describe("MCP server integration", () => {
       "varp_compute_waves",
       "varp_derive_restart_strategy",
       "varp_detect_hazards",
+      "varp_infer_imports",
       "varp_invalidation_cascade",
       "varp_parse_plan",
       "varp_read_manifest",
@@ -346,6 +347,22 @@ describe("MCP server integration", () => {
     expect(data.broken_links.length).toBeGreaterThan(0);
     // In integrity mode, deps are still returned (empty) but not actively checked
     expect(data.total_links_scanned).toBeGreaterThan(0);
+  });
+
+  // ── Import Scanner ──
+
+  test("varp_infer_imports returns import scan result with expected structure", async () => {
+    const result = await client.callTool({
+      name: "varp_infer_imports",
+      arguments: { manifest_path: MANIFEST_PATH },
+    });
+    const data = parseResult(result);
+    expect(data).toHaveProperty("import_deps");
+    expect(data).toHaveProperty("total_files_scanned");
+    expect(data).toHaveProperty("total_imports_scanned");
+    expect(Array.isArray(data.import_deps)).toBe(true);
+    expect(typeof data.total_files_scanned).toBe("number");
+    expect(typeof data.total_imports_scanned).toBe("number");
   });
 
   test("varp_scan_links with mode=deps returns dependency analysis", async () => {

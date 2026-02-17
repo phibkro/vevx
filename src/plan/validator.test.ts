@@ -42,6 +42,59 @@ describe("validatePlan", () => {
     expect(result.warnings.some((w) => w.includes("WAW"))).toBe(true);
   });
 
+  // ── Import dep warnings ──
+
+  test("warns when task writes to component with undeclared import dep", () => {
+    const plan = makePlan([makeTask("1", ["api"])]);
+    const importDeps = [
+      {
+        from: "api",
+        to: "auth",
+        evidence: [{ source_file: "x.ts", import_specifier: "../auth/index.js" }],
+      },
+    ];
+    const result = validatePlan(plan, manifest, [], importDeps);
+    expect(result.warnings.some((w) => w.includes('writes to "api"') && w.includes('"auth"'))).toBe(
+      true,
+    );
+  });
+
+  test("no warning when task already declares the read", () => {
+    const plan = makePlan([makeTask("1", ["api"], ["auth"])]);
+    const importDeps = [
+      {
+        from: "api",
+        to: "auth",
+        evidence: [{ source_file: "x.ts", import_specifier: "../auth/index.js" }],
+      },
+    ];
+    const result = validatePlan(plan, manifest, [], importDeps);
+    expect(result.warnings.some((w) => w.includes('writes to "api"') && w.includes('"auth"'))).toBe(
+      false,
+    );
+  });
+
+  test("no warning when writing to component also covers the dep (writes implies reads)", () => {
+    const plan = makePlan([makeTask("1", ["api", "auth"])]);
+    const importDeps = [
+      {
+        from: "api",
+        to: "auth",
+        evidence: [{ source_file: "x.ts", import_specifier: "../auth/index.js" }],
+      },
+    ];
+    const result = validatePlan(plan, manifest, [], importDeps);
+    expect(result.warnings.some((w) => w.includes('writes to "api"') && w.includes('"auth"'))).toBe(
+      false,
+    );
+  });
+
+  test("backwards compatible: no importDeps means no warnings", () => {
+    const plan = makePlan([makeTask("1", ["api"])]);
+    const result = validatePlan(plan, manifest);
+    expect(result.warnings).toHaveLength(0);
+  });
+
   test("empty verify command is an error", () => {
     const plan = makePlan([makeTask("1", ["auth"])], {
       postconditions: [{ id: "post-1", description: "test", verify: "  " }],
