@@ -113,6 +113,13 @@ Invariants are checked at **wave boundaries** (after all tasks in a wave complet
 - Prefer test suites over greps (`bun test --filter=auth` not `grep -r "router\."`)
 - Runnable from project root
 
+**If the project uses Turborepo or Nx**, prefer their dependency-aware test runners for invariant and postcondition verification. They handle ordering, parallelism, and caching automatically:
+
+- **Turborepo:** `turbo run test --filter=auth...` (runs auth + all its dependencies). For impact-scoped verification: `turbo run test --filter="...[main...HEAD]"` (runs tests for all changed packages + their dependents).
+- **Nx:** `nx affected --target=test --base=main` (runs tests for all affected projects). For single-component: `nx run auth:test`.
+
+These are strictly better than hand-crafted `bun test` commands when available — they respect the dependency graph and skip cached results for unchanged packages.
+
 ### Step 7: Choose Plan Mode
 
 For each task, decide:
