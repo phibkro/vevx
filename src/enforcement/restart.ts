@@ -49,7 +49,7 @@ export function deriveRestartStrategy(
   }
 
   // Check if affected tasks are only dispatched (not completed)
-  const completedAffected = affectedTasks.filter(id => completedTaskIds.includes(id));
+  const completedAffected = affectedTasks.filter((id) => completedTaskIds.includes(id));
 
   if (completedAffected.length > 0) {
     // Completed downstream tasks consumed potentially incorrect output

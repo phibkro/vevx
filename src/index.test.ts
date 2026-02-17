@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "./index.js";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const MANIFEST_PATH = join(import.meta.dir, "..", "test-fixtures", "multi-component.yaml");
@@ -68,10 +68,7 @@ describe("MCP server integration", () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     client = new Client({ name: "test-client", version: "1.0.0" });
 
-    await Promise.all([
-      server.connect(serverTransport),
-      client.connect(clientTransport),
-    ]);
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
 
     cleanup = async () => {
       await Promise.all([server.close(), client.close()]);
@@ -81,7 +78,9 @@ describe("MCP server integration", () => {
   afterAll(async () => {
     await cleanup();
     // Clean up test plan
-    try { require("fs").unlinkSync(TEST_PLAN_PATH); } catch {}
+    try {
+      require("fs").unlinkSync(TEST_PLAN_PATH);
+    } catch {}
   });
 
   test("lists all 12 tools", async () => {
@@ -191,9 +190,30 @@ describe("MCP server integration", () => {
   // ── Scheduler Tools ──
 
   const sampleTasks = [
-    { id: "1", description: "impl auth", action: "implement", values: ["correctness"], touches: { writes: ["auth"] }, budget: { tokens: 30000, minutes: 10 } },
-    { id: "2", description: "impl api", action: "implement", values: ["correctness"], touches: { writes: ["api"], reads: ["auth"] }, budget: { tokens: 20000, minutes: 8 } },
-    { id: "3", description: "impl web", action: "implement", values: ["correctness"], touches: { writes: ["web"], reads: ["api"] }, budget: { tokens: 25000, minutes: 12 } },
+    {
+      id: "1",
+      description: "impl auth",
+      action: "implement",
+      values: ["correctness"],
+      touches: { writes: ["auth"] },
+      budget: { tokens: 30000, minutes: 10 },
+    },
+    {
+      id: "2",
+      description: "impl api",
+      action: "implement",
+      values: ["correctness"],
+      touches: { writes: ["api"], reads: ["auth"] },
+      budget: { tokens: 20000, minutes: 8 },
+    },
+    {
+      id: "3",
+      description: "impl web",
+      action: "implement",
+      values: ["correctness"],
+      touches: { writes: ["web"], reads: ["api"] },
+      budget: { tokens: 25000, minutes: 12 },
+    },
   ];
 
   test("varp_detect_hazards finds RAW hazards in dependent tasks", async () => {
@@ -205,9 +225,17 @@ describe("MCP server integration", () => {
     const rawHazards = data.filter((h: any) => h.type === "RAW");
     expect(rawHazards.length).toBeGreaterThanOrEqual(2);
     // task 1 writes auth, task 2 reads auth
-    expect(rawHazards.some((h: any) => h.source_task_id === "1" && h.target_task_id === "2" && h.component === "auth")).toBe(true);
+    expect(
+      rawHazards.some(
+        (h: any) => h.source_task_id === "1" && h.target_task_id === "2" && h.component === "auth",
+      ),
+    ).toBe(true);
     // task 2 writes api, task 3 reads api
-    expect(rawHazards.some((h: any) => h.source_task_id === "2" && h.target_task_id === "3" && h.component === "api")).toBe(true);
+    expect(
+      rawHazards.some(
+        (h: any) => h.source_task_id === "2" && h.target_task_id === "3" && h.component === "api",
+      ),
+    ).toBe(true);
   });
 
   test("varp_compute_waves sequences dependent tasks into waves", async () => {
@@ -242,10 +270,7 @@ describe("MCP server integration", () => {
       arguments: {
         manifest_path: MANIFEST_PATH,
         writes: ["auth"],
-        diff_paths: [
-          join(PLAN_DIR, "src/auth/index.ts"),
-          join(PLAN_DIR, "src/api/routes.ts"),
-        ],
+        diff_paths: [join(PLAN_DIR, "src/auth/index.ts"), join(PLAN_DIR, "src/api/routes.ts")],
       },
     });
     const data = parseResult(result);
@@ -260,10 +285,7 @@ describe("MCP server integration", () => {
       arguments: {
         manifest_path: MANIFEST_PATH,
         writes: ["auth", "api"],
-        diff_paths: [
-          join(PLAN_DIR, "src/auth/index.ts"),
-          join(PLAN_DIR, "src/api/routes.ts"),
-        ],
+        diff_paths: [join(PLAN_DIR, "src/auth/index.ts"), join(PLAN_DIR, "src/api/routes.ts")],
       },
     });
     const data = parseResult(result);
@@ -334,7 +356,9 @@ describe("MCP server integration", () => {
     const data = parseResult(result);
     expect(data.inferred_deps.length).toBeGreaterThan(0);
     // auth links to api but doesn't declare dep → should be in missing_deps
-    const missingAuthToApi = data.missing_deps.find((d: any) => d.from === "auth" && d.to === "api");
+    const missingAuthToApi = data.missing_deps.find(
+      (d: any) => d.from === "auth" && d.to === "api",
+    );
     expect(missingAuthToApi).toBeDefined();
   });
 });

@@ -28,20 +28,21 @@ export function computeWaves(tasks: Task[]): Wave[] {
   // Topological sort with wave grouping (longest path from roots)
   const waveNumber = new Map<string, number>();
 
-  function getWave(taskId: string, visited: Set<string>): number {
+  function getWave(taskId: string, visited: Set<string>, path: string[] = []): number {
     if (waveNumber.has(taskId)) return waveNumber.get(taskId)!;
-    if (visited.has(taskId))
-      throw new Error(`Cycle detected involving task ${taskId}`);
+    if (visited.has(taskId)) throw new Error(`Cycle detected: ${[...path, taskId].join(" -> ")}`);
     visited.add(taskId);
+    path.push(taskId);
 
     let maxDepWave = -1;
     for (const depId of deps.get(taskId) ?? []) {
-      maxDepWave = Math.max(maxDepWave, getWave(depId, visited));
+      maxDepWave = Math.max(maxDepWave, getWave(depId, visited, path));
     }
 
     const wave = maxDepWave + 1;
     waveNumber.set(taskId, wave);
     visited.delete(taskId);
+    path.pop();
     return wave;
   }
 
@@ -57,8 +58,8 @@ export function computeWaves(tasks: Task[]): Wave[] {
     waveGroups.get(w)!.push(t);
   }
 
-  // Get critical path for ordering within waves
-  const criticalPath = computeCriticalPath(tasks);
+  // Reuse hazards to avoid redundant O(n^2) detection inside computeCriticalPath
+  const criticalPath = computeCriticalPath(tasks, hazards);
   const criticalSet = new Set(criticalPath.task_ids);
 
   // Build waves, ordering critical path tasks first within each wave

@@ -189,6 +189,7 @@ export const LinkScanResultSchema = z.object({
   missing_deps: z.array(InferredDepSchema),
   extra_deps: z.array(z.object({ from: z.string(), to: z.string() })),
   broken_links: z.array(BrokenLinkSchema),
+  missing_docs: z.array(z.string()),
   total_links_scanned: z.number(),
   total_docs_scanned: z.number(),
 });

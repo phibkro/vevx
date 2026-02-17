@@ -35,7 +35,9 @@ const TaskInputSchema = {
   }),
 };
 
-const tasksInput = { tasks: z.array(z.object(TaskInputSchema)).describe("Tasks with touches declarations") };
+const tasksInput = {
+  tasks: z.array(z.object(TaskInputSchema)).describe("Tasks with touches declarations"),
+};
 
 // ── Tool Definitions ──
 
@@ -43,17 +45,23 @@ const tools: ToolDef[] = [
   // Manifest
   {
     name: "varp_read_manifest",
-    description: "Parse and validate varp.yaml. Returns typed manifest with component registry, dependency graph, and doc references.",
+    description:
+      "Parse and validate varp.yaml. Returns typed manifest with component registry, dependency graph, and doc references.",
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
       const graphResult = validateDependencyGraph(manifest);
-      return { manifest, dependency_graph_valid: graphResult.valid, ...(graphResult.valid ? {} : { cycles: graphResult.cycles }) };
+      return {
+        manifest,
+        dependency_graph_valid: graphResult.valid,
+        ...(graphResult.valid ? {} : { cycles: graphResult.cycles }),
+      };
     },
   },
   {
     name: "varp_resolve_docs",
-    description: "Given a task's touches declaration, returns doc paths to load. Auto-discovers README.md (public) and docs/*.md (private) within component paths. Reads load public docs only. Writes load all docs.",
+    description:
+      "Given a task's touches declaration, returns doc paths to load. Auto-discovers README.md (public) and docs/*.md (private) within component paths. Reads load public docs only. Writes load all docs.",
     inputSchema: {
       manifest_path: manifestPath,
       reads: z.array(z.string()).optional().describe("Components this task reads from"),
@@ -66,7 +74,8 @@ const tools: ToolDef[] = [
   },
   {
     name: "varp_invalidation_cascade",
-    description: "Given changed components, walks deps to return all transitively affected components.",
+    description:
+      "Given changed components, walks deps to return all transitively affected components.",
     inputSchema: {
       manifest_path: manifestPath,
       changed: z.array(z.string()).describe("Component names whose interface docs changed"),
@@ -78,7 +87,8 @@ const tools: ToolDef[] = [
   },
   {
     name: "varp_check_freshness",
-    description: "Returns freshness status for all component docs — last modified timestamps, staleness relative to source.",
+    description:
+      "Returns freshness status for all component docs — last modified timestamps, staleness relative to source.",
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
@@ -89,13 +99,15 @@ const tools: ToolDef[] = [
   // Plan
   {
     name: "varp_parse_plan",
-    description: "Parse plan.xml and return typed plan with metadata, contracts, task graph, and budgets.",
+    description:
+      "Parse plan.xml and return typed plan with metadata, contracts, task graph, and budgets.",
     inputSchema: { path: z.string().describe("Path to plan.xml") },
     handler: async ({ path }) => parsePlanFile(path),
   },
   {
     name: "varp_validate_plan",
-    description: "Check plan consistency against manifest: touches reference known components, unique task IDs, valid budgets.",
+    description:
+      "Check plan consistency against manifest: touches reference known components, unique task IDs, valid budgets.",
     inputSchema: {
       plan_path: z.string().describe("Path to plan.xml"),
       manifest_path: manifestPath,
@@ -110,7 +122,8 @@ const tools: ToolDef[] = [
   // Scheduler
   {
     name: "varp_compute_waves",
-    description: "Group tasks into execution waves based on data dependencies. Tasks within a wave are safe to run in parallel.",
+    description:
+      "Group tasks into execution waves based on data dependencies. Tasks within a wave are safe to run in parallel.",
     inputSchema: tasksInput,
     handler: async ({ tasks }) => computeWaves(tasks),
   },
@@ -122,7 +135,8 @@ const tools: ToolDef[] = [
   },
   {
     name: "varp_compute_critical_path",
-    description: "Return the longest chain of RAW dependencies — the critical path for execution scheduling.",
+    description:
+      "Return the longest chain of RAW dependencies — the critical path for execution scheduling.",
     inputSchema: tasksInput,
     handler: async ({ tasks }) => computeCriticalPath(tasks),
   },
@@ -130,10 +144,13 @@ const tools: ToolDef[] = [
   // Link Scanner
   {
     name: "varp_scan_links",
-    description: "Scan component docs for markdown links. Infer cross-component dependencies, detect broken links, and compare against declared deps.",
+    description:
+      "Scan component docs for markdown links. Infer cross-component dependencies, detect broken links, and compare against declared deps.",
     inputSchema: {
       manifest_path: manifestPath,
-      mode: z.enum(["deps", "integrity", "all"]).describe("deps: infer dependencies from links. integrity: find broken links. all: both."),
+      mode: z
+        .enum(["deps", "integrity", "all"])
+        .describe("deps: infer dependencies from links. integrity: find broken links. all: both."),
     },
     handler: async ({ manifest_path, mode }) => {
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
@@ -144,7 +161,8 @@ const tools: ToolDef[] = [
   // Enforcement
   {
     name: "varp_verify_capabilities",
-    description: "Check that file modifications fall within the declared touches write set. Returns violations for out-of-scope writes.",
+    description:
+      "Check that file modifications fall within the declared touches write set. Returns violations for out-of-scope writes.",
     inputSchema: {
       manifest_path: manifestPath,
       reads: z.array(z.string()).optional().describe("Components declared as reads"),
@@ -158,7 +176,8 @@ const tools: ToolDef[] = [
   },
   {
     name: "varp_derive_restart_strategy",
-    description: "Given a failed task and execution state, derive restart strategy: isolated_retry, cascade_restart, or escalate.",
+    description:
+      "Given a failed task and execution state, derive restart strategy: isolated_retry, cascade_restart, or escalate.",
     inputSchema: {
       failed_task: z.object(TaskInputSchema).describe("The task that failed"),
       all_tasks: z.array(z.object(TaskInputSchema)).describe("All tasks in the plan"),

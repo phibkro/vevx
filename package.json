@@ -8,6 +8,11 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "bun test",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt --write 'src/**/*.ts'",
+    "format:check": "oxfmt --check 'src/**/*.ts'",
+    "check": "bun run format:check && bun run lint && bun run build",
     "start": "node build/index.js"
   },
   "dependencies": {
@@ -18,6 +23,8 @@
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",
+    "oxfmt": "^0.33.0",
+    "oxlint": "^1.48.0",
     "typescript": "^5.7.0"
   }
 }

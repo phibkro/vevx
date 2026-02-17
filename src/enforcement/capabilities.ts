@@ -1,5 +1,5 @@
 import type { Manifest, Touches, CapabilityReport, Violation } from "../types.js";
-import { findOwningComponent } from "../manifest/ownership.js";
+import { findOwningComponent, buildComponentPaths } from "../manifest/ownership.js";
 
 /**
  * Given modified file paths, check each falls within the declared write set's
@@ -12,9 +12,10 @@ export function verifyCapabilities(
 ): CapabilityReport {
   const violations: Violation[] = [];
   const writeComponents = new Set(touches.writes ?? []);
+  const componentPaths = buildComponentPaths(manifest);
 
   for (const filePath of diffPaths) {
-    const actualComponent = findOwningComponent(filePath, manifest);
+    const actualComponent = findOwningComponent(filePath, manifest, componentPaths);
 
     if (actualComponent === null) {
       // File is outside all components — may or may not be a violation

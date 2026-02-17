@@ -53,10 +53,7 @@ describe("detectHazards", () => {
   });
 
   test("detects all three hazard types", () => {
-    const tasks = [
-      makeTask("1", ["auth"], ["api"]),
-      makeTask("2", ["auth", "api"]),
-    ];
+    const tasks = [makeTask("1", ["auth"], ["api"]), makeTask("2", ["auth", "api"])];
     const hazards = detectHazards(tasks);
     const types = new Set(hazards.map((h) => h.type));
     expect(types.has("RAW")).toBe(true);

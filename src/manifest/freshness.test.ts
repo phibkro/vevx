@@ -32,10 +32,7 @@ describe("checkFreshness", () => {
       components: {
         missing: {
           path: "/nonexistent/path",
-          docs: [
-            "/nonexistent/README.md",
-            "/nonexistent/internal.md",
-          ],
+          docs: ["/nonexistent/README.md", "/nonexistent/internal.md"],
         },
       },
     };

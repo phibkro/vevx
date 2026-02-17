@@ -1,12 +1,16 @@
-import type { Task, CriticalPath, Budget } from "../types.js";
+import type { Task, Hazard, CriticalPath, Budget } from "../types.js";
 import { detectHazards } from "./hazards.js";
 
-export function computeCriticalPath(tasks: Task[]): CriticalPath {
+/**
+ * Compute the longest chain of RAW dependencies via memoized DP.
+ * Pass pre-computed hazards to avoid redundant detection (e.g. when called from computeWaves).
+ */
+export function computeCriticalPath(tasks: Task[], hazards?: Hazard[]): CriticalPath {
   if (tasks.length === 0) {
     return { task_ids: [], total_budget: { tokens: 0, minutes: 0 } };
   }
 
-  const hazards = detectHazards(tasks);
+  const detectedHazards = hazards ?? detectHazards(tasks);
   const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
   // Build DAG from RAW hazards: predecessors for each task
@@ -15,7 +19,7 @@ export function computeCriticalPath(tasks: Task[]): CriticalPath {
     predecessors.set(t.id, []);
   }
 
-  for (const h of hazards) {
+  for (const h of detectedHazards) {
     if (h.type === "RAW") {
       // source must finish before target
       if (!predecessors.get(h.target_task_id)!.includes(h.source_task_id)) {

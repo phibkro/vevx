@@ -13,12 +13,7 @@ export function detectHazards(tasks: Task[]): Hazard[] {
       const bWrites = new Set(b.touches.writes ?? []);
       const bReads = new Set(b.touches.reads ?? []);
 
-      const allComponents = new Set([
-        ...aWrites,
-        ...aReads,
-        ...bWrites,
-        ...bReads,
-      ]);
+      const allComponents = new Set([...aWrites, ...aReads, ...bWrites, ...bReads]);
 
       for (const comp of allComponents) {
         // RAW: source writes, target reads — true dependency

@@ -27,10 +27,7 @@ function buildReverseDeps(manifest: Manifest): Map<string, string[]> {
  * to return all transitively affected components.
  * The changed components themselves are included in the result.
  */
-export function invalidationCascade(
-  manifest: Manifest,
-  changed: string[],
-): string[] {
+export function invalidationCascade(manifest: Manifest, changed: string[]): string[] {
   const reverse = buildReverseDeps(manifest);
   const visited = new Set<string>();
   const queue = [...changed];

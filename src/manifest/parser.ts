@@ -1,7 +1,9 @@
 import { parse as parseYaml } from "yaml";
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { readFileSync, statSync } from "node:fs";
+import { resolve, dirname, relative, isAbsolute } from "node:path";
 import { ComponentSchema, type Manifest } from "../types.js";
+
+const manifestCache = new Map<string, { mtimeMs: number; manifest: Manifest }>();
 
 /**
  * Parse a varp.yaml manifest file. Flat YAML format: `varp` key holds version,
@@ -11,6 +13,14 @@ import { ComponentSchema, type Manifest } from "../types.js";
 export function parseManifest(manifestPath: string): Manifest {
   const absolutePath = resolve(manifestPath);
   const baseDir = dirname(absolutePath);
+
+  // Cache by path + mtime to avoid redundant parsing
+  const fileStat = statSync(absolutePath);
+  const cached = manifestCache.get(absolutePath);
+  if (cached && cached.mtimeMs === fileStat.mtimeMs) {
+    return cached.manifest;
+  }
+
   const raw = readFileSync(absolutePath, "utf-8");
   const parsed = parseYaml(raw);
 
@@ -29,14 +39,27 @@ export function parseManifest(manifestPath: string): Manifest {
   for (const [name, value] of Object.entries(rest)) {
     const component = ComponentSchema.parse(value);
 
-    // Resolve component path
+    // Resolve component path and validate it stays within project
     component.path = resolve(baseDir, component.path);
+    const compRel = relative(baseDir, component.path);
+    if (compRel.startsWith("..") || isAbsolute(compRel)) {
+      throw new Error(`Component '${name}' path escapes manifest directory: ${component.path}`);
+    }
 
-    // Resolve doc paths (now plain strings)
-    component.docs = component.docs.map((docPath) => resolve(baseDir, docPath));
+    // Resolve doc paths and validate they stay within project
+    component.docs = component.docs.map((docPath) => {
+      const resolved = resolve(baseDir, docPath);
+      const docRel = relative(baseDir, resolved);
+      if (docRel.startsWith("..") || isAbsolute(docRel)) {
+        throw new Error(`Doc path escapes manifest directory: ${docPath}`);
+      }
+      return resolved;
+    });
 
     components[name] = component;
   }
 
-  return { varp, components };
+  const manifest: Manifest = { varp, components };
+  manifestCache.set(absolutePath, { mtimeMs: fileStat.mtimeMs, manifest });
+  return manifest;
 }

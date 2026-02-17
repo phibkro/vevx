@@ -6,10 +6,14 @@ const xmlParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   isArray: (name) => ["condition", "invariant", "task"].includes(name),
+  processEntities: false,
 });
 
 function parseValues(raw: string): string[] {
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function parseTouches(attrs: Record<string, string>): { writes?: string[]; reads?: string[] } {
@@ -45,8 +49,8 @@ export function parsePlanXml(xmlContent: string): Plan {
       description: c.description,
       verify: c.verify,
     })),
-    invariants: (plan.contract?.invariants?.invariant ?? []).map((i: any) => ({
-      id: i["@_id"] ?? i.description,
+    invariants: (plan.contract?.invariants?.invariant ?? []).map((i: any, idx: number) => ({
+      id: i["@_id"] ?? `invariant-${idx}`,
       description: i.description,
       verify: i.verify,
       critical: i["@_critical"] === "true" || i["@_critical"] === true,

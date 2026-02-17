@@ -16,7 +16,9 @@ function makePlan(tasks: Plan["tasks"], contract?: Partial<Plan["contract"]>): P
     contract: {
       preconditions: contract?.preconditions ?? [],
       invariants: contract?.invariants ?? [],
-      postconditions: contract?.postconditions ?? [{ id: "post-1", description: "test", verify: "echo ok" }],
+      postconditions: contract?.postconditions ?? [
+        { id: "post-1", description: "test", verify: "echo ok" },
+      ],
     },
     tasks,
   };
@@ -45,29 +47,28 @@ describe("validatePlan", () => {
     const plan = makePlan([makeTask("1", ["nonexistent"])]);
     const result = validatePlan(plan, manifest);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes("nonexistent"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("nonexistent"))).toBe(true);
   });
 
   test("duplicate task ID is an error", () => {
     const plan = makePlan([makeTask("1", ["auth"]), makeTask("1", ["api"])]);
     const result = validatePlan(plan, manifest);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes("Duplicate"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("Duplicate"))).toBe(true);
   });
 
   test("WAW is a warning, not error", () => {
     const plan = makePlan([makeTask("1", ["auth"]), makeTask("2", ["auth"])]);
     const result = validatePlan(plan, manifest);
-    expect(result.warnings.some(w => w.includes("WAW"))).toBe(true);
+    expect(result.warnings.some((w) => w.includes("WAW"))).toBe(true);
   });
 
   test("empty verify command is an error", () => {
-    const plan = makePlan(
-      [makeTask("1", ["auth"])],
-      { postconditions: [{ id: "post-1", description: "test", verify: "  " }] }
-    );
+    const plan = makePlan([makeTask("1", ["auth"])], {
+      postconditions: [{ id: "post-1", description: "test", verify: "  " }],
+    });
     const result = validatePlan(plan, manifest);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes("verify command is empty"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("verify command is empty"))).toBe(true);
   });
 });

@@ -7,19 +7,12 @@ const manifest: Manifest = {
   components: {
     auth: {
       path: "/src/auth",
-      docs: [
-        "/docs/auth/README.md",
-        "/docs/auth/internal.md",
-      ],
+      docs: ["/docs/auth/README.md", "/docs/auth/internal.md"],
     },
     api: {
       path: "/src/api",
       deps: ["auth"],
-      docs: [
-        "/docs/api/README.md",
-        "/docs/api/internal.md",
-        "/docs/api/examples.md",
-      ],
+      docs: ["/docs/api/README.md", "/docs/api/internal.md", "/docs/api/examples.md"],
     },
   },
 };

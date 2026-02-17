@@ -56,7 +56,7 @@ export function validatePlan(plan: Plan, manifest: Manifest): ValidationResult {
   for (const h of hazards) {
     if (h.type === "WAW") {
       warnings.push(
-        `WAW hazard: tasks ${h.source_task_id} and ${h.target_task_id} both write to "${h.component}"`
+        `WAW hazard: tasks ${h.source_task_id} and ${h.target_task_id} both write to "${h.component}"`,
       );
     }
   }

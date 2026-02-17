@@ -11,17 +11,13 @@ describe("parseManifest", () => {
 
     expect(manifest.varp).toBe("0.1.0");
     expect(manifest.components.core).toBeDefined();
-    expect(manifest.components.core.path).toBe(
-      resolve(PROJECT_ROOT, "src"),
-    );
+    expect(manifest.components.core.path).toBe(resolve(PROJECT_ROOT, "src"));
     // No explicit docs — all auto-discovered from src/README.md and src/docs/*.md
     expect(manifest.components.core.docs).toEqual([]);
   });
 
   test("parses manifest with dependencies", () => {
-    const manifest = parseManifest(
-      resolve(FIXTURE_DIR, "multi-component.yaml"),
-    );
+    const manifest = parseManifest(resolve(FIXTURE_DIR, "multi-component.yaml"));
 
     expect(Object.keys(manifest.components)).toEqual(["auth", "api", "web"]);
     expect(manifest.components.api.deps).toEqual(["auth"]);
@@ -29,9 +25,7 @@ describe("parseManifest", () => {
   });
 
   test("throws on invalid manifest", () => {
-    expect(() =>
-      parseManifest(resolve(FIXTURE_DIR, "invalid.yaml")),
-    ).toThrow();
+    expect(() => parseManifest(resolve(FIXTURE_DIR, "invalid.yaml"))).toThrow();
   });
 
   test("parses flat YAML format without components wrapper", () => {

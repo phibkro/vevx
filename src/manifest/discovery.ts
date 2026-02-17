@@ -8,10 +8,7 @@ import { existsSync, readdirSync } from "node:fs";
  * - {component.path}/README.md → public doc (if exists, not already listed)
  * - {component.path}/docs/*.md → private docs (if dir exists, not already listed)
  */
-export function discoverDocs(component: {
-  path: string;
-  docs: string[];
-}): string[] {
+export function discoverDocs(component: { path: string; docs: string[] }): string[] {
   const docPaths = [...component.docs];
 
   // Auto-discover README.md at component root

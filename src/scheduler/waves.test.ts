@@ -51,11 +51,7 @@ describe("computeWaves", () => {
     // Wave 2: task 4 (reads auth + api)
     expect(waves).toHaveLength(3);
     expect(waves[0].tasks.map((t) => t.id)).toEqual(["1"]);
-    expect(
-      waves[1]
-        .tasks.map((t) => t.id)
-        .sort(),
-    ).toEqual(["2", "3"]);
+    expect(waves[1].tasks.map((t) => t.id).sort()).toEqual(["2", "3"]);
     expect(waves[2].tasks.map((t) => t.id)).toEqual(["4"]);
   });
 

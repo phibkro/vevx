@@ -2,7 +2,7 @@ import { resolve, dirname } from "node:path";
 import { readFileSync, existsSync } from "node:fs";
 import type { Manifest, BrokenLink, InferredDep, LinkScanResult } from "../types.js";
 import { discoverDocs } from "./discovery.js";
-import { findOwningComponent } from "./ownership.js";
+import { findOwningComponent, buildComponentPaths } from "./ownership.js";
 
 export type LinkScanMode = "deps" | "integrity" | "all";
 
@@ -49,19 +49,27 @@ export function resolveLink(target: string, sourceDocPath: string): string {
  */
 export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResult {
   const brokenLinks: BrokenLink[] = [];
+  const missingDocs: string[] = [];
   // Map: "from->to" => evidence array
-  const inferredDepsMap = new Map<string, { from: string; to: string; evidence: { source_doc: string; link_target: string }[] }>();
+  const inferredDepsMap = new Map<
+    string,
+    { from: string; to: string; evidence: { source_doc: string; link_target: string }[] }
+  >();
   let totalLinksScanned = 0;
   let totalDocsScanned = 0;
 
   const checkIntegrity = mode === "integrity" || mode === "all";
   const checkDeps = mode === "deps" || mode === "all";
+  const componentPaths = buildComponentPaths(manifest);
 
   for (const [compName, comp] of Object.entries(manifest.components)) {
     const docPaths = discoverDocs(comp);
 
     for (const docPath of docPaths) {
-      if (!existsSync(docPath)) continue;
+      if (!existsSync(docPath)) {
+        missingDocs.push(docPath);
+        continue;
+      }
 
       let content: string;
       try {
@@ -91,7 +99,7 @@ export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResul
 
         // Dependency inference
         if (checkDeps) {
-          const targetOwner = findOwningComponent(resolved, manifest);
+          const targetOwner = findOwningComponent(resolved, manifest, componentPaths);
           if (targetOwner !== null && targetOwner !== compName) {
             const key = `${compName}->${targetOwner}`;
             const existing = inferredDepsMap.get(key);
@@ -135,6 +143,7 @@ export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResul
     missing_deps: missingDeps,
     extra_deps: extraDeps,
     broken_links: brokenLinks,
+    missing_docs: missingDocs,
     total_links_scanned: totalLinksScanned,
     total_docs_scanned: totalDocsScanned,
   };

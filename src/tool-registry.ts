@@ -28,7 +28,12 @@ export function registerTools(server: McpServer, tools: ToolDef[]): void {
           };
         } catch (e) {
           return {
-            content: [{ type: "text" as const, text: `Error: ${e instanceof Error ? e.message : String(e)}` }],
+            content: [
+              {
+                type: "text" as const,
+                text: `Error: ${e instanceof Error ? e.message : String(e)}`,
+              },
+            ],
             isError: true,
           };
         }
