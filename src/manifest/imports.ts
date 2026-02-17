@@ -122,8 +122,28 @@ export function analyzeImports(
 
   const import_deps: ImportDep[] = Array.from(inferredDepsMap.values());
 
+  // Compare inferred deps against declared deps
+  const declaredDepsSet = new Set<string>();
+  for (const [compName, comp] of Object.entries(manifest.components)) {
+    for (const dep of comp.deps ?? []) {
+      declaredDepsSet.add(`${compName}->${dep}`);
+    }
+  }
+
+  const inferredKeys = new Set(inferredDepsMap.keys());
+  const missing_deps = import_deps.filter((d) => !declaredDepsSet.has(`${d.from}->${d.to}`));
+  const extra_deps: { from: string; to: string }[] = [];
+  for (const declared of declaredDepsSet) {
+    if (!inferredKeys.has(declared)) {
+      const [from, to] = declared.split("->");
+      extra_deps.push({ from, to });
+    }
+  }
+
   return {
     import_deps,
+    missing_deps,
+    extra_deps,
     total_files_scanned: files.length,
     total_imports_scanned: totalImportsScanned,
   };

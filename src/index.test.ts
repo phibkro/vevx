@@ -83,7 +83,7 @@ describe("MCP server integration", () => {
     } catch {}
   });
 
-  test("lists all 13 tools", async () => {
+  test("lists all 14 tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -98,6 +98,7 @@ describe("MCP server integration", () => {
       "varp_read_manifest",
       "varp_resolve_docs",
       "varp_scan_links",
+      "varp_suggest_touches",
       "varp_validate_plan",
       "varp_verify_capabilities",
     ]);
@@ -358,11 +359,28 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data).toHaveProperty("import_deps");
+    expect(data).toHaveProperty("missing_deps");
+    expect(data).toHaveProperty("extra_deps");
     expect(data).toHaveProperty("total_files_scanned");
     expect(data).toHaveProperty("total_imports_scanned");
     expect(Array.isArray(data.import_deps)).toBe(true);
+    expect(Array.isArray(data.missing_deps)).toBe(true);
+    expect(Array.isArray(data.extra_deps)).toBe(true);
     expect(typeof data.total_files_scanned).toBe("number");
     expect(typeof data.total_imports_scanned).toBe("number");
+  });
+
+  test("varp_suggest_touches returns writes and reads for file paths", async () => {
+    const result = await client.callTool({
+      name: "varp_suggest_touches",
+      arguments: {
+        manifest_path: MANIFEST_PATH,
+        file_paths: [join(PLAN_DIR, "src/api/routes.ts")],
+      },
+    });
+    const data = parseResult(result);
+    expect(data).toHaveProperty("writes");
+    expect(data.writes).toContain("api");
   });
 
   test("varp_scan_links with mode=deps returns dependency analysis", async () => {

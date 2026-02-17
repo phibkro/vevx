@@ -15,6 +15,7 @@ import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
 import { scanLinks, type LinkScanMode } from "./manifest/links.js";
 import { scanImports } from "./manifest/imports.js";
+import { suggestTouches } from "./manifest/touches.js";
 import { registerTools, type ToolDef } from "./tool-registry.js";
 
 // ── Shared Schemas ──
@@ -170,6 +171,22 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path }) => {
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
       return scanImports(manifest);
+    },
+  },
+
+  // Suggest Touches
+  {
+    name: "varp_suggest_touches",
+    description:
+      "Given file paths, suggest touches declaration using ownership mapping and import dependencies.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      file_paths: z.array(z.string()).describe("File paths that will be modified"),
+    },
+    handler: async ({ manifest_path, file_paths }) => {
+      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const { import_deps } = scanImports(manifest);
+      return suggestTouches(file_paths, manifest, import_deps);
     },
   },
 

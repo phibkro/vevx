@@ -179,6 +179,47 @@ describe("analyzeImports", () => {
     expect(result.total_files_scanned).toBe(1);
   });
 
+  test("inferred dep not in manifest deps appears in missing_deps", () => {
+    const manifestNoDeps: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: "/project/src/auth", docs: [] },
+        api: { path: "/project/src/api", docs: [] },
+      },
+    };
+    const files: SourceFile[] = [
+      {
+        path: "/project/src/api/routes.ts",
+        component: "api",
+        content: "import { verify } from '../auth/index.js';",
+      },
+    ];
+    const result = analyzeImports(files, manifestNoDeps, fileExists);
+    expect(result.missing_deps).toHaveLength(1);
+    expect(result.missing_deps[0].from).toBe("api");
+    expect(result.missing_deps[0].to).toBe("auth");
+  });
+
+  test("manifest dep not found in imports appears in extra_deps", () => {
+    const files: SourceFile[] = [];
+    const result = analyzeImports(files, manifest, fileExists);
+    expect(result.extra_deps).toContainEqual({ from: "api", to: "auth" });
+  });
+
+  test("matching dep appears in neither missing nor extra", () => {
+    const files: SourceFile[] = [
+      {
+        path: "/project/src/api/routes.ts",
+        component: "api",
+        content: "import { verify } from '../auth/index.js';",
+      },
+    ];
+    const result = analyzeImports(files, manifest, fileExists);
+    // api->auth is declared and inferred: not in missing or extra
+    expect(result.missing_deps).toHaveLength(0);
+    expect(result.extra_deps).toHaveLength(0);
+  });
+
   test("returns correct counts", () => {
     const files: SourceFile[] = [
       {

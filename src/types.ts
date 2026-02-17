@@ -213,6 +213,8 @@ export const ImportDepSchema = z.object({
 
 export const ImportScanResultSchema = z.object({
   import_deps: z.array(ImportDepSchema),
+  missing_deps: z.array(ImportDepSchema),
+  extra_deps: z.array(z.object({ from: z.string(), to: z.string() })),
   total_files_scanned: z.number(),
   total_imports_scanned: z.number(),
 });
