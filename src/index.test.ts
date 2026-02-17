@@ -524,6 +524,25 @@ describe("MCP server integration", () => {
     expect(data.components_covered).toContain("auth");
   });
 
+  test("varp_scoped_tests returns required_env from component env fields", async () => {
+    const result = await client.callTool({
+      name: "varp_scoped_tests",
+      arguments: { manifest_path: MANIFEST_PATH, writes: ["api"] },
+    });
+    const data = parseResult(result);
+    expect(data).toHaveProperty("required_env");
+    expect(data.required_env).toEqual(["DATABASE_URL"]);
+  });
+
+  test("varp_scoped_tests returns empty required_env when no env fields", async () => {
+    const result = await client.callTool({
+      name: "varp_scoped_tests",
+      arguments: { manifest_path: MANIFEST_PATH, writes: ["auth"] },
+    });
+    const data = parseResult(result);
+    expect(data.required_env).toEqual([]);
+  });
+
   test("varp_scoped_tests returns empty for reads by default", async () => {
     const result = await client.callTool({
       name: "varp_scoped_tests",

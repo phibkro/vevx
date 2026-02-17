@@ -73,6 +73,9 @@ export function findScopedTests(
 
   const testFiles = [...testFileSet].sort();
   const componentsCovered = [...componentNames].sort();
+  const requiredEnv = [
+    ...new Set([...componentNames].flatMap((name) => manifest.components[name]?.env ?? [])),
+  ].sort();
 
   // Build run command with paths relative to manifestDir for readability
   const relativePaths = testFiles.map((f) => relative(manifestDir, f));
@@ -88,5 +91,6 @@ export function findScopedTests(
     components_covered: componentsCovered,
     run_command: runCommand,
     custom_commands: customCommands,
+    required_env: requiredEnv,
   };
 }

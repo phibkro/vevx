@@ -68,6 +68,8 @@ Present per-task and aggregate metrics from log.xml.
 - Tasks with >0 retries indicate potential planning issues
 - Tasks with capability violations indicate incorrect touches derivation
 - Components with high failure rates may need better interface documentation
+- Failures on `stable` components are high-risk — they have many dependents. Recommend cascade analysis via `varp_invalidation_cascade`.
+- Failures on `experimental` components are expected — recommend isolated retry before escalating.
 
 ### Step 4: Surface Decisions
 

@@ -321,6 +321,7 @@ export const ScopedTestResultSchema = z.object({
   components_covered: z.array(z.string()),
   run_command: z.string(),
   custom_commands: z.array(z.string()),
+  required_env: z.array(z.string()),
 });
 
 export type ScopedTestResult = z.infer<typeof ScopedTestResultSchema>;

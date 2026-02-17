@@ -129,6 +129,37 @@ describe("findScopedTests", () => {
     expect(result.custom_commands).toEqual([]);
   });
 
+  test("returns empty required_env when components have no env", () => {
+    const result = findScopedTests(manifest, { writes: ["auth"] }, TMP_DIR);
+    expect(result.required_env).toEqual([]);
+  });
+
+  test("collects required_env from covered components", () => {
+    const manifestWithEnv: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: join(TMP_DIR, "src/auth"), env: ["JWT_SECRET"], docs: [] },
+        api: { path: join(TMP_DIR, "src/api"), env: ["DATABASE_URL", "REDIS_URL"], docs: [] },
+      },
+    };
+
+    const result = findScopedTests(manifestWithEnv, { writes: ["auth", "api"] }, TMP_DIR);
+    expect(result.required_env).toEqual(["DATABASE_URL", "JWT_SECRET", "REDIS_URL"]);
+  });
+
+  test("deduplicates required_env across components", () => {
+    const manifestWithEnv: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: join(TMP_DIR, "src/auth"), env: ["SHARED_VAR"], docs: [] },
+        api: { path: join(TMP_DIR, "src/api"), env: ["SHARED_VAR", "OTHER_VAR"], docs: [] },
+      },
+    };
+
+    const result = findScopedTests(manifestWithEnv, { writes: ["auth", "api"] }, TMP_DIR);
+    expect(result.required_env).toEqual(["OTHER_VAR", "SHARED_VAR"]);
+  });
+
   test("component with test field uses custom command", () => {
     const manifestWithTest: Manifest = {
       varp: "0.1.0",

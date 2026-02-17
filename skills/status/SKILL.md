@@ -39,9 +39,17 @@ Output a structured report with these sections:
 ```
 ## Component Registry
 
-| Component | Path | Dependencies |
-|-----------|------|-------------|
-| <name>    | <path> | <deps or "none"> |
+| Component | Path | Dependencies | Stability | Tags |
+|-----------|------|-------------|-----------|------|
+| <name>    | <path> | <deps or "none"> | <stability or "—"> | <tags or "—"> |
+
+## Environment Requirements
+
+(Only show this section if any component has an `env` field.)
+
+| Component | Variables |
+|-----------|-----------|
+| <name>    | <env vars, comma-separated> |
 
 ## Doc Freshness
 

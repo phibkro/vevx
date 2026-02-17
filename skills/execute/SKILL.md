@@ -64,9 +64,15 @@ Call `varp_resolve_docs` with the task's `touches` declaration to get doc paths.
 
 **Do not read the doc files yourself.** The orchestrator resolves paths; the subagent reads content. Your job is to tell the subagent which docs to read, not to understand the implementation details.
 
+### Step 3b: Check Environment Prerequisites
+
+For each component in the task's write set, check if it has an `env` field in the manifest. If so, verify those environment variables are set. If any are missing, log a warning and ask the human before dispatching — the subagent's tests will likely fail without them.
+
 ### Step 4: Dispatch
 
 Send the task to a subagent using the Task tool. Assemble the prompt:
+
+**Stability-aware dispatch:** When dispatching to an `experimental` component, increase budget by 1.5x. When dispatching to a `stable` component with many dependents, emphasize in the subagent prompt that changes must preserve backward compatibility.
 
 - **Domain:** Component scope from the task's touches — tell the subagent which component(s) it owns
 - **Action:** From the task's `<action>` element
