@@ -28,6 +28,11 @@ if [ -z "$file_path" ]; then
   exit 0
 fi
 
+# Skip doc files — editing a .md file can't make other docs stale
+case "$file_path" in
+  *.md) exit 0 ;;
+esac
+
 # Normalize to relative path if absolute
 if [[ "$file_path" = /* ]]; then
   # Try to make relative to current directory
