@@ -123,4 +123,42 @@ describe("findScopedTests", () => {
     expect(result.test_files).toHaveLength(2); // no duplicates
     expect(result.components_covered).toEqual(["auth"]);
   });
+
+  test("returns empty custom_commands when no test fields", () => {
+    const result = findScopedTests(manifest, { writes: ["auth"] }, TMP_DIR);
+    expect(result.custom_commands).toEqual([]);
+  });
+
+  test("component with test field uses custom command", () => {
+    const manifestWithTest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: join(TMP_DIR, "src/auth"), docs: [] },
+        api: { path: join(TMP_DIR, "src/api"), test: "npm test -- --filter api", docs: [] },
+      },
+    };
+
+    const result = findScopedTests(manifestWithTest, { writes: ["api"] }, TMP_DIR);
+    expect(result.custom_commands).toEqual(["npm test -- --filter api"]);
+    expect(result.test_files).toEqual([]); // skips file discovery
+    expect(result.components_covered).toEqual(["api"]);
+    expect(result.run_command).toBe("npm test -- --filter api");
+  });
+
+  test("mixed custom and discovered tests combines in run_command", () => {
+    const manifestWithTest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: { path: join(TMP_DIR, "src/auth"), docs: [] },
+        api: { path: join(TMP_DIR, "src/api"), test: "npm test -- --filter api", docs: [] },
+      },
+    };
+
+    const result = findScopedTests(manifestWithTest, { writes: ["auth", "api"] }, TMP_DIR);
+    expect(result.test_files).toHaveLength(2); // auth's discovered tests
+    expect(result.custom_commands).toEqual(["npm test -- --filter api"]);
+    expect(result.run_command).toContain("bun test");
+    expect(result.run_command).toContain(" && ");
+    expect(result.run_command).toContain("npm test -- --filter api");
+  });
 });

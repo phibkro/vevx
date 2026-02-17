@@ -201,10 +201,16 @@ interface Manifest {
   components: Record<string, Component>
 }
 
+type Stability = 'stable' | 'active' | 'experimental'
+
 interface Component {
   path: string
   deps?: string[]
   docs: string[]  // file paths (strings, not objects)
+  tags?: string[]
+  test?: string   // custom test command (overrides *.test.ts discovery)
+  env?: string[]
+  stability?: Stability
 }
 
 interface Touches {
@@ -351,6 +357,7 @@ interface ScopedTestResult {
   test_files: string[]           // absolute paths to *.test.ts files
   components_covered: string[]   // component names that contributed tests
   run_command: string            // "bun test path1 path2 ..." (relative paths, empty if no tests)
+  custom_commands: string[]      // custom test commands from component `test` fields
 }
 
 interface LintReport {

@@ -2,10 +2,16 @@ import { z } from "zod";
 
 // ── Component Manifest ──
 
+export const StabilitySchema = z.enum(["stable", "active", "experimental"]);
+
 export const ComponentSchema = z.object({
   path: z.string(),
   deps: z.array(z.string()).optional(),
   docs: z.array(z.string()).default([]),
+  tags: z.array(z.string()).optional(),
+  test: z.string().optional(),
+  env: z.array(z.string()).optional(),
+  stability: StabilitySchema.optional(),
 });
 
 export const ManifestSchema = z.object({
@@ -14,6 +20,7 @@ export const ManifestSchema = z.object({
 });
 
 export type DocEntry = string;
+export type Stability = z.infer<typeof StabilitySchema>;
 export type Component = z.infer<typeof ComponentSchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
@@ -313,6 +320,7 @@ export const ScopedTestResultSchema = z.object({
   test_files: z.array(z.string()),
   components_covered: z.array(z.string()),
   run_command: z.string(),
+  custom_commands: z.array(z.string()),
 });
 
 export type ScopedTestResult = z.infer<typeof ScopedTestResultSchema>;

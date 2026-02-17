@@ -9,14 +9,19 @@ varp: 0.1.0
 
 auth:
   path: ./src/auth
+  tags: [security, api-boundary]
+  stability: stable
 
 api:
   path: ./src/api
   deps: [auth]
+  env: [DATABASE_URL]
+  test: "bun test src/api --timeout 5000"
 
 web:
   path: ./src/web
   deps: [auth, api]
+  stability: active
   docs:
     - ./docs/shared/migration-guide.md  # only needed for docs outside component path
 ```
@@ -38,6 +43,10 @@ There is no `name` field, no `components:` wrapper. The YAML is flat: `varp` is 
 | `path` | string | yes | Directory path for source files. Relative paths resolved from manifest directory. |
 | `deps` | string[] | no | Component names this component depends on. Structural dependencies — "this component consumes that component's interface." |
 | `docs` | string[] | no | Additional doc paths beyond auto-discovered ones (defaults to `[]`). Only needed for docs outside the component's path. Relative paths resolved from manifest directory. |
+| `tags` | string[] | no | Freeform labels for filtering and grouping (e.g. `[security, api-boundary]`). |
+| `test` | string | no | Custom test command. When set, `varp_scoped_tests` uses this instead of auto-discovering `*.test.ts` files. |
+| `env` | string[] | no | Environment variables the component requires at runtime (e.g. `[DATABASE_URL]`). Informational — not enforced. |
+| `stability` | `"stable"` \| `"active"` \| `"experimental"` | no | Component maturity level. Helps the planner gauge change risk. |
 
 ## README.md Convention
 

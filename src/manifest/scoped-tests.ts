@@ -42,25 +42,31 @@ export function findScopedTests(
 ): ScopedTestResult {
   const componentNames = new Set<string>();
   const testFileSet = new Set<string>();
+  const customCommands: string[] = [];
+
+  function processComponent(name: string) {
+    const comp = manifest.components[name];
+    if (!comp) return;
+    componentNames.add(name);
+    if (comp.test) {
+      customCommands.push(comp.test);
+    } else {
+      for (const file of findTestFiles(comp.path)) {
+        testFileSet.add(file);
+      }
+    }
+  }
 
   // Always include write components
   for (const name of touches.writes ?? []) {
-    const comp = manifest.components[name];
-    if (!comp) continue;
-    componentNames.add(name);
-    for (const file of findTestFiles(comp.path)) {
-      testFileSet.add(file);
-    }
+    processComponent(name);
   }
 
   // Optionally include read components
   if (includeReadTests) {
     for (const name of touches.reads ?? []) {
-      const comp = manifest.components[name];
-      if (!comp) continue;
-      componentNames.add(name);
-      for (const file of findTestFiles(comp.path)) {
-        testFileSet.add(file);
+      if (!componentNames.has(name)) {
+        processComponent(name);
       }
     }
   }
@@ -70,11 +76,17 @@ export function findScopedTests(
 
   // Build run command with paths relative to manifestDir for readability
   const relativePaths = testFiles.map((f) => relative(manifestDir, f));
-  const runCommand = testFiles.length > 0 ? `bun test ${relativePaths.join(" ")}` : "";
+  const parts: string[] = [];
+  if (testFiles.length > 0) {
+    parts.push(`bun test ${relativePaths.join(" ")}`);
+  }
+  parts.push(...customCommands);
+  const runCommand = parts.join(" && ");
 
   return {
     test_files: testFiles,
     components_covered: componentsCovered,
     run_command: runCommand,
+    custom_commands: customCommands,
   };
 }

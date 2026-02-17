@@ -2,6 +2,8 @@ varp: 0.1.0
 
 auth:
   path: ./src/auth
+  tags: [security, api-boundary]
+  stability: stable
   docs:
     - ./docs/auth/README.md
     - ./docs/auth/internal.md
@@ -9,6 +11,8 @@ auth:
 api:
   path: ./src/api
   deps: [auth]
+  env: [DATABASE_URL]
+  test: "bun test src/api --timeout 5000"
   docs:
     - ./docs/api/README.md
     - ./docs/api/internal.md
@@ -16,6 +20,8 @@ api:
 web:
   path: ./src/web
   deps: [auth, api]
+  tags: [frontend]
+  stability: active
   docs:
     - ./docs/web/README.md
     - ./docs/web/internal.md

@@ -2,6 +2,8 @@ varp: 0.1.0
 
 core:
   path: ./src
+  tags: [mcp, manifest, scheduler]
+  stability: active
   docs:
     - ./src/manifest/README.md
     - ./src/plan/README.md
@@ -9,7 +11,11 @@ core:
 skills:
   path: ./skills
   deps: [core]
+  tags: [prompt]
+  stability: active
 
 hooks:
   path: ./hooks
   deps: [core]
+  tags: [lifecycle]
+  stability: active

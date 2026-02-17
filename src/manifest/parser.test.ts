@@ -27,6 +27,26 @@ describe("parseManifest", () => {
     expect(manifest.components.web.deps).toEqual(["auth", "api"]);
   });
 
+  test("parses tags, test, env, and stability fields", () => {
+    const manifest = parseManifest(resolve(FIXTURE_DIR, "multi-component.yaml"));
+
+    expect(manifest.components.auth.tags).toEqual(["security", "api-boundary"]);
+    expect(manifest.components.auth.stability).toBe("stable");
+    expect(manifest.components.auth.test).toBeUndefined();
+    expect(manifest.components.auth.env).toBeUndefined();
+
+    expect(manifest.components.api.env).toEqual(["DATABASE_URL"]);
+    expect(manifest.components.api.test).toBe("bun test src/api --timeout 5000");
+    expect(manifest.components.api.tags).toBeUndefined();
+
+    expect(manifest.components.web.tags).toEqual(["frontend"]);
+    expect(manifest.components.web.stability).toBe("active");
+  });
+
+  test("rejects invalid stability value", () => {
+    expect(() => parseManifest(resolve(FIXTURE_DIR, "invalid-stability.yaml"))).toThrow();
+  });
+
   test("throws on invalid manifest", () => {
     expect(() => parseManifest(resolve(FIXTURE_DIR, "invalid.yaml"))).toThrow();
   });

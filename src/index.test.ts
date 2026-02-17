@@ -519,6 +519,7 @@ describe("MCP server integration", () => {
     expect(data).toHaveProperty("test_files");
     expect(data).toHaveProperty("components_covered");
     expect(data).toHaveProperty("run_command");
+    expect(data).toHaveProperty("custom_commands");
     expect(Array.isArray(data.test_files)).toBe(true);
     expect(data.components_covered).toContain("auth");
   });

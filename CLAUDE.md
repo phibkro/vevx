@@ -18,7 +18,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 ## Stack
 
 - **Runtime**: Bun (install, test, run)
-- **Language**: TypeScript (ES2022, bundler moduleResolution)
+- **Language**: TypeScript (ES2022, ESM only, bundler moduleResolution). Never use `require()` or CJS patterns.
 - **MCP SDK**: `@modelcontextprotocol/sdk` (see `docs/reference-urls.md` for current SDK docs)
 - **Validation**: Zod (schemas are single source of truth for types)
 - **XML**: fast-xml-parser (plan.xml parsing)

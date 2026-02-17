@@ -2,9 +2,10 @@
 
 This is a Varp-managed project (varp.yaml defines components, paths, dependencies, doc locations).
 
-**Stack**: Bun (runtime/test/install), TypeScript (ES2022), Zod (schema-first types), MCP SDK.
+**Stack**: Bun (runtime/test/install), TypeScript (ES2022, ESM only), Zod (schema-first types), MCP SDK.
 
 **Key rules**:
+- Modules: ESM only. Use `import`/`export`, never `require()` or `module.exports`. Use `.js` extensions in import specifiers.
 - Types: Define Zod schema first, infer via `z.infer<>`. Never define standalone interfaces.
 - Tests: Co-located `*.test.ts` files. Run with `bun test`.
 - Build: `bun run build` (bun build to `build/`).
