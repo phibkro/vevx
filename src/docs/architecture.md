@@ -154,9 +154,9 @@ All 17 tools are defined as `ToolDef` objects in `index.ts` — each with name, 
 2. Error handling (catch → `{ isError: true }`)
 3. MCP response formatting (`{ content: [{ type: "text", text }] }`)
 
-Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `TaskInputSchema`) are defined once and reused across tool definitions.
+Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `touchesSchema`, `budgetSchema`, `taskRefSchema`, `schedulableTaskSchema`) are defined once and reused across tool definitions. Scheduler and enforcement tools accept minimal task objects (`{id, touches}` or `{id, touches, budget}`) rather than full `Task` schemas — reduces tool description token overhead.
 
-Scheduler tools (`varp_compute_waves`, `varp_detect_hazards`, `varp_compute_critical_path`) accept inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
+`varp_compute_waves` accepts inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 
 ## Doc Discovery (`discovery.ts`)
 

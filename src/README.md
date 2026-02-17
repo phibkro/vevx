@@ -84,30 +84,9 @@ Pure function. Takes tasks with `touches` declarations, detects data hazards (RA
 
 Within each wave, tasks are safe to run in parallel. Waves execute sequentially. Tasks on the critical path (longest RAW dependency chain) are ordered first within each wave.
 
-**Parameters:** `{ tasks: Task[] }`
+**Parameters:** `{ tasks: { id, touches, budget }[] }`
 
 **Returns:** `Wave[]`
-
-#### `varp_detect_hazards`
-
-Diagnostic function. Returns all detected data hazards between tasks:
-- `RAW` — true dependency (read after write), enforces ordering
-- `WAR` — anti-dependency (write after read), resolved by context snapshotting
-- `WAW` — output dependency (write after write), scheduling constraint or plan smell
-
-Used by the planner and `/status` to surface potential issues before execution.
-
-**Parameters:** `{ tasks: Task[] }`
-
-**Returns:** `Hazard[]`
-
-#### `varp_compute_critical_path`
-
-Returns the longest chain of RAW dependencies from any root task to any leaf task. Used by the orchestrator to prioritize dispatch order when multiple tasks are eligible within a wave.
-
-**Parameters:** `{ tasks: Task[] }`
-
-**Returns:** `CriticalPath`
 
 ### Analysis
 
@@ -172,7 +151,7 @@ Given a failed task and the current execution state, derives the appropriate res
 
 This is a mechanical decision derived from `touches`, not a judgment call.
 
-**Parameters:** `{ failed_task: Task, all_tasks: Task[], completed_task_ids: string[], dispatched_task_ids: string[] }`
+**Parameters:** `{ failed_task: { id, touches }, all_tasks: { id, touches }[], completed_task_ids: string[], dispatched_task_ids: string[] }`
 
 **Returns:** `RestartStrategy`
 
@@ -283,13 +262,13 @@ interface Wave {
 
 interface Hazard {
   type: 'RAW' | 'WAR' | 'WAW'
-  source: Task
-  target: Task
+  source_task_id: string
+  target_task_id: string
   component: string
 }
 
 interface CriticalPath {
-  tasks: Task[]      // ordered chain, longest RAW dependency path
+  task_ids: string[]   // ordered chain, longest RAW dependency path
   total_budget: Budget
 }
 
