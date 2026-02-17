@@ -152,6 +152,28 @@ The tiered knowledge architecture is implemented through skill loading, not thro
 
 **Prompt caching integration:** The Anthropic SDK's prompt caching (90% cost reduction on cache reads) maps naturally to Varp's tiered knowledge. T1 knowledge (manifest + skill protocol) is cached at the system prompt level — stable across all dispatches within a session. T2 knowledge (component docs) is cached per component scope — reused across tasks that share the same component context. Cache breakpoints are placed at tier boundaries: tools → system (T1) → component docs (T2) → task-specific context.
 
+### 3.5 Three-Graph Separation
+
+Varp's architecture decomposes into three distinct graphs, each operating at a different rate of change and serving a different audience:
+
+**Project graph (manifest).** The component dependency graph declared in `varp.yaml`. Structural, human-maintained, changes with project architecture. Nodes are components; edges are `deps` relationships. This is the persistent truth about what exists.
+
+**Task graph (plan).** The `touches` declarations in `plan.xml`. Operational, planner-produced, changes per feature. Nodes are tasks; edges are data hazards (RAW/WAR/WAW) derived from overlapping read/write sets. This is the intent for what should change.
+
+**Action graph (execution).** The wave schedule computed at runtime by the orchestrator. Ephemeral, machine-derived, changes per execution. Nodes are concrete dispatches; edges are sequencing constraints from the task graph plus resource availability. This is the strategy for how it happens.
+
+The separation matters because each graph has different consumers and different correctness criteria:
+
+| Graph | Source | Rate of change | Consumer | Correctness check |
+|-------|--------|----------------|----------|-------------------|
+| Project | `varp.yaml` | Slow (project structure) | Planner, orchestrator | `varp_lint`, cycle detection |
+| Task | `plan.xml` | Medium (per feature) | Orchestrator | `varp_validate_plan`, hazard detection |
+| Action | Runtime | Fast (per execution) | Orchestrator internals | Postconditions, capability verification |
+
+The project graph constrains the task graph: `varp_validate_plan` checks that task `touches` reference components that exist and are reachable through `deps`. The task graph constrains the action graph: `varp_compute_waves` derives execution order from data hazards. Information flows down (project constrains task constrains action); feedback flows up (execution metrics inform planning which informs manifest evolution).
+
+This mirrors moonrepo's separation of project graph, task graph, and action graph — validated at scale in large monorepos. The key insight is that conflating these graphs (e.g., encoding execution order in the plan, or task-level detail in the manifest) creates coupling between layers that change at different rates.
+
 ## 4. Concurrency Model
 
 ### 4.1 The DBMS Analogy

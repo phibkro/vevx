@@ -68,9 +68,63 @@ Initial resource budgets are set by the planner based on task complexity estimat
 
 Resuming a subagent session preserves its accumulated context, but that context may be stale if other tasks have modified components in its scope since the session was suspended. The orchestrator checks doc freshness before dispatch, but a warm agent's *implicit* understanding (patterns it noticed, assumptions it formed) can't be freshness-checked. Whether warm agent resumption should be limited to cases where no intervening writes occurred, or whether a freshness summary injected at resumption is sufficient, is an open question.
 
-## 8. Relationship to Existing Work
+## 8. Proposed Manifest Extensions
 
-### 8.1 What Varp Borrows
+The current manifest schema (`varp`, `path`, `deps`, `docs`) covers structural dependencies and documentation. Several extensions would give the planner and orchestrator richer signals without changing the core scheduling model.
+
+### 8.1 `tags` — Freeform Labels
+
+```yaml
+auth:
+  path: ./src/auth
+  tags: [security, critical, api-boundary]
+```
+
+Arbitrary string labels for filtering and grouping. The planner could scope questions ("which security-tagged components does this affect?"), and the orchestrator could apply per-tag policies (e.g., require review for `critical` components). No schema validation beyond string array — users define their own taxonomy.
+
+### 8.2 `test` — Per-Component Test Command
+
+```yaml
+auth:
+  path: ./src/auth
+  test: bun test src/auth/
+```
+
+Overrides the default test discovery (`varp_scoped_tests` recursively finds `*.test.ts` under the component path). Useful when components have non-standard test setups, integration tests that require flags, or monorepo tools with their own test runners (`nx run auth:test`, `turbo run test --filter=auth`).
+
+### 8.3 `env` — Runtime Prerequisites
+
+```yaml
+database:
+  path: ./src/database
+  env: [POSTGRES_URL, REDIS_URL]
+```
+
+Environment variables or external services the component requires. The orchestrator checks these before dispatching tasks — a subagent working on `database` needs `POSTGRES_URL` to run integration tests. Prevents wasted agent work on tasks that will fail at verification time due to missing prerequisites.
+
+### 8.4 `stability` — Change Frequency Signal
+
+```yaml
+auth:
+  path: ./src/auth
+  stability: stable
+
+experiments:
+  path: ./src/experiments
+  stability: experimental
+```
+
+Three levels: `stable` (rarely changes, many dependents), `active` (regular development), `experimental` (frequent changes, few dependents). Informs the planner's budget calibration (stable components need less discovery budget) and the orchestrator's restart strategy (experimental failures are more likely isolated). Default: `active`.
+
+### 8.5 Design Considerations
+
+These extensions are additive — all fields are optional with sensible defaults. They enrich the planner and orchestrator's decision-making without changing the scheduling model (`touches` + hazard detection remains the core). Implementation priority should follow usage evidence: add fields when real workflows demonstrate the need.
+
+Named **mutexes** (exclusive resource locks on plan tasks, e.g., `mutex: ["db-migration"]`) are a complementary concept for resource contention that can't be inferred from the component graph. Unlike hazard detection which is automatic from `touches`, mutexes are explicit declarations for shared resources (database connections, GPU, CI runners) that cross component boundaries. These belong in the plan schema rather than the manifest, since they're per-task operational constraints, not structural properties.
+
+## 9. Relationship to Existing Work
+
+### 9.1 What Varp Borrows
 
 **Tiered memory architectures** (MemGPT, Letta): The T1/T2/T3 knowledge hierarchy is a direct application of tiered memory management to agent context.
 
@@ -84,7 +138,7 @@ Resuming a subagent session preserves its accumulated context, but that context 
 
 **Orchestrator-worker patterns:** Centralized coordination with distributed execution. Well-established in both human organizations and distributed systems.
 
-### 8.2 What's Novel
+### 9.2 What's Novel
 
 **The dual agent model.** Agents as processes with functional interfaces — defined by the 3D model (domain/action/values as function signature), executed with process semantics (lifecycle, resources, capabilities, failure handling). The functional layer governs definition and dispatch; the process layer governs execution and supervision.
 
@@ -98,11 +152,11 @@ Resuming a subagent session preserves its accumulated context, but that context 
 
 **The DBMS framing applied to software project management by AI agents.** The systematic mapping of manifest→schema, plan→transaction, orchestrator→transaction manager, git→MVCC, docs→materialized views, verification→constraint checking — extended with process management semantics for the execution layer.
 
-## 9. Implementation Path
+## 10. Implementation Path
 
 All build steps (1-8) are complete. See the [architecture doc](../src/docs/architecture.md) for current module structure and algorithms.
 
-### 9.3 Technical Choices
+### 10.1 Technical Choices
 
 **TypeScript MCP server.** The MCP SDK handles JSON-RPC serialization, capability negotiation, and transport. Varp implements tool logic only. Runs in-process within the Claude Code plugin.
 

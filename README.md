@@ -58,7 +58,8 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 |-----|---------|
 | [Design Principles](docs/design-principles.md) | Problem, core principles, agent model |
 | [Architecture](docs/design-architecture.md) | Manifest, plans, orchestrator, concurrency |
-| [Design Notes](docs/design-notes.md) | Feedback loops, open questions, related work |
+| [Design Notes](docs/design-notes.md) | Feedback loops, open questions, proposed extensions |
+| [Implementation Status](docs/implementation-status.md) | What's built, what changed, what's deferred |
 | [Getting Started](docs/getting-started.md) | Installation, setup, first workflow |
 | [Manifest Schema](src/manifest/README.md) | `varp.yaml` reference |
 | [Plan Schema](src/plan/README.md) | `plan.xml` reference |
