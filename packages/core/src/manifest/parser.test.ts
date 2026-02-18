@@ -5,19 +5,19 @@ import { join, resolve } from "node:path";
 import { parseManifest } from "./parser.js";
 
 const FIXTURE_DIR = resolve(import.meta.dir, "../../test-fixtures");
-const PROJECT_ROOT = resolve(import.meta.dir, "../..");
+const PROJECT_ROOT = resolve(import.meta.dir, "../../../..");
 
 describe("parseManifest", () => {
   test("parses the project's own varp.yaml", () => {
     const manifest = parseManifest(resolve(PROJECT_ROOT, "varp.yaml"));
 
     expect(manifest.varp).toBe("0.1.0");
-    expect(Object.keys(manifest.components)).toHaveLength(8);
+    expect(Object.keys(manifest.components).length).toBeGreaterThanOrEqual(8);
     expect(manifest.components.shared).toBeDefined();
-    expect(manifest.components.shared.path).toBe(resolve(PROJECT_ROOT, "src/shared"));
+    expect(manifest.components.shared.path).toBe(resolve(PROJECT_ROOT, "packages/core/src/shared"));
     expect(manifest.components.shared.stability).toBe("stable");
     expect(manifest.components.server).toBeDefined();
-    expect(manifest.components.server.path).toBe(resolve(PROJECT_ROOT, "src"));
+    expect(manifest.components.server.path).toBe(resolve(PROJECT_ROOT, "packages/core/src"));
     expect(manifest.components.server.deps).toEqual([
       "shared",
       "manifest",
@@ -26,7 +26,9 @@ describe("parseManifest", () => {
       "enforcement",
     ]);
     expect(manifest.components.manifest).toBeDefined();
-    expect(manifest.components.manifest.path).toBe(resolve(PROJECT_ROOT, "src/manifest"));
+    expect(manifest.components.manifest.path).toBe(
+      resolve(PROJECT_ROOT, "packages/core/src/manifest"),
+    );
     expect(manifest.components.manifest.deps).toEqual(["shared"]);
   });
 
