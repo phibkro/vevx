@@ -23,7 +23,7 @@ Or install from source:
 
 ```bash
 git clone <repo-url> varp && cd varp
-bun install && bun run build
+bun install && turbo build
 claude plugin add /path/to/varp
 ```
 
@@ -60,7 +60,7 @@ web:
   deps: [auth, api]
 ```
 
-Only `path` is required. See [Manifest Schema](src/manifest/README.md) for the full field reference.
+Only `path` is required. See [Manifest Schema](packages/core/src/manifest/README.md) for the full field reference.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -144,6 +144,14 @@ Hooks (3)                Lifecycle: session context, subagent injection, freshne
 
 The MCP server exposes pure functions. Skills structure agent behavior by loading protocols. Hooks enforce conventions at lifecycle boundaries.
 
+## Packages
+
+| Package | Path | Description |
+|---------|------|-------------|
+| `@varp/core` | `packages/core/` | MCP server — manifest, plan, scheduler, enforcement tools |
+| `@varp/audit` | `packages/audit/` | Compliance audit engine — multi-agent code review |
+| `@varp/audit-cli` | `apps/audit-cli/` | CLI for running audits |
+
 ## Design Docs
 
 | Doc | Purpose |
@@ -152,23 +160,26 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 | [Architecture](docs/design-architecture.md) | Manifest, plans, orchestrator, concurrency |
 | [Design Notes](docs/design-notes.md) | Feedback loops, open questions, extensions |
 | [Implementation Status](docs/implementation-status.md) | What's built, what changed, what's deferred |
+| [Audit Design](docs/audit-design.md) | Compliance audit engine design |
 
 ## Developer Reference
 
 | Doc | Purpose |
 |-----|---------|
-| [Manifest Schema](src/manifest/README.md) | `varp.yaml` format reference |
-| [Plan Schema](src/plan/README.md) | `plan.xml` format reference |
-| [MCP Tool API](src/README.md) | Tool signatures and types |
-| [Internal Architecture](src/docs/architecture.md) | Algorithms and data flow |
+| [Manifest Schema](packages/core/src/manifest/README.md) | `varp.yaml` format reference |
+| [Plan Schema](packages/core/src/plan/README.md) | `plan.xml` format reference |
+| [MCP Tool API](packages/core/src/README.md) | Tool signatures and types |
+| [Internal Architecture](packages/core/src/docs/architecture.md) | Algorithms and data flow |
 
 ## Development
 
 ```bash
-bun test              # 179 tests across 20 files
-bun run check         # format + lint + shellcheck + build
-bun run build         # bundle to build/
-bun run typecheck     # tsc --noEmit (not in CI gate)
+bun install              # install all workspace deps
+turbo build              # build all packages
+turbo test               # 483 tests across all packages
+cd packages/core
+  bun run check          # format + lint + shellcheck + build
+  bun run typecheck      # tsc --noEmit
 ```
 
-**Stack:** Bun, TypeScript (ES2022, ESM only), Zod, MCP SDK, fast-xml-parser.
+**Stack:** Bun, Turborepo, TypeScript (ES2022, ESM only), Zod, MCP SDK, fast-xml-parser.
