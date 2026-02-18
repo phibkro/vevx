@@ -15,8 +15,8 @@ describe("discoverDocs", () => {
     expect(docs).toContain(resolve(PROJECT_ROOT, "README.md"));
   });
 
-  test("discovers docs/*.md as private docs", () => {
-    // src/docs/ contains architecture.md
+  test("discovers docs/*.md via src collapse", () => {
+    // docs/ is at packages/core/docs/, discovered via src collapse from packages/core/src
     const docs = discoverDocs({
       path: resolve(PROJECT_ROOT, "src"),
       docs: [],
@@ -25,7 +25,7 @@ describe("discoverDocs", () => {
   });
 
   test("does not duplicate explicitly listed docs", () => {
-    const archPath = resolve(PROJECT_ROOT, "src/docs/architecture.md");
+    const archPath = resolve(PROJECT_ROOT, "docs/architecture.md");
     const docs = discoverDocs({
       path: resolve(PROJECT_ROOT, "src"),
       docs: [archPath],
