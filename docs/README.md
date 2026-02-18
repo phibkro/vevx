@@ -1,49 +1,8 @@
 # Documentation
 
-AI Code Auditor documentation index.
-
-## Quick Links
-
-- **[Agent Guide](AGENT-GUIDE.md)** - Complete reference for AI agents (start here)
-- **[Architecture](ARCHITECTURE.md)** - Multi-agent product design
-- **[Agent Driven Development](agent-driven-development/)** - How AI agents build this project
-
-## Agent Driven Development (ADD)
-
-This project uses **Agent Driven Development** - AI agents orchestrated by Claude:
-
-- **[ADD Overview](agent-driven-development/README.md)** - What is Agent Driven Development?
-- **[Prioritization](agent-driven-development/PRIORITIZATION.md)** - Dependency graph & execution plan
-- **[Software Practices](agent-driven-development/SOFTWARE-PRACTICES.md)** - Practices for AI agent teams
-- **[Implementation Plans](agent-driven-development/backlog/)** - Detailed PLANs for each feature
-
-## Component Documentation
-
-### CLI Tool
-- **[Building Binaries](../apps/cli/docs/BUILDING.md)** - Compile standalone executables
-
-### Web Dashboard
-- **[Dashboard Deployment](../apps/web/docs/DEPLOYMENT.md)** - Deploy to Vercel
-
-## Contributing
-
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines.
-
-## Project Structure
-
-```
-ai-code-auditor/
-├── docs/                           # Project-wide documentation
-│   └── agent-driven-development/   # ADD methodology & plans
-├── apps/
-│   ├── cli/docs/                   # CLI-specific docs
-│   ├── web/docs/                   # Web dashboard docs
-│   └── action/                     # GitHub Action
-├── packages/
-│   └── core/                       # Multi-agent orchestration engine
-├── CLAUDE.md                       # AI assistant context (root level)
-└── .claude/
-    └── rules/                      # AI assistant rules & project constitution
-```
-
-Documentation follows **colocation** - docs live near what they document.
+- **[CLAUDE.md](../CLAUDE.md)** — Primary project reference
+- **[Architecture](ARCHITECTURE.md)** — Design decisions
+- **[CI/CD](CI-CD-SETUP.md)** — GitHub Actions + Vercel deployment
+- **[Agent Driven Development](agent-driven-development/)** — Orchestration methodology
+- **[CLI Building](../apps/cli/docs/BUILDING.md)** — Compile standalone executables
+- **[Web Deployment](../apps/web/docs/DEPLOYMENT.md)** — Deploy to Vercel
