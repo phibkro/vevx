@@ -15,6 +15,7 @@ import { runLint } from "./manifest/lint.js";
 import { parseManifest } from "./manifest/parser.js";
 import { resolveDocs } from "./manifest/resolver.js";
 import { findScopedTests } from "./manifest/scoped-tests.js";
+import { suggestComponents } from "./manifest/suggest-components.js";
 import { suggestTouches } from "./manifest/touches.js";
 import { diffPlans } from "./plan/diff.js";
 import { parsePlanFile } from "./plan/parser.js";
@@ -306,6 +307,34 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path, components }) => {
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
       return checkEnv(manifest, components, process.env);
+    },
+  },
+
+  // Suggest Components
+  {
+    name: "varp_suggest_components",
+    description:
+      "Analyze a layer-organized project to suggest multi-path component groupings. Scans layer directories for files with common name stems across layers.",
+    inputSchema: {
+      root_dir: z.string().describe("Root directory to scan for layer directories"),
+      layer_dirs: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Layer directory names to scan (auto-detected if omitted: controllers, services, repositories, etc.)",
+        ),
+      suffixes: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "File suffixes to strip when extracting name stems (defaults to .controller, .service, .repository, etc.)",
+        ),
+    },
+    handler: async ({ root_dir, layer_dirs, suffixes }) => {
+      return suggestComponents(root_dir, {
+        layerDirs: layer_dirs,
+        suffixes,
+      });
     },
   },
 ];

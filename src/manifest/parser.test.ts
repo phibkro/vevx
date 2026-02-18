@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { resolve } from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 import { parseManifest } from "./parser.js";
 
@@ -98,6 +99,33 @@ describe("parseManifest", () => {
       for (const doc of component.docs) {
         expect(doc).toMatch(/^\//); // absolute path
       }
+    }
+  });
+
+  test("rejects single path that escapes manifest directory", () => {
+    const tmpDir = join("/tmp/claude", "traversal-test");
+    rmSync(tmpDir, { recursive: true, force: true });
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(join(tmpDir, "varp.yaml"), `varp: 0.1.0\nbad:\n  path: ../../escape\n`);
+    try {
+      expect(() => parseManifest(join(tmpDir, "varp.yaml"))).toThrow("escapes manifest directory");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects multi-path where one path escapes", () => {
+    const tmpDir = join("/tmp/claude", "traversal-multi-test");
+    rmSync(tmpDir, { recursive: true, force: true });
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(
+      join(tmpDir, "varp.yaml"),
+      `varp: 0.1.0\nbad:\n  path:\n    - ./src/ok\n    - ../../escape\n`,
+    );
+    try {
+      expect(() => parseManifest(join(tmpDir, "varp.yaml"))).toThrow("escapes manifest directory");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 });

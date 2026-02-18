@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -8,6 +8,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "./index.js";
 
 const MANIFEST_PATH = join(import.meta.dir, "..", "test-fixtures", "multi-component.yaml");
+const MULTI_PATH_MANIFEST = join(import.meta.dir, "..", "test-fixtures", "multi-path.yaml");
 const PLAN_DIR = join(import.meta.dir, "..", "test-fixtures");
 
 // Write a test plan.xml for plan tool tests
@@ -85,7 +86,7 @@ describe("MCP server integration", () => {
     } catch {}
   });
 
-  test("lists all 18 tools", async () => {
+  test("lists all 19 tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -104,6 +105,7 @@ describe("MCP server integration", () => {
       "varp_resolve_docs",
       "varp_scan_links",
       "varp_scoped_tests",
+      "varp_suggest_components",
       "varp_suggest_touches",
       "varp_validate_plan",
       "varp_verify_capabilities",
@@ -603,5 +605,66 @@ describe("MCP server integration", () => {
       (d: any) => d.from === "auth" && d.to === "api",
     );
     expect(missingAuthToApi).toBeDefined();
+  });
+
+  // ── Multi-Path Manifest ──
+
+  test("varp_read_manifest with multi-path component returns array of resolved paths", async () => {
+    const result = await client.callTool({
+      name: "varp_read_manifest",
+      arguments: { manifest_path: MULTI_PATH_MANIFEST },
+    });
+    const data = parseResult(result);
+    const auth = data.manifest.components.auth;
+    expect(Array.isArray(auth.path)).toBe(true);
+    expect(auth.path).toHaveLength(3);
+    // All paths should be absolute
+    for (const p of auth.path) {
+      expect(p).toMatch(/^\//);
+    }
+  });
+
+  test("varp_suggest_touches with files from different paths of same multi-path component", async () => {
+    const result = await client.callTool({
+      name: "varp_suggest_touches",
+      arguments: {
+        manifest_path: MULTI_PATH_MANIFEST,
+        file_paths: [
+          join(PLAN_DIR, "src/controllers/auth/login.ts"),
+          join(PLAN_DIR, "src/services/auth/auth-service.ts"),
+        ],
+      },
+    });
+    const data = parseResult(result);
+    expect(data.writes).toContain("auth");
+    // Both files belong to the same component — should not duplicate
+    expect(data.writes.filter((w: string) => w === "auth")).toHaveLength(1);
+  });
+
+  // ── Suggest Components ──
+
+  test("varp_suggest_components returns suggestions for layer-organized project", async () => {
+    const tmpDir = join("/tmp/claude", "suggest-components-integration");
+    rmSync(tmpDir, { recursive: true, force: true });
+
+    // Create layer structure
+    mkdirSync(join(tmpDir, "controllers"), { recursive: true });
+    mkdirSync(join(tmpDir, "services"), { recursive: true });
+    writeFileSync(join(tmpDir, "controllers/user.controller.ts"), "");
+    writeFileSync(join(tmpDir, "services/user.service.ts"), "");
+
+    try {
+      const result = await client.callTool({
+        name: "varp_suggest_components",
+        arguments: { root_dir: tmpDir },
+      });
+      const data = parseResult(result);
+      expect(data.components).toHaveLength(1);
+      expect(data.components[0].name).toBe("user");
+      expect(data.components[0].path).toEqual(["controllers", "services"]);
+      expect(data.layer_dirs_scanned).toEqual(["controllers", "services"]);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

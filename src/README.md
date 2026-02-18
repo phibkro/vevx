@@ -114,6 +114,14 @@ Given file paths that will be modified, suggests a `touches` declaration using o
 
 **Returns:** `Touches`
 
+#### `varp_suggest_components`
+
+Analyzes a layer-organized project directory to suggest multi-path component groupings. Scans layer directories (controllers, services, repositories, etc.) for files with common name stems, and groups stems appearing in 2+ layers into suggested components.
+
+**Parameters:** `{ root_dir: string, layer_dirs?: string[], suffixes?: string[] }`
+
+**Returns:** `SuggestComponentsResult`
+
 #### `varp_scoped_tests`
 
 Finds test files for a given `touches` declaration. For write components, recursively finds all `*.test.ts` files under the component's path. Read components are excluded by default but can be included via `include_read_tests`. Collects `env` fields from all covered components into `required_env` (deduplicated, sorted). When `tags` is provided, only components whose `tags` intersect with the filter are processed. Returns file paths, a ready-to-run `bun test` command, and required environment variables.
@@ -380,6 +388,17 @@ interface LintIssue {
   category: 'imports' | 'links' | 'freshness' | 'stability'
   message: string
   component?: string
+}
+
+interface SuggestedComponent {
+  name: string
+  path: string[]            // layer directory names
+  evidence: { stem: string; files: string[] }[]
+}
+
+interface SuggestComponentsResult {
+  components: SuggestedComponent[]
+  layer_dirs_scanned: string[]
 }
 
 interface EnvCheckResult {

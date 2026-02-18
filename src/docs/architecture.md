@@ -18,6 +18,7 @@ src/
     imports.ts                Static import scanner — extract, resolve, cross-component dep inference (tsconfig path alias aware)
     links.ts                  Markdown link scanner — extract, resolve, integrity + dep inference
     scoped-tests.ts           Find test files scoped to a touches declaration
+    suggest-components.ts     Analyze layer dirs to suggest multi-path component groupings
     touches.ts                Suggest touches declarations from file paths + import deps
     parser.ts                 Flat YAML -> Manifest (path resolution)
     resolver.ts               Touches x discovery -> doc paths with visibility

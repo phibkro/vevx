@@ -135,6 +135,16 @@ Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | 
 
 `varp_scoped_tests` finds `*.test.ts` files under the component paths referenced by a `touches` declaration. Write components are always included; read components are included only when `include_read_tests` is true (default false). When `tags` is provided, only components whose `tags` intersect with the filter are processed (components without tags are excluded). Collects `env` fields from all covered components into `required_env` (deduplicated, sorted). Returns absolute paths, covered component names, a ready-to-run `bun test` command with relative paths, and required environment variables.
 
+## Suggest Components
+
+`varp_suggest_components` helps bootstrap a manifest for layer-organized codebases. Given a root directory, it:
+
+1. Detects conventional layer directories (`controllers`, `services`, `repositories`, `handlers`, `models`, `routes`, `middleware`, `providers`) — or accepts user-provided layer names
+2. Extracts name stems by stripping known suffixes (`.controller.ts` → `user`) and file extensions
+3. Groups stems across layers — stems appearing in 2+ layers become suggested multi-path components
+
+Use the output to scaffold `varp.yaml` components with `path: [...]` arrays.
+
 ## Minimal Example
 
 The smallest valid manifest:

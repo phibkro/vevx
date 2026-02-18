@@ -342,6 +342,27 @@ export const EnvCheckResultSchema = z.object({
 
 export type EnvCheckResult = z.infer<typeof EnvCheckResultSchema>;
 
+// ── Suggest Components ──
+
+export const SuggestedComponentSchema = z.object({
+  name: z.string(),
+  path: z.array(z.string()),
+  evidence: z.array(
+    z.object({
+      stem: z.string(),
+      files: z.array(z.string()),
+    }),
+  ),
+});
+
+export const SuggestComponentsResultSchema = z.object({
+  components: z.array(SuggestedComponentSchema),
+  layer_dirs_scanned: z.array(z.string()),
+});
+
+export type SuggestedComponent = z.infer<typeof SuggestedComponentSchema>;
+export type SuggestComponentsResult = z.infer<typeof SuggestComponentsResultSchema>;
+
 // ── Execution Metrics ──
 
 export const ExecutionMetricsSchema = z.object({
