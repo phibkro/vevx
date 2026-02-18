@@ -52,12 +52,15 @@ Present per-task and aggregate metrics from log.xml.
 
 **Per-task metrics:**
 
-| Task | Status | Tokens | Time | Tools | Files | Retries | Violations |
-|------|--------|--------|------|-------|-------|---------|------------|
-| <id>: <description> | <status> | <used> | <elapsed> | <count> | <count> | <count> | <count> |
+| Task | Status | Tokens | Cost | Time | Tools | Files | Retries | Violations |
+|------|--------|--------|------|------|-------|-------|---------|------------|
+| <id>: <description> | <status> | <used> | $<cost_usd> | <elapsed> | <count> | <count> | <count> | <count> |
+
+If `cost_usd` is not available for a task, show "—" in the Cost column.
 
 **Aggregate metrics:**
-- Total tokens consumed
+- Total cost (from `log.cost.total_cost_usd` if present, otherwise sum of per-task `cost_usd`)
+- Total tokens consumed (from `log.cost.total_input_tokens` + `total_output_tokens` if present)
 - Total time elapsed
 - Task completion rate (COMPLETE / total)
 - Failure rate (non-COMPLETE / total)

@@ -20,25 +20,38 @@ export function parseLogXml(xmlContent: string): ExecutionLog {
     mode: log.session["@_mode"],
   };
 
-  const tasks = (log.tasks?.task ?? []).map((t: any) => ({
-    id: String(t["@_id"]),
-    status: t["@_status"],
-    metrics: {
-      tokens: Number(t.metrics?.["@_tokens"] ?? 0),
-      minutes: Number(t.metrics?.["@_minutes"] ?? 0),
-      tools: Number(t.metrics?.["@_tools"] ?? 0),
-    },
-    files_modified: (t.files_modified?.file ?? []).map((f: any) =>
-      typeof f === "string" ? f : String(f),
-    ),
-    postconditions: (t.postconditions?.check ?? []).map((c: any) => ({
-      id: c["@_id"],
-      result: c["@_result"],
-    })),
-    observations: (t.observations?.observation ?? []).map((o: any) =>
-      typeof o === "string" ? o : String(o),
-    ),
-  }));
+  const costEl = log.cost;
+  const cost = costEl
+    ? {
+        total_cost_usd: Number(costEl["@_total_cost_usd"]),
+        total_input_tokens: Number(costEl["@_total_input_tokens"]),
+        total_output_tokens: Number(costEl["@_total_output_tokens"]),
+      }
+    : undefined;
+
+  const tasks = (log.tasks?.task ?? []).map((t: any) => {
+    const costUsd = t.metrics?.["@_cost_usd"];
+    return {
+      id: String(t["@_id"]),
+      status: t["@_status"],
+      metrics: {
+        tokens: Number(t.metrics?.["@_tokens"] ?? 0),
+        minutes: Number(t.metrics?.["@_minutes"] ?? 0),
+        tools: Number(t.metrics?.["@_tools"] ?? 0),
+        ...(costUsd != null ? { cost_usd: Number(costUsd) } : {}),
+      },
+      files_modified: (t.files_modified?.file ?? []).map((f: any) =>
+        typeof f === "string" ? f : String(f),
+      ),
+      postconditions: (t.postconditions?.check ?? []).map((c: any) => ({
+        id: c["@_id"],
+        result: c["@_result"],
+      })),
+      observations: (t.observations?.observation ?? []).map((o: any) =>
+        typeof o === "string" ? o : String(o),
+      ),
+    };
+  });
 
   const invariantChecks = (log.invariant_checks?.wave ?? []).map((w: any) => ({
     wave: Number(w["@_id"]),
@@ -55,6 +68,7 @@ export function parseLogXml(xmlContent: string): ExecutionLog {
 
   return ExecutionLogSchema.parse({
     session,
+    cost,
     tasks,
     invariant_checks: invariantChecks,
     waves,

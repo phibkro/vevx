@@ -72,6 +72,12 @@ Not in design doc. Parser caches by `(absolutePath, mtimeMs)` to avoid re-parsin
 
 Design doc specified per-task token/time budgets enforced at runtime. Dropped entirely — `<budget>` elements removed from the plan schema, planner protocol, orchestrator chain of thought, and all tool/skill documentation. The parser silently ignores legacy `<budget>` elements for backward compatibility. Critical path returns chain length instead of summed budget. Resource consumption is tracked as execution metrics in `log.xml` (observability, not enforcement).
 
+### Cost Observability
+
+Per-task and per-plan cost tracking via statusline snapshots. The execute skill reads `/tmp/claude/varp-cost.json` (written by a statusline command configured in `.claude/settings.json`) before and after each task dispatch, recording `cost_usd` deltas on task metrics and plan-level totals on the `<cost>` element. Falls back silently when the cost file isn't available.
+
+Data source priority: OpenTelemetry (`CLAUDE_CODE_ENABLE_TELEMETRY=1`) provides the richest per-request data when an exporter is configured. The statusline approach is the in-session fallback. See the [Claude Code monitoring docs](https://docs.anthropic.com/en/docs/claude-code/monitoring) for OTel setup.
+
 ## What's Deferred
 
 ### From Design Doc

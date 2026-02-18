@@ -32,7 +32,7 @@ src/
     parser.ts                 XML -> Plan via fast-xml-parser
     validator.ts              Plan-manifest consistency checks
     diff.ts                   Structural plan diff (metadata, contracts, tasks)
-    log-parser.ts             Execution log.xml parser (task metrics, postconditions, waves)
+    log-parser.ts             Execution log.xml parser (task metrics incl. cost_usd, plan-level cost, postconditions, waves)
   scheduler/
     hazards.ts                O(n^2) pairwise RAW/WAR/WAW/MUTEX detection
     waves.ts                  Topological sort with wave grouping

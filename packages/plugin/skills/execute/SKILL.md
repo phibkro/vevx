@@ -17,6 +17,7 @@ Priority: correctness > safety > throughput.
 3. If no plan exists, report this and stop
 4. Classify the plan's execution mode (see below)
 5. If `log.xml` exists alongside the plan, load it to resume from the last completed task
+6. **Cost snapshot (start):** Read `/tmp/claude/varp-cost.json` if it exists. Record the `totalCostUSD`, `inputTokens`, and `outputTokens` values as the plan start baseline. If the file doesn't exist, skip cost tracking silently.
 
 ### Execution Mode
 
@@ -71,6 +72,8 @@ For each component in the task's write set, check if it has an `env` field in th
 
 ### Step 4: Dispatch
 
+**Cost snapshot (pre-task):** Read `/tmp/claude/varp-cost.json` before dispatching. Record the `totalCostUSD` value.
+
 Send the task to a subagent using the Task tool. Assemble the prompt:
 
 **Stability-aware dispatch:** When dispatching to a `stable` component with many dependents, emphasize in the subagent prompt that changes must preserve backward compatibility. When dispatching to an `experimental` component, allow more exploratory latitude.
@@ -94,10 +97,13 @@ The subagent prompt must mandate:
 
 ### Step 5: Collect
 
-Receive the result. Record in log.xml:
+Receive the result. **Cost snapshot (post-task):** Read `/tmp/claude/varp-cost.json` again. Compute the delta from the Step 4 pre-task snapshot to get the task's `cost_usd`.
+
+Record in log.xml:
 - Exit status
 - Files modified (from the subagent's report)
 - Any observations the subagent surfaced
+- `cost_usd` on the `<metrics>` element (if cost tracking is active)
 
 ### Step 6: Verify Freshness
 
@@ -193,9 +199,10 @@ Mark the task complete in log.xml and check progress:
 
 When the final task/wave completes and all postconditions pass (plan is archived), generate a project status snapshot:
 
-1. Call `varp_read_manifest` to get the current component registry
-2. Call `varp_check_freshness` to get current doc staleness
-3. Call `varp_lint` to surface any new issues introduced during execution
+1. **Cost snapshot (end):** Read `/tmp/claude/varp-cost.json`. Compute the delta from the plan start baseline (Step 0). Write the `<cost>` element to log.xml with `total_cost_usd`, `total_input_tokens`, and `total_output_tokens`.
+2. Call `varp_read_manifest` to get the current component registry
+3. Call `varp_check_freshness` to get current doc staleness
+4. Call `varp_lint` to surface any new issues introduced during execution
 
 Output a summary section at the end of the execution report:
 
@@ -230,9 +237,10 @@ Write execution metrics to `log.xml` alongside the plan.
 ```xml
 <log>
   <session started="ISO-8601" mode="single-scope|sequential|parallel" />
+  <cost total_cost_usd="0.45" total_input_tokens="125000" total_output_tokens="18000" />
   <tasks>
     <task id="1" status="COMPLETE">
-      <metrics tokens="24500" minutes="8.2" tools="15" />
+      <metrics tokens="24500" minutes="8.2" tools="15" cost_usd="0.12" />
       <files_modified>
         <file>src/auth/rate-limit.ts</file>
         <file>src/auth/rate-limit.test.ts</file>

@@ -1,8 +1,9 @@
 <log>
   <session started="2026-02-18T10:00:00Z" mode="sequential" />
+  <cost total_cost_usd="0.38" total_input_tokens="95000" total_output_tokens="12000" />
   <tasks>
     <task id="1" status="COMPLETE">
-      <metrics tokens="25000" minutes="8" tools="42" />
+      <metrics tokens="25000" minutes="8" tools="42" cost_usd="0.24" />
       <files_modified>
         <file>src/auth/login.ts</file>
         <file>src/auth/session.ts</file>

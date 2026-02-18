@@ -77,7 +77,7 @@ Checks plan consistency against the manifest:
 
 #### `varp_parse_log`
 
-Parses execution `log.xml` (written by `/varp:execute` skill) into a typed structure with session metadata, per-task metrics, postcondition check results, observations, file modifications, invariant checks, and wave status.
+Parses execution `log.xml` (written by `/varp:execute` skill) into a typed structure with session metadata, optional plan-level cost summary, per-task metrics (including optional `cost_usd`), postcondition check results, observations, file modifications, invariant checks, and wave status.
 
 **Parameters:** `{ path: string }`
 
@@ -437,6 +437,7 @@ interface EnvCheckResult {
 
 interface ExecutionLog {
   session: { started: string; mode: 'single-scope' | 'sequential' | 'parallel' }
+  cost?: { total_cost_usd: number; total_input_tokens: number; total_output_tokens: number }
   tasks: TaskLog[]
   invariant_checks: InvariantCheck[]
   waves: WaveLog[]
@@ -445,7 +446,7 @@ interface ExecutionLog {
 interface TaskLog {
   id: string
   status: 'COMPLETE' | 'PARTIAL' | 'BLOCKED' | 'NEEDS_REPLAN'
-  metrics: { tokens: number; minutes: number; tools: number }
+  metrics: { tokens: number; minutes: number; tools: number; cost_usd?: number }
   files_modified: string[]
   postconditions: { id: string; result: 'pass' | 'fail' }[]
   observations: string[]

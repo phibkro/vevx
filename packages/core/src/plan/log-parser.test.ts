@@ -55,6 +55,7 @@ describe("parseLogXml", () => {
     expect(task1.id).toBe("1");
     expect(task1.status).toBe("COMPLETE");
     expect(task1.metrics).toEqual({ tokens: 25000, minutes: 8, tools: 42 });
+    expect(task1.metrics.cost_usd).toBeUndefined();
   });
 
   test("parses files_modified", () => {
@@ -96,6 +97,40 @@ describe("parseLogXml", () => {
     ]);
   });
 
+  test("parses cost_usd on task metrics", () => {
+    const xml = `<log>
+      <session started="2026-01-01" mode="sequential" />
+      <tasks>
+        <task id="1" status="COMPLETE">
+          <metrics tokens="25000" minutes="8" tools="42" cost_usd="0.12" />
+          <files_modified /><postconditions /><observations />
+        </task>
+      </tasks>
+      <invariant_checks /><waves />
+    </log>`;
+    const log = parseLogXml(xml);
+    expect(log.tasks[0].metrics.cost_usd).toBe(0.12);
+  });
+
+  test("parses plan-level cost element", () => {
+    const xml = `<log>
+      <session started="2026-01-01" mode="parallel" />
+      <cost total_cost_usd="0.45" total_input_tokens="125000" total_output_tokens="18000" />
+      <tasks /><invariant_checks /><waves />
+    </log>`;
+    const log = parseLogXml(xml);
+    expect(log.cost).toEqual({
+      total_cost_usd: 0.45,
+      total_input_tokens: 125000,
+      total_output_tokens: 18000,
+    });
+  });
+
+  test("cost is undefined when cost element is absent", () => {
+    const log = parseLogXml(SAMPLE_LOG);
+    expect(log.cost).toBeUndefined();
+  });
+
   test("parses all session modes", () => {
     for (const mode of ["single-scope", "sequential", "parallel"] as const) {
       const xml = `<log>
@@ -114,9 +149,16 @@ describe("parseLogFile", () => {
     const log = parseLogFile(fixturePath);
 
     expect(log.session.mode).toBe("sequential");
+    expect(log.cost).toEqual({
+      total_cost_usd: 0.38,
+      total_input_tokens: 95000,
+      total_output_tokens: 12000,
+    });
     expect(log.tasks).toHaveLength(2);
     expect(log.tasks[0].status).toBe("COMPLETE");
+    expect(log.tasks[0].metrics.cost_usd).toBe(0.24);
     expect(log.tasks[1].status).toBe("PARTIAL");
+    expect(log.tasks[1].metrics.cost_usd).toBeUndefined();
     expect(log.invariant_checks).toHaveLength(2);
     expect(log.waves).toHaveLength(2);
   });

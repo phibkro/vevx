@@ -360,6 +360,7 @@ export const TaskMetricsSchema = z.object({
   tokens: z.number(),
   minutes: z.number(),
   tools: z.number(),
+  cost_usd: z.number().optional(),
 });
 
 export const PostconditionCheckSchema = z.object({
@@ -391,11 +392,18 @@ export const WaveLogSchema = z.object({
   status: z.enum(["complete", "incomplete"]),
 });
 
+export const ExecutionLogCostSchema = z.object({
+  total_cost_usd: z.number(),
+  total_input_tokens: z.number(),
+  total_output_tokens: z.number(),
+});
+
 export const ExecutionLogSchema = z.object({
   session: z.object({
     started: z.string(),
     mode: z.enum(["single-scope", "sequential", "parallel"]),
   }),
+  cost: ExecutionLogCostSchema.optional(),
   tasks: z.array(TaskLogSchema),
   invariant_checks: z.array(InvariantCheckSchema),
   waves: z.array(WaveLogSchema),
@@ -406,6 +414,7 @@ export type PostconditionCheck = z.infer<typeof PostconditionCheckSchema>;
 export type TaskLog = z.infer<typeof TaskLogSchema>;
 export type InvariantCheck = z.infer<typeof InvariantCheckSchema>;
 export type WaveLog = z.infer<typeof WaveLogSchema>;
+export type ExecutionLogCost = z.infer<typeof ExecutionLogCostSchema>;
 export type ExecutionLog = z.infer<typeof ExecutionLogSchema>;
 
 // ── Watch Freshness ──
