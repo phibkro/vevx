@@ -11,6 +11,7 @@ import {
   generateComplianceJson,
 } from '@varp/audit';
 import { discoverFiles } from '@varp/audit/src/discovery';
+import { getChangedFiles, filterToChanged } from '@varp/audit/src/planner/diff-filter';
 import type { FileContent } from '@varp/audit';
 import type { AuditProgressEvent } from '@varp/audit';
 
@@ -25,6 +26,8 @@ export interface AuditArgs {
   format?: 'text' | 'json' | 'markdown';
   output?: string;
   quiet?: boolean;
+  /** Git ref for incremental audit. When set, only audit changed files. */
+  diff?: string;
 }
 
 export function parseAuditArgs(argv: string[]): AuditArgs {
@@ -36,10 +39,19 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
   let format: 'text' | 'json' | 'markdown' | undefined;
   let output: string | undefined;
   let quiet = false;
+  let diff: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--ruleset' && argv[i + 1]) {
+    if (arg === '--diff') {
+      // --diff with optional ref (default: HEAD)
+      const next = argv[i + 1];
+      if (next && !next.startsWith('-')) {
+        diff = argv[++i];
+      } else {
+        diff = 'HEAD';
+      }
+    } else if (arg === '--ruleset' && argv[i + 1]) {
       ruleset = argv[++i];
     } else if (arg === '--model' && argv[i + 1]) {
       model = argv[++i];
@@ -65,7 +77,7 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
     throw new Error('Path argument is required.\nUsage: varp audit <path> [--ruleset <name>] [--format text|json|markdown]');
   }
 
-  return { path, ruleset, model, concurrency, format, output, quiet };
+  return { path, ruleset, model, concurrency, format, output, quiet, diff };
 }
 
 // ── Ruleset resolution ──
@@ -175,21 +187,37 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
   }
 
   // Convert discovered files to FileContent
-  const files: FileContent[] = discoveredFiles.map(f => ({
+  let files: FileContent[] = discoveredFiles.map(f => ({
     path: f.path,
     relativePath: f.relativePath,
     content: f.content,
     language: f.language,
   }));
 
+  // Apply diff filter for incremental audits
+  let diffMeta: { ref: string; changedFiles: number } | undefined;
+  if (args.diff) {
+    const changedPaths = getChangedFiles(validatedPath, args.diff);
+    if (!args.quiet) {
+      console.log(`\nIncremental audit: ${changedPaths.length} files changed (diff: ${args.diff})`);
+    }
+    files = filterToChanged(files, changedPaths);
+    diffMeta = { ref: args.diff, changedFiles: changedPaths.length };
+    if (!args.quiet) {
+      console.log(`  Auditing ${files.length} files after filtering`);
+    }
+  }
+
   // Generate plan
-  const plan = generatePlan(files, ruleset);
+  const plan = generatePlan(files, ruleset, { targetPath: validatedPath });
 
   // Execute
   const report = await executeAuditPlan(plan, files, ruleset, {
     model: args.model || 'claude-sonnet-4-5-20250929',
     concurrency: args.concurrency,
     onProgress: createAuditProgress(args.quiet ?? false),
+    targetPath: validatedPath,
+    diff: diffMeta,
   });
 
   // Output

@@ -8,6 +8,7 @@ import type {
 import { callClaude, type ApiCallOptions } from '../client';
 import { generatePrompt, parseAuditResponse, AUDIT_FINDINGS_SCHEMA } from './prompt-generator';
 import { deduplicateFindings, summarizeFindings } from './findings';
+import { parseSuppressConfig, parseInlineSuppressions, applySuppressions } from './suppressions';
 
 // ── Progress events ──
 
@@ -36,6 +37,12 @@ export interface ExecutorOptions {
 
   /** Progress callback for UI updates */
   onProgress?: ProgressCallback;
+
+  /** Target path for suppression config lookup */
+  targetPath?: string;
+
+  /** Diff metadata for incremental audits */
+  diff?: { ref: string; changedFiles: number };
 }
 
 const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
@@ -241,7 +248,20 @@ export async function executeAuditPlan(
   onProgress?.({ type: 'wave-start', wave: 3, taskCount: 1 });
 
   const corroboratedFindings = deduplicateFindings(allResults);
-  const summary = summarizeFindings(corroboratedFindings);
+
+  // Apply suppressions
+  let activeFindings = corroboratedFindings;
+  let suppressedCount = 0;
+
+  if (options.targetPath) {
+    const configRules = parseSuppressConfig(options.targetPath);
+    const inlineSuppressions = parseInlineSuppressions(files);
+    const { active, suppressed } = applySuppressions(corroboratedFindings, configRules, inlineSuppressions);
+    activeFindings = active;
+    suppressedCount = suppressed.length;
+  }
+
+  const summary = summarizeFindings(activeFindings);
   const coverageEntries = computeCoverage(plan, allResults, failedTaskIds);
 
   const totalComponents = plan.components.length;
@@ -263,8 +283,9 @@ export async function executeAuditPlan(
       rulesetVersion: ruleset.meta.rulesetVersion,
       components: plan.components.map(c => c.name),
       totalFiles: plan.stats.totalFiles,
+      ...(options.diff ? { diff: options.diff } : {}),
     },
-    findings: corroboratedFindings,
+    findings: activeFindings,
     summary,
     coverage: {
       entries: coverageEntries,
@@ -279,6 +300,7 @@ export async function executeAuditPlan(
       tasksFailed,
       totalTokensUsed: allResults.reduce((sum, r) => sum + r.tokensUsed, 0),
       models: [...new Set(allResults.map(r => r.model))],
+      ...(suppressedCount > 0 ? { suppressedCount } : {}),
     },
   };
 

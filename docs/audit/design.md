@@ -262,8 +262,6 @@ Each package composes with Core. Core owns execution strategy. Packages own doma
 
 ## Open Questions
 
-- **False positive handling** — how should acknowledged findings be suppressed? Inline annotations (`// varp-audit-ignore: SQL-INJ-01`), a suppression file, or acknowledged findings tracked in the report history?
-- **Incremental audits** — can we efficiently audit only what changed since the last run? Requires mapping code changes to affected rules — non-trivial dependency analysis.
 - **Strategy threshold tuning** — the boundary between single-pass and orchestrated mode needs empirical calibration. Too eager to orchestrate wastes money; too reluctant misses issues in large codebases.
 - **Core strategy API** — how do packages communicate their decomposition strategy to Core? Core needs to know how to partition work, but the partitioning logic is domain-specific. The interface between packages and Core's strategy layer needs careful design.
 - **Integration points** — CLI done, CI next. IDE integration and dashboard/reporting platform are future considerations.
@@ -274,3 +272,5 @@ Each package composes with Core. Core owns execution strategy. Packages own doma
 
 - **Ruleset authoring** — YAML frontmatter + markdown body. See `rulesets/owasp-top-10.md` for the format.
 - **Self-audit** — works. See `docs/examples/self-audit-report.md` for a report of the tool auditing itself against OWASP Top 10.
+- **False positive handling** — Two suppression sources: inline comments (`// audit-suppress RULE-ID "reason"`) and config file (`.audit-suppress.yaml` with rule/file/glob matchers). Config takes precedence. Suppressed findings are excluded from the report; suppressed count shown in metadata. See `suppressions.ts`.
+- **Incremental audits** — `--diff [ref]` flag runs `git diff --name-only` and filters discovered files to only those changed. When a manifest is available, `expandWithDependents()` uses the dependency graph to include files in downstream components (invalidation cascade). Report shows "incremental" scope with diff ref. See `diff-filter.ts`.

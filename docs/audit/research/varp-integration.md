@@ -1,16 +1,22 @@
 # Varp Integration Notes
 
-How varp's existing capabilities map to audit needs. The repos have merged — audit lives at `packages/audit/`. These notes guide the next step: replacing stopgap implementations with varp core primitives.
+How varp's existing capabilities map to audit needs. The repos have merged — audit lives at `packages/audit/`. These notes track what's been integrated and what remains.
 
-## Varp Replaces (delete from audit code)
+## Integrated
+
+| Audit Code | Varp Feature | Status |
+|---|---|---|
+| `groupIntoComponents()` | Manifest components via `manifest-adapter.ts` | **Done.** `generatePlan()` uses manifest components when `varp.yaml` exists, falls back to heuristic grouping. Standalone YAML parser (not importing from `@varp/core` since it uses Bun-specific APIs). |
+| `TAG_PATTERNS` + `fileMatchesRule()` | Tag-based matching via `matchRulesByTags()` | **Done.** Component tags from manifest replace filename pattern heuristics. |
+| `invalidationCascade()` | `diff-filter.ts` `expandWithDependents()` | **Done.** Used for `--diff` incremental audits — reverse-dependency BFS from changed components. |
+
+## Not Yet Integrated
 
 | Audit Code | Varp Replacement | Notes |
 |---|---|---|
-| `groupIntoComponents()` | Manifest components + `findOwningComponent()` | Varp uses longest-prefix match, supports multi-path components |
-| `AuditComponent` type | `Component` from manifest schema | Varp has deps, tags, stability, test commands |
-| Hardcoded 3-wave structure | `computeWaves()` from scheduler | Derives waves from data hazards (all audit tasks are read-only → wave 1 all parallel, wave 2 depends on wave 1 outputs, wave 3 depends on wave 2) |
+| Hardcoded 3-wave structure | `computeWaves()` from scheduler | All audit tasks are read-only → current 3-wave structure is correct. Full scheduler adds value only if audit gains write-capable tasks. |
+| File discovery | Manifest paths + `discoverDocs()` | Component boundaries available but discovery still uses standalone module |
 | `AuditPlan.stats.estimatedTokens` | Execution metrics in `log.xml` | Budget enforcement dropped per ADR-001; token usage is observability only |
-| File discovery | Manifest paths + `discoverDocs()` | Component boundaries already defined |
 
 ## Varp Enhances (use but don't reimplement)
 

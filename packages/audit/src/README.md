@@ -23,6 +23,9 @@ Source files        →  Chunker  →  Executor  →  Agents  →  Report
 | `discovery-node.ts` | Finds source files (Node.js runtime) |
 | `errors.ts` | Domain error types |
 | `planner/` | Compliance audit planning and execution (see `planner/README.md`) |
+| `planner/manifest-adapter.ts` | Varp manifest integration — uses `varp.yaml` components and tags when available |
+| `planner/suppressions.ts` | False positive suppression via inline comments and `.audit-suppress.yaml` |
+| `planner/diff-filter.ts` | Incremental audits — `--diff` flag filters to changed files with invalidation cascade |
 | `agents/` | Specialized review agents (see `agents/README.md`) |
 
 ## Orchestrator

@@ -118,6 +118,12 @@ export interface CorroboratedFinding {
 
   /** Effective confidence: min(1.0, base_confidence + 0.1 * (corroborations - 1)) */
   effectiveConfidence: number;
+
+  /** Whether this finding was suppressed by config or inline comment */
+  suppressed?: boolean;
+
+  /** Reason for suppression, if suppressed */
+  suppressionReason?: string;
 }
 
 // ── Report ──
@@ -132,6 +138,8 @@ export interface ComplianceReport {
     rulesetVersion: string;
     components: string[];
     totalFiles: number;
+    /** Present when running incremental audit via --diff */
+    diff?: { ref: string; changedFiles: number };
   };
 
   /** Deduplicated, corroborated findings ranked by severity */
@@ -165,6 +173,8 @@ export interface ComplianceReport {
     tasksFailed: number;
     totalTokensUsed: number;
     models: string[];
+    /** Number of findings suppressed by config or inline comments */
+    suppressedCount?: number;
   };
 }
 

@@ -79,7 +79,8 @@ export function printComplianceReport(report: ComplianceReport): void {
 
   // Header
   console.log();
-  console.log(`${c.bold}Compliance Audit Report${c.reset}`);
+  const diffLabel = scope.diff ? ` ${c.cyan}(incremental: ${scope.diff.ref}, ${scope.diff.changedFiles} changed)${c.reset}` : '';
+  console.log(`${c.bold}Compliance Audit Report${c.reset}${diffLabel}`);
   console.log(`${c.gray}${scope.ruleset} v${scope.rulesetVersion}${c.reset}`);
   console.log(`${c.gray}${scope.totalFiles} files across ${scope.components.length} components${c.reset}`);
   console.log(line);
@@ -121,8 +122,11 @@ export function printComplianceReport(report: ComplianceReport): void {
   console.log(
     `${c.gray}Coverage: ${pct(coverage.componentCoverage)} components, ${pct(coverage.ruleCoverage)} rules${c.reset}`
   );
+  const suppressedStr = metadata.suppressedCount
+    ? `  ${c.dim}(${metadata.suppressedCount} suppressed)${c.reset}`
+    : '';
   console.log(
-    `${c.gray}${metadata.tasksExecuted} tasks in ${duration(metadata.totalDurationMs)}, ${metadata.totalTokensUsed.toLocaleString()} tokens${c.reset}`
+    `${c.gray}${metadata.tasksExecuted} tasks in ${duration(metadata.totalDurationMs)}, ${metadata.totalTokensUsed.toLocaleString()} tokens${c.reset}${suppressedStr}`
   );
   console.log();
 }
@@ -173,6 +177,9 @@ export function generateComplianceMarkdown(report: ComplianceReport): string {
   lines.push(`|---|---|`);
   lines.push(`| **Ruleset** | ${scope.ruleset} v${scope.rulesetVersion} |`);
   lines.push(`| **Files** | ${scope.totalFiles} across ${scope.components.length} components |`);
+  if (scope.diff) {
+    lines.push(`| **Scope** | Incremental (diff: ${scope.diff.ref}, ${scope.diff.changedFiles} changed files) |`);
+  }
   lines.push(`| **Date** | ${metadata.startedAt} |`);
   lines.push(`| **Duration** | ${duration(metadata.totalDurationMs)} |`);
   lines.push('');
@@ -232,6 +239,9 @@ export function generateComplianceMarkdown(report: ComplianceReport): string {
   lines.push(`- **Tasks executed:** ${metadata.tasksExecuted} (${metadata.tasksFailed} failed)`);
   lines.push(`- **Tokens used:** ${metadata.totalTokensUsed.toLocaleString()}`);
   lines.push(`- **Models:** ${metadata.models.join(', ')}`);
+  if (metadata.suppressedCount) {
+    lines.push(`- **Suppressed:** ${metadata.suppressedCount} findings`);
+  }
   lines.push('');
 
   return lines.join('\n');

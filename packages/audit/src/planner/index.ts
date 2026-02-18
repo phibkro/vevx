@@ -1,6 +1,14 @@
 export { parseRuleset } from './ruleset-parser';
 export { generatePlan, groupIntoComponents } from './planner';
 export {
+  findManifest,
+  parseManifest,
+  loadManifestComponents,
+  matchRulesByTags,
+  assignFilesToComponents,
+} from './manifest-adapter';
+export type { Manifest, ManifestComponent } from './manifest-adapter';
+export {
   compareSeverity,
   findingsOverlap,
   deduplicateFindings,
@@ -43,3 +51,15 @@ export {
   generateComplianceMarkdown,
   generateComplianceJson,
 } from './compliance-reporter';
+export {
+  parseSuppressConfig,
+  parseInlineSuppressions,
+  applySuppressions,
+  findingSuppressedBy,
+} from './suppressions';
+export type { SuppressionRule, InlineSuppression, SuppressionConfig } from './suppressions';
+export {
+  getChangedFiles,
+  filterToChanged,
+  expandWithDependents,
+} from './diff-filter';

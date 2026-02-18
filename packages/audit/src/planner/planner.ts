@@ -1,6 +1,12 @@
 import type { FileContent } from '../agents/types';
 import type { Ruleset, Rule, AuditComponent, AuditTask, AuditPlan } from './types';
 import { estimateTokens } from '../chunker';
+import {
+  loadManifestComponents,
+  assignFilesToComponents,
+  matchRulesByTags,
+  type Manifest,
+} from './manifest-adapter';
 
 /**
  * Severity → priority mapping. Lower = higher priority (scanned first).
@@ -127,22 +133,52 @@ function highestSeverityPriority(rules: Rule[]): number {
 
 /**
  * Generate a 3-wave audit plan from files and a parsed ruleset.
+ *
+ * When manifestPath is provided (or a varp.yaml is found in the target directory),
+ * uses manifest-defined components and tag-based rule matching instead of
+ * heuristic directory grouping and filename pattern matching.
  */
 export function generatePlan(
   files: FileContent[],
   ruleset: Ruleset,
+  options?: { manifestPath?: string; targetPath?: string },
 ): AuditPlan {
-  const components = groupIntoComponents(files);
+  // Try manifest-based components first
+  let components: AuditComponent[];
+  let manifest: Manifest | undefined;
+  let useManifest = false;
+
+  const targetPath = options?.targetPath ?? (files[0]?.path ? files[0].path.replace(/\/[^/]+$/, '') : '.');
+
+  const manifestResult = loadManifestComponents(targetPath, options?.manifestPath);
+  if (manifestResult) {
+    assignFilesToComponents(manifestResult.components, manifestResult.manifest, files, targetPath);
+    // Filter out components with no files
+    components = manifestResult.components.filter(c => c.files.length > 0);
+    manifest = manifestResult.manifest;
+    useManifest = true;
+  } else {
+    components = groupIntoComponents(files);
+  }
+
   let taskId = 0;
 
   // --- Wave 1: Component scan tasks ---
   const wave1: AuditTask[] = [];
 
   for (const component of components) {
-    // Find which rules are relevant to this component's files
-    const relevantRules = ruleset.rules.filter(rule =>
-      component.files.some(filePath => fileMatchesRule(filePath, rule))
-    );
+    // Find which rules are relevant to this component
+    const manifestComp = useManifest && manifest ? manifest.components[component.name] : undefined;
+    const componentTags = manifestComp?.tags ?? [];
+
+    const relevantRules = ruleset.rules.filter(rule => {
+      if (useManifest && componentTags.length > 0) {
+        // Tag-based matching when manifest provides tags
+        return matchRulesByTags(componentTags, rule);
+      }
+      // Fallback to filename heuristic
+      return component.files.some(filePath => fileMatchesRule(filePath, rule));
+    });
 
     if (relevantRules.length === 0) continue;
 
