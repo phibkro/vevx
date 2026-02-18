@@ -2,18 +2,35 @@
 
 Varp's MCP server. Exposes manifest operations, scheduling logic, plan validation, capability enforcement, and doc freshness tracking as MCP tools that the orchestrator (Claude Code) calls during its work cycle.
 
-Consumed by: orchestrator (Claude Code session), skills, hooks, `@varp/audit`.
+Consumed by: orchestrator (Claude Code session), skills, hooks, `@varp/audit`, `@varp/cli`.
 
-## Library Entry Point (`@varp/core/lib`)
+## Library Entry Points
 
-For programmatic consumers that need types and pure functions without the MCP server:
+Two entry points for external consumers. Both use hand-maintained `.d.ts` files to avoid leaking Zod internals.
+
+### `@varp/core/lib` — Bun-free
+
+Pure functions and types. Safe to import from any TypeScript consumer (tsc, Node, Bun).
 
 ```ts
 import { componentPaths, findOwningComponent, invalidationCascade } from "@varp/core/lib";
 import type { Manifest, Component, Stability } from "@varp/core/lib";
 ```
 
-Exports: `componentPaths`, `findOwningComponent`, `buildComponentPaths`, `invalidationCascade`, `validateDependencyGraph`, and associated types. Does NOT export `parseManifest` (uses Bun-specific YAML parser). Types are provided by a hand-maintained `lib.d.ts` (avoids leaking Zod internals to consumers) — update it when `Manifest`, `Component`, or exported function signatures change.
+Exports: `componentPaths`, `findOwningComponent`, `buildComponentPaths`, `invalidationCascade`, `validateDependencyGraph`, and associated types. Update `lib.d.ts` when exported signatures change.
+
+### `@varp/core/bun` — Bun runtime required
+
+Re-exports everything from `lib` plus Bun-dependent functions that use `Bun.YAML` or file I/O.
+
+```ts
+import { parseManifest, runLint, checkFreshness, renderGraph } from "@varp/core/bun";
+import { parsePlanFile, validatePlan, detectHazards, scanImports } from "@varp/core/bun";
+```
+
+Additional exports: `parseManifest`, `runLint`, `checkFreshness`, `renderGraph`, `scanImports`, `parsePlanFile`, `validatePlan`, `detectHazards`, and associated types (`LintReport`, `FreshnessReport`, `Plan`, `ValidationResult`, `Hazard`, `ImportDep`, `ImportScanResult`). Update `bun.d.ts` when exported signatures change.
+
+The split exists because `parseManifest()` calls `Bun.YAML.parse`. Putting it in `lib` would break non-Bun consumers like `@varp/audit` (builds with `tsc`).
 
 ## MCP Tools
 

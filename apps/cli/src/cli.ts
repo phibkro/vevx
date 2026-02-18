@@ -15,8 +15,8 @@ import { fileURLToPath } from "url";
 import { parseArgs } from "util";
 
 import { runAuditCommand } from "./audit";
-import { callClaude } from "./claude-client";
 import { login, logout } from "./auth";
+import { callClaude } from "./claude-client";
 import { generateCompletions } from "./completions";
 import {
   loadConfig,
@@ -30,7 +30,11 @@ import { formatError } from "./errors";
 import { formatHtml } from "./formatters/html";
 import { formatJson } from "./formatters/json";
 import { formatMarkdown } from "./formatters/markdown";
+import { runFreshnessCommand } from "./freshness";
+import { runGraphCommand } from "./graph";
+import { runLintCommand } from "./lint";
 import { createProgressReporter } from "./progress";
+import { runValidateCommand } from "./validate";
 import { validateInput, ValidationError } from "./validation";
 import { watchMode } from "./watch";
 
@@ -60,6 +64,10 @@ USAGE:
 
 COMMANDS:
   audit <path>        Compliance audit against a ruleset
+  lint                Lint manifest for issues (imports, links, freshness)
+  graph               Render dependency graph as Mermaid diagram
+  freshness           Check doc freshness across components
+  validate <plan.xml> Validate plan against manifest
   login               Save API key for dashboard syncing
   logout              Remove saved API key
   completions [bash|zsh]  Generate shell completion script
@@ -320,6 +328,46 @@ async function main(): Promise<void> {
   if (firstArg === "audit") {
     try {
       await runAuditCommand(process.argv.slice(3));
+    } catch (error) {
+      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (firstArg === "lint") {
+    try {
+      await runLintCommand(process.argv.slice(3));
+    } catch (error) {
+      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (firstArg === "graph") {
+    try {
+      await runGraphCommand(process.argv.slice(3));
+    } catch (error) {
+      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (firstArg === "freshness") {
+    try {
+      await runFreshnessCommand(process.argv.slice(3));
+    } catch (error) {
+      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (firstArg === "validate") {
+    try {
+      await runValidateCommand(process.argv.slice(3));
     } catch (error) {
       console.error(formatError(error instanceof Error ? error : new Error(String(error))));
       process.exit(1);

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@varp/audit": "workspace:*",
+    "@varp/core": "workspace:*",
     "chokidar": "^5.0.0",
     "ora": "^9.3.0"
   },

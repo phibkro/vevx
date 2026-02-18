@@ -12,6 +12,10 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 | `cd packages/core && bun run typecheck` | Type-check core via tsc --noEmit |
 | `bun test packages/core/src/index.test.ts` | MCP integration tests only |
 | `bun test packages/core/src/scheduler/` | Scheduler tests only |
+| `bun run apps/cli/dist/cli.js lint` | Lint manifest for issues |
+| `bun run apps/cli/dist/cli.js graph` | Render dependency graph (Mermaid) |
+| `bun run apps/cli/dist/cli.js freshness` | Check doc freshness |
+| `bun run apps/cli/dist/cli.js validate plan.xml` | Validate plan against manifest |
 
 ## Stack
 
@@ -34,8 +38,10 @@ packages/
   core/                   Varp MCP server (@varp/core)
     src/                  shared, server, manifest, plan, scheduler, enforcement
       shared/             Shared types + utilities (types.ts, ownership.ts)
-      lib.ts              Library entry point for programmatic consumers (@varp/core/lib)
+      lib.ts              Bun-free entry point for non-Bun consumers (@varp/core/lib)
+      bun.ts              Bun-specific entry point — lib.ts + Bun-dependent functions (@varp/core/bun)
     lib.d.ts              Hand-maintained declarations for @varp/core/lib
+    bun.d.ts              Hand-maintained declarations for @varp/core/bun
       manifest/           Manifest parsing, doc resolution, freshness, graph, imports, touches, lint, scoped-tests
       plan/               Plan XML parsing, validation, diff
       scheduler/          Hazard detection, wave computation, critical path
@@ -44,7 +50,7 @@ packages/
     src/                  Orchestrator, agents, planner, report
     rulesets/             Audit rulesets (OWASP, etc.)
 apps/
-  cli/                    Varp CLI (@varp/cli)
+  cli/                    Varp CLI (@varp/cli) — subcommands: audit, lint, graph, freshness, validate
   plugin/                  Claude Code plugin distribution (@varp/plugin)
     .claude-plugin/       Plugin manifest (plugin.json, marketplace.json)
     skills/               5 prompt-based skills (init, status, plan, execute, review)
@@ -52,7 +58,12 @@ apps/
 docs/                     Design docs, getting started, reference URLs
 ```
 
-Import alias `#shared/*` maps to `packages/core/src/shared/*`. External consumers import via `@varp/core/lib` (re-exports shared types with relative paths, hand-maintained `lib.d.ts` for TypeScript).
+Import alias `#shared/*` maps to `packages/core/src/shared/*`. Two library entry points for external consumers, both with hand-maintained `.d.ts` files:
+
+- **`@varp/core/lib`** — Bun-free. Pure functions and types only (no `parseManifest`, no file I/O). Used by `@varp/audit` (builds with `tsc`).
+- **`@varp/core/bun`** — Requires Bun runtime. Re-exports everything from `lib` plus Bun-dependent functions (`parseManifest`, `runLint`, `checkFreshness`, `renderGraph`, `scanImports`, `parsePlanFile`, `validatePlan`, `detectHazards`). Used by `@varp/cli`.
+
+The split exists because `parseManifest()` calls `Bun.YAML.parse` internally. Putting it in `lib` would break non-Bun consumers.
 
 **Details**: See `packages/core/docs/architecture.md` for algorithms and data flow. See `packages/core/README.md` for tool API surface. See `packages/core/src/manifest/README.md` and `packages/core/src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
 
