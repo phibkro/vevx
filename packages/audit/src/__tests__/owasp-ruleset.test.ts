@@ -1,30 +1,31 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { parseRuleset } from '../planner/ruleset-parser';
+import { readFileSync } from "fs";
+import { join } from "path";
+import { describe, it, expect } from "vitest";
 
-describe('OWASP Top 10 ruleset (real file)', () => {
-  const rulesetPath = join(__dirname, '../../../../rulesets/owasp-top-10.md');
-  const content = readFileSync(rulesetPath, 'utf-8');
+import { parseRuleset } from "../planner/ruleset-parser";
+
+describe("OWASP Top 10 ruleset (real file)", () => {
+  const rulesetPath = join(__dirname, "../../rulesets/owasp-top-10.md");
+  const content = readFileSync(rulesetPath, "utf-8");
   const ruleset = parseRuleset(content);
 
-  it('parses metadata', () => {
-    expect(ruleset.meta.framework).toBe('OWASP Top 10');
-    expect(ruleset.meta.version).toBe('2021');
-    expect(ruleset.meta.languages).toContain('typescript');
-    expect(ruleset.meta.languages).toContain('python');
+  it("parses metadata", () => {
+    expect(ruleset.meta.framework).toBe("OWASP Top 10");
+    expect(ruleset.meta.version).toBe("2021");
+    expect(ruleset.meta.languages).toContain("typescript");
+    expect(ruleset.meta.languages).toContain("python");
   });
 
-  it('parses all rules', () => {
+  it("parses all rules", () => {
     // OWASP ruleset has 28+ rules across 10 categories
     expect(ruleset.rules.length).toBeGreaterThanOrEqual(28);
   });
 
-  it('parses all 3 cross-cutting patterns', () => {
+  it("parses all 3 cross-cutting patterns", () => {
     expect(ruleset.crossCutting.length).toBe(3);
   });
 
-  it('every rule has required fields', () => {
+  it("every rule has required fields", () => {
     for (const rule of ruleset.rules) {
       expect(rule.id).toBeTruthy();
       expect(rule.title).toBeTruthy();
@@ -34,7 +35,7 @@ describe('OWASP Top 10 ruleset (real file)', () => {
     }
   });
 
-  it('cross-cutting patterns reference other rules', () => {
+  it("cross-cutting patterns reference other rules", () => {
     for (const pattern of ruleset.crossCutting) {
       expect(pattern.id).toMatch(/^CROSS-\d+$/);
       expect(pattern.relatesTo.length).toBeGreaterThan(0);
@@ -42,13 +43,13 @@ describe('OWASP Top 10 ruleset (real file)', () => {
     }
   });
 
-  it('rule IDs are unique', () => {
-    const ids = ruleset.rules.map(r => r.id);
+  it("rule IDs are unique", () => {
+    const ids = ruleset.rules.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('covers all OWASP categories', () => {
-    const categories = new Set(ruleset.rules.map(r => r.category));
+  it("covers all OWASP categories", () => {
+    const categories = new Set(ruleset.rules.map((r) => r.category));
     expect(categories.size).toBe(10);
   });
 });
