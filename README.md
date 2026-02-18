@@ -88,7 +88,7 @@ Start a Claude Code session. You should see:
 
 ```
 Varp project: v0.1.0
-Components: auth, api, web (3)
+Components: auth, api, web
 ```
 
 Run `/varp:status` for the full project state report.
@@ -101,7 +101,7 @@ Run `/varp:status` for the full project state report.
 /varp:plan add rate limiting to auth endpoints
 ```
 
-The planner loads your manifest, asks clarifying questions, decomposes the feature into tasks with read/write scopes (`touches`), sets resource budgets, writes contracts (preconditions, invariants, postconditions), and outputs `plan.xml`.
+The planner loads your manifest, asks clarifying questions, decomposes the feature into tasks with read/write scopes (`touches`), writes contracts (preconditions, invariants, postconditions), and outputs `plan.xml`.
 
 ### Execute
 
@@ -117,7 +117,7 @@ The orchestrator computes execution waves from task dependencies, dispatches tas
 /varp:review
 ```
 
-Diffs plan expectations against actual results — which tasks completed, failed, or were skipped; per-task resource consumption vs budget; capability violations; doc freshness; and recommended next action.
+Diffs plan expectations against actual results — which tasks completed, failed, or were skipped; per-task resource consumption; capability violations; doc freshness; and recommended next action.
 
 ### Status
 
@@ -136,10 +136,10 @@ varp.yaml                Source of truth for project structure
 MCP Server               Deterministic logic: parsing, scheduling, enforcement
   |
   v
-Skills (5)               Workflow protocols: init, plan, execute, review, status
+Skills                   Workflow protocols: init, plan, execute, review, status
   |
   v
-Hooks (3)                Lifecycle: session context, subagent injection, freshness tracking
+Hooks                    Lifecycle: session context, subagent injection, freshness tracking
 ```
 
 The MCP server exposes pure functions. Skills structure agent behavior by loading protocols. Hooks enforce conventions at lifecycle boundaries.

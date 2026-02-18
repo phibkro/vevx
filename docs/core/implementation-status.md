@@ -28,16 +28,16 @@ Current state of Varp relative to the design documents. Updated February 2026.
 | Skill | Status | Notes |
 |-------|--------|-------|
 | `/varp:init` | Complete | Scaffolds `varp.yaml`. Supports Nx, Turborepo, moon graph import. Scans root `docs/` for component matches. |
-| `/varp:plan` | Complete | Planner protocol (8 steps, budget step removed per ADR-001). Suggests Turbo/Nx test runners. |
-| `/varp:execute` | Complete | Orchestrator protocol (11 steps). Advisory monorepo scope checks. |
-| `/varp:review` | Complete | Medium loop: diff plan vs log.xml. |
+| `/varp:plan` | Complete | Planner protocol (budget step removed per ADR-001). Suggests Turbo/Nx test runners. |
+| `/varp:execute` | Complete | Orchestrator protocol. Advisory monorepo scope checks. OTel correlation guidance. |
+| `/varp:review` | Complete | Medium loop: diff plan vs log.xml. OTel dashboard guidance for external metrics. |
 | `/varp:status` | Complete | Project state report. |
 
 ### Hooks
 
 | Hook | Trigger | Type | Purpose |
 |------|---------|------|---------|
-| SessionStart | Session start | command | Load manifest, display project state |
+| SessionStart | Session start | command | Load manifest, display project state and cost tracking status |
 | SubagentStart | Subagent dispatch | command | Inject conventions from `.claude/rules/subagent-conventions.md` |
 | PostToolUse (Write/Edit) | File modification | command | Flag component docs for freshness review |
 | PostToolUse (Write/Edit) | File modification | command | Auto-format modified files with oxfmt |
@@ -72,6 +72,14 @@ Not in design doc. Parser caches by `(absolutePath, mtimeMs)` to avoid re-parsin
 
 Design doc specified per-task token/time budgets enforced at runtime. Dropped entirely — `<budget>` elements removed from the plan schema, planner protocol, orchestrator chain of thought, and all tool/skill documentation. The parser silently ignores legacy `<budget>` elements for backward compatibility. Critical path returns chain length instead of summed budget. Resource consumption is tracked as execution metrics in `log.xml` (observability, not enforcement).
 
+### Expanded Orchestrator Protocol
+
+Design doc specified steps select through advance. Implementation adds:
+- **Step 3b** (Check Environment Prerequisites): Verify component `env` fields before dispatch
+- **Step 6** (Verify Freshness): Check doc freshness after task completion, resume subagent if stale
+- **Step 7b** (Advisory Scope Check): Cross-check via `nx affected` or `turbo query` when monorepo tools available
+- **Step 12** (Status Report): Generate freshness + lint snapshot on plan completion
+
 ### Cost Observability
 
 Per-task and per-plan cost tracking via statusline snapshots. The execute skill reads `/tmp/claude/varp-cost.json` (written by a statusline command configured in `.claude/settings.json`) before and after each task dispatch, recording `cost_usd` deltas on task metrics and plan-level totals on the `<cost>` element. Falls back silently when the cost file isn't available.
@@ -103,6 +111,7 @@ Data source priority: OpenTelemetry (`CLAUDE_CODE_ENABLE_TELEMETRY=1`) provides 
 | `stability` on components | `stable` / `active` / `experimental` | Implemented |
 | Three-graph separation | Project/task/action graph decomposition | Documented in architecture |
 | Named mutexes on tasks | Exclusive resource locks beyond component graph | Implemented |
+| OTel status detection | Session-start hook detects `CLAUDE_CODE_ENABLE_TELEMETRY` and exporter config | Implemented |
 
 ## Architecture
 

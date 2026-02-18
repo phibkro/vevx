@@ -14,9 +14,9 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 - Hooks: No runtime deps (no jq/python). grep/sed/awk + bash parameter expansion. Exit 0 when `varp.yaml` missing. Must pass shellcheck.
 - Skills/hooks/MCP specs change frequently — check `docs/reference-urls.md` for current docs before modifying.
 
-**Core components** (8): `shared` = `packages/core/src/shared/`, `server` = `packages/core/src/`, `manifest` = `packages/core/src/manifest/`, `plan` = `packages/core/src/plan/`, `scheduler` = `packages/core/src/scheduler/`, `enforcement` = `packages/core/src/enforcement/`, `skills` = `packages/plugin/skills/`, `hooks` = `packages/plugin/hooks/`. Domain components import shared types via `#shared/*` alias. Skills/hooks depend on manifest.
+**Core components**: `shared` = `packages/core/src/shared/`, `server` = `packages/core/src/`, `manifest` = `packages/core/src/manifest/`, `plan` = `packages/core/src/plan/`, `scheduler` = `packages/core/src/scheduler/`, `enforcement` = `packages/core/src/enforcement/`, `skills` = `packages/plugin/skills/`, `hooks` = `packages/plugin/hooks/`. Domain components import shared types via `#shared/*` alias. Skills/hooks depend on manifest.
 
-**Audit** (1, experimental): `audit` = `packages/audit/src/`. Single component — planner and agents are internal subdirectories.
+**Audit** (experimental): `audit` = `packages/audit/src/`. Single component — planner and agents are internal subdirectories.
 
 **CLI** (experimental): `cli` = `apps/cli/src/`. Unified CLI for all varp tools.
 

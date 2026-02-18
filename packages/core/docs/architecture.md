@@ -4,7 +4,7 @@ Implementation details for the Varp MCP server. For the public API surface, see 
 
 ## Module Map
 
-8 components: `shared` (types, ownership), `server` (MCP wiring), `manifest/`, `plan/`, `scheduler/`, `enforcement/` (domain tools), `skills/`, `hooks/`. Domain components depend on `shared` via `#shared/*` import alias. `server` depends on all domain components (hub pattern). Skills and hooks depend on manifest.
+Components: `shared` (types, ownership), `server` (MCP wiring), `manifest/`, `plan/`, `scheduler/`, `enforcement/` (domain tools), `skills/`, `hooks/`. Domain components depend on `shared` via `#shared/*` import alias. `server` depends on all domain components (hub pattern). Skills and hooks depend on manifest.
 
 ```
 src/

@@ -17,7 +17,7 @@ Parses `varp.yaml` to display project version, component list, stale docs, broke
 Output example:
 ```
 Varp project: v0.3
-Components: shared, server, manifest, plan, scheduler, enforcement (6)
+Components: shared, server, manifest, plan, scheduler, enforcement
 Cost tracking: statusline ✓ | otel ✓ (otlp → localhost:4317)
 ```
 

@@ -17,7 +17,7 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 Monorepo with Bun workspaces (`packages/*`, `apps/*`):
 
 ### @varp/core (packages/core/)
-8 components defined in `varp.yaml`:
+Components defined in `varp.yaml`:
 - `shared` (packages/core/src/shared/) — Zod schemas, ownership utils
 - `server` (packages/core/src/) — MCP server wiring, tool definitions
 - `manifest` (packages/core/src/manifest/) — Parser, resolver, freshness, graph, imports, links, lint, scoped-tests, env-check, touches, discovery
