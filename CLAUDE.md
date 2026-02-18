@@ -7,10 +7,11 @@ Compliance-focused code auditing using multi-agent orchestration. Analyzes full 
 ```
 packages/core/                  # Orchestration engine, agents, API client
   src/agents/                   # Generic review agents (7 active, weighted)
-  src/planner/                  # Compliance audit planner (NEW)
+  src/planner/                  # Compliance audit pipeline
     ruleset-parser.ts           # Markdown ruleset → structured rules
     planner.ts                  # Files + rules → 3-wave audit plan
     findings.ts                 # Findings schema, deduplication, reporting
+    prompt-generator.ts         # Task + rules → Claude prompts + response parser
     types.ts                    # Ruleset, AuditTask, AuditPlan types
 apps/cli/                       # Bun CLI (primary interface)
 rulesets/                       # Compliance framework definitions
@@ -43,6 +44,8 @@ The planner takes discovered files + a parsed ruleset and generates a 3-wave aud
 **Rulesets** are markdown with YAML frontmatter. Rules have: id, severity, appliesTo tags, compliant/violation patterns, what-to-look-for lists, false positive guidance.
 
 **Findings** use a 5-level severity (critical/high/medium/low/informational). Duplicate findings from multiple tasks are corroborated — same rule + overlapping location = merged with boosted confidence.
+
+**Prompt generator** builds system/user prompts per task type: component scan prompts embed the relevant rules, cross-cutting prompts embed the pattern objective + related rules. Response parser handles LLM output variations (markdown fences, snake_case fields, severity normalization, missing locations).
 
 **Varp integration**: Component grouping and wave scheduling will be replaced by varp's manifest and scheduler post-merge. See `docs/research/varp-integration.md`.
 

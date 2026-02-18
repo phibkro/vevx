@@ -8,7 +8,7 @@ Compliance-focused code auditing using multi-agent orchestration. Analyzes full 
 
 ```
 packages/core/    # Orchestration engine, agents, audit planner
-  src/planner/    # Ruleset parser, plan generator, findings schema
+  src/planner/    # Ruleset parser, plan generator, findings schema, prompt generator
   src/agents/     # Generic review agents (7 active)
 apps/cli/         # CLI interface (Bun)
 rulesets/         # Compliance framework definitions

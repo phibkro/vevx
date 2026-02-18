@@ -24,3 +24,10 @@ export type {
   CorroboratedFinding,
   ComplianceReport,
 } from './findings';
+export {
+  generatePrompt,
+  generateComponentScanPrompt,
+  generateCrossCuttingPrompt,
+  parseAuditResponse,
+} from './prompt-generator';
+export type { AuditPrompt } from './prompt-generator';
