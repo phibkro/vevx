@@ -1,6 +1,6 @@
 # Varp Integration Notes
 
-How varp's existing capabilities map to audit needs. Reference for when the repos merge.
+How varp's existing capabilities map to audit needs. The repos have merged — audit lives at `packages/audit/`. These notes guide the next step: replacing stopgap implementations with varp core primitives.
 
 ## Varp Replaces (delete from audit code)
 
@@ -9,7 +9,7 @@ How varp's existing capabilities map to audit needs. Reference for when the repo
 | `groupIntoComponents()` | Manifest components + `findOwningComponent()` | Varp uses longest-prefix match, supports multi-path components |
 | `AuditComponent` type | `Component` from manifest schema | Varp has deps, tags, stability, test commands |
 | Hardcoded 3-wave structure | `computeWaves()` from scheduler | Derives waves from data hazards (all audit tasks are read-only → wave 1 all parallel, wave 2 depends on wave 1 outputs, wave 3 depends on wave 2) |
-| `AuditPlan.stats.estimatedTokens` | `Budget` schema on each task | Varp already has token + minute budgets per task |
+| `AuditPlan.stats.estimatedTokens` | Execution metrics in `log.xml` | Budget enforcement dropped per ADR-001; token usage is observability only |
 | File discovery | Manifest paths + `discoverDocs()` | Component boundaries already defined |
 
 ## Varp Enhances (use but don't reimplement)
@@ -17,7 +17,7 @@ How varp's existing capabilities map to audit needs. Reference for when the repo
 | Capability | Varp Module | Audit Use |
 |---|---|---|
 | `invalidationCascade()` | `manifest/graph.ts` | Given a finding in component A, which downstream components are affected? |
-| `computeCriticalPath()` | `scheduler/critical-path.ts` | Budget-constrained audits: which components to scan first |
+| `computeCriticalPath()` | `scheduler/critical-path.ts` | Prioritize scanning: which component chains to scan first |
 | `scanImports()` | `manifest/imports.ts` | Better rule-to-file matching via actual dependency graph instead of filename heuristics |
 | `resolveDocs()` | `manifest/resolver.ts` | Load component docs as additional audit context |
 | Component tags | Manifest `tags` field | Match rule "applies to" against component tags instead of filename patterns |
@@ -42,7 +42,7 @@ Audit Planner
   1. Parse ruleset → Rule[]
   2. For each manifest component:
      - Match rules to component (via tags, not filename heuristics)
-     - Generate task with touches={reads: [component]}, budget, description
+     - Generate task with touches={reads: [component]}, description
   3. Add cross-cutting tasks (reads multiple components)
   4. Add synthesis task (depends on all others)
   5. Emit plan XML → varp validates, schedules, executes
@@ -71,7 +71,6 @@ interface Task {
   action: 'implement' | 'test' | 'document' | 'refactor' | 'migrate';
   values?: string[];
   touches: { reads?: string[]; writes?: string[] };
-  budget: { tokens: number; minutes: number };
 }
 
 // Scheduler output

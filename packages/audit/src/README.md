@@ -7,35 +7,42 @@ Multi-agent compliance audit engine. Runs specialized Claude-powered agents agai
 ```
 Ruleset (markdown)  →  Planner  →  Audit Plan (waves + tasks)
                                         ↓
-Source files        →  Chunker  →  Orchestrator  →  Agents  →  Report
+Source files        →  Chunker  →  Executor  →  Agents  →  Report
                                         ↓
-                                   Claude API (client.ts)
+                                   Claude Code CLI (client.ts)
 ```
 
 ## Key Modules
 
 | Module | Purpose |
 |--------|---------|
-| `orchestrator.ts` | Runs agents against file chunks, scores results |
-| `client.ts` | Claude API wrapper with retry logic |
+| `orchestrator.ts` | Runs generic agents against file chunks, scores results |
+| `client.ts` | Claude Code CLI wrapper (spawns `claude -p` subprocesses) |
 | `chunker.ts` | Splits source files into token-bounded chunks |
-| `discovery-node.ts` | Finds source files in a project directory |
-| `report/` | Formats findings into markdown/JSON reports |
+| `discovery.ts` | Finds source files (Bun runtime) |
+| `discovery-node.ts` | Finds source files (Node.js runtime) |
 | `errors.ts` | Domain error types |
-| `planner/` | Audit planning from rulesets (see `planner/README.md`) |
+| `planner/` | Compliance audit planning and execution (see `planner/README.md`) |
 | `agents/` | Specialized review agents (see `agents/README.md`) |
 
 ## Orchestrator
 
-`runAudit()` is the main entry point. It:
+`runAudit()` is the entry point for generic (non-compliance) reviews. It:
 
-1. Runs each agent against the provided files
+1. Runs each weighted agent against the provided files
 2. Collects findings with severity levels
-3. Calculates per-agent and overall scores (weighted by agent importance)
+3. Calculates per-agent and overall scores (weighted average)
 4. Emits progress events during execution
 
 Options: `model` (Claude model ID) and `maxTokens` (per-call budget).
 
-## Status
+## Compliance Audit
 
-Experimental. Not yet integrated with `@varp/core` scheduling.
+For ruleset-based compliance auditing, use the planner pipeline:
+
+1. `parseRuleset()` — parse markdown ruleset
+2. `generatePlan()` — create 3-wave audit plan
+3. `executeAuditPlan()` — run plan via Claude Code CLI
+4. `printComplianceReport()` / `generateComplianceMarkdown()` — render results
+
+See `planner/README.md` for details.

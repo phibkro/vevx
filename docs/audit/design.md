@@ -51,7 +51,7 @@ Optional flags for user intent, not implementation details:
 - `--ruleset <name>` — which compliance framework(s) to check against
 - `--scope <path>` — audit a subset of the codebase
 - `--diff` — compare against the previous audit run
-- `--budget <amount>` — cost ceiling; the system maximizes coverage within the budget
+- ~~`--budget <amount>`~~ — dropped per ADR-001; token usage tracked as observability metrics
 
 CI integration is the second target: run as a GitHub Action or similar, with findings surfaced as PR annotations or status checks.
 
@@ -262,12 +262,15 @@ Each package composes with Core. Core owns execution strategy. Packages own doma
 
 ## Open Questions
 
-- **Ruleset authoring** — how much structure do rulesets need? Pure markdown is flexible but may lead to inconsistent interpretation across runs. A lightweight schema (YAML frontmatter + markdown body) could help without over-formalizing.
 - **False positive handling** — how should acknowledged findings be suppressed? Inline annotations (`// varp-audit-ignore: SQL-INJ-01`), a suppression file, or acknowledged findings tracked in the report history?
 - **Incremental audits** — can we efficiently audit only what changed since the last run? Requires mapping code changes to affected rules — non-trivial dependency analysis.
 - **Strategy threshold tuning** — the boundary between single-pass and orchestrated mode needs empirical calibration. Too eager to orchestrate wastes money; too reluctant misses issues in large codebases.
 - **Core strategy API** — how do packages communicate their decomposition strategy to Core? Core needs to know how to partition work, but the partitioning logic is domain-specific. The interface between packages and Core's strategy layer needs careful design.
-- **Self-audit** — the tool should be able to audit itself. Dogfooding as a correctness check.
-- **Integration points** — CLI first, CI second. IDE integration and dashboard/reporting platform are future considerations.
+- **Integration points** — CLI done, CI next. IDE integration and dashboard/reporting platform are future considerations.
 - **Multi-repo** — enterprise codebases span multiple repositories. The manifest supports this conceptually, but cross-repo orchestration needs design.
 - **Regulatory certification** — can Varp Audit's reports be used as evidence in actual compliance audits (SOC 2, etc.)? Requires understanding what auditors accept and potentially partnering with audit firms. Long-term consideration.
+
+## Resolved Questions
+
+- **Ruleset authoring** — YAML frontmatter + markdown body. See `rulesets/owasp-top-10.md` for the format.
+- **Self-audit** — works. See `docs/examples/self-audit-report.md` for a report of the tool auditing itself against OWASP Top 10.
