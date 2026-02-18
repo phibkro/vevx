@@ -4,6 +4,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
+import { TouchesSchema } from "#shared/types.js";
+
 import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
 import { checkEnv } from "./manifest/env-check.js";
@@ -30,20 +32,17 @@ import { registerTools, type ToolDef } from "./tool-registry.js";
 
 // ── Shared Schemas ──
 
-const manifestPath = z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)");
+const DEFAULT_MANIFEST_PATH = "./varp.yaml";
 
-const touchesSchema = z.object({
-  reads: z.array(z.string()).optional(),
-  writes: z.array(z.string()).optional(),
-});
+const manifestPath = z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)");
 
 const mutexesSchema = z.array(z.string()).optional().describe("Named mutexes for mutual exclusion");
 
-const taskRefSchema = z.object({ id: z.string(), touches: touchesSchema, mutexes: mutexesSchema });
+const taskRefSchema = z.object({ id: z.string(), touches: TouchesSchema, mutexes: mutexesSchema });
 
 const schedulableTaskSchema = z.object({
   id: z.string(),
-  touches: touchesSchema,
+  touches: TouchesSchema,
   mutexes: mutexesSchema,
 });
 
@@ -65,7 +64,7 @@ const tools: ToolDef[] = [
       "Parse and validate varp.yaml. Returns typed manifest with component registry, dependency graph, and doc references.",
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       const graphResult = validateDependencyGraph(manifest);
       return {
         manifest,
@@ -84,7 +83,7 @@ const tools: ToolDef[] = [
       writes: z.array(z.string()).optional().describe("Components this task writes to"),
     },
     handler: async ({ manifest_path, reads, writes }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return resolveDocs(manifest, { reads, writes });
     },
   },
@@ -97,7 +96,7 @@ const tools: ToolDef[] = [
       changed: z.array(z.string()).describe("Component names whose interface docs changed"),
     },
     handler: async ({ manifest_path, changed }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return { affected: invalidationCascade(manifest, changed) };
     },
   },
@@ -107,7 +106,7 @@ const tools: ToolDef[] = [
       "Returns freshness status for all component docs — last modified timestamps, staleness relative to source.",
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return checkFreshness(manifest);
     },
   },
@@ -128,7 +127,7 @@ const tools: ToolDef[] = [
       manifest_path: manifestPath,
     },
     handler: async ({ plan_path, manifest_path }) => {
-      const mp = manifest_path ?? "./varp.yaml";
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const plan = parsePlanFile(plan_path);
       const manifest = parseManifest(mp);
       const hazards = detectHazards(plan.tasks);
@@ -171,7 +170,7 @@ const tools: ToolDef[] = [
         .describe("deps: infer dependencies from links. integrity: find broken links. all: both."),
     },
     handler: async ({ manifest_path, mode }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return scanLinks(manifest, mode as LinkScanMode);
     },
   },
@@ -183,7 +182,7 @@ const tools: ToolDef[] = [
       "Scan source files for import statements. Infer cross-component dependencies from static imports.",
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
-      const mp = manifest_path ?? "./varp.yaml";
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const manifest = parseManifest(mp);
       return scanImports(manifest, dirname(resolve(mp)));
     },
@@ -199,7 +198,7 @@ const tools: ToolDef[] = [
       file_paths: z.array(z.string()).describe("File paths that will be modified"),
     },
     handler: async ({ manifest_path, file_paths }) => {
-      const mp = manifest_path ?? "./varp.yaml";
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const manifest = parseManifest(mp);
       const { import_deps } = scanImports(manifest, dirname(resolve(mp)));
       return suggestTouches(file_paths, manifest, import_deps);
@@ -218,7 +217,7 @@ const tools: ToolDef[] = [
       diff_paths: z.array(z.string()).describe("File paths that were modified"),
     },
     handler: async ({ manifest_path, reads, writes, diff_paths }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return verifyCapabilities(manifest, { reads, writes }, diff_paths);
     },
   },
@@ -272,7 +271,7 @@ const tools: ToolDef[] = [
         .describe("Only include components whose tags intersect with this filter"),
     },
     handler: async ({ manifest_path, reads, writes, include_read_tests, tags }) => {
-      const mp = manifest_path ?? "./varp.yaml";
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const manifest = parseManifest(mp);
       const manifestDir = dirname(resolve(mp));
       return findScopedTests(manifest, { reads, writes }, manifestDir, {
@@ -289,8 +288,8 @@ const tools: ToolDef[] = [
       "Run all health checks: import deps, link integrity, doc freshness. Returns unified report with issues and severity.",
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
-      return runLint(manifest, manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
+      return runLint(manifest, manifest_path ?? DEFAULT_MANIFEST_PATH);
     },
   },
 
@@ -304,7 +303,7 @@ const tools: ToolDef[] = [
       components: z.array(z.string()).describe("Component names to check env vars for"),
     },
     handler: async ({ manifest_path, components }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return checkEnv(manifest, components, process.env);
     },
   },
@@ -368,7 +367,7 @@ const tools: ToolDef[] = [
         .describe("Graph direction: TD (top-down, default) or LR (left-right)"),
     },
     handler: async ({ manifest_path, direction }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return { mermaid: renderGraph(manifest, { direction }) };
     },
   },
@@ -388,7 +387,7 @@ const tools: ToolDef[] = [
         ),
     },
     handler: async ({ manifest_path, since }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return watchFreshness(manifest, since);
     },
   },
@@ -404,7 +403,7 @@ const tools: ToolDef[] = [
       since: z.string().describe("ISO timestamp when the agent was last active"),
     },
     handler: async ({ manifest_path, components, since }) => {
-      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return checkWarmStaleness(manifest, components, new Date(since));
     },
   },

@@ -1,8 +1,6 @@
-import type { FileContent } from "./types";
-import type { AgentDefinition, AgentResult, Finding } from "./types";
+import type { FileContent } from "./types.js";
 
-const AGENT_NAME = "dependency-security";
-const WEIGHT = 0.0; // Disabled by default (limited effectiveness without CVE database)
+import { createAgent } from "./factory.js";
 
 const SYSTEM_PROMPT = `You are a dependency security specialist analyzing package.json for vulnerable and outdated dependencies.
 
@@ -217,8 +215,7 @@ Return JSON only, no markdown, no explanatory text outside JSON:
   ]
 }`;
 
-function createUserPrompt(files: FileContent[]): string {
-  // Look for package.json
+function buildDependencyPrompt(files: FileContent[]): string {
   const packageJson = files.find((file) => file.relativePath.endsWith("package.json"));
 
   if (!packageJson) {
@@ -231,68 +228,11 @@ function createUserPrompt(files: FileContent[]): string {
   return `Analyze the following package.json for dependency security issues:\n\nFile: ${packageJson.relativePath}\n\n${numberedLines}\n\nReturn your analysis as JSON.`;
 }
 
-function parseResponse(raw: string): AgentResult {
-  try {
-    // Try to extract JSON from response
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("No JSON found in response");
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
-
-    // Validate structure
-    if (typeof parsed.score !== "number" || parsed.score < 0 || parsed.score > 10) {
-      throw new Error("Invalid score");
-    }
-    if (typeof parsed.summary !== "string") {
-      throw new Error("Invalid summary");
-    }
-    if (!Array.isArray(parsed.findings)) {
-      throw new Error("Invalid findings array");
-    }
-
-    const findings: Finding[] = parsed.findings.map((f: any) => ({
-      severity: f.severity || "info",
-      title: f.title || "Untitled issue",
-      description: f.description || "",
-      file: f.file || "package.json",
-      line: f.line,
-      suggestion: f.suggestion,
-    }));
-
-    return {
-      agent: AGENT_NAME,
-      score: parsed.score,
-      findings,
-      summary: parsed.summary,
-      durationMs: 0, // Will be set by orchestrator
-    };
-  } catch (error) {
-    // Fallback: parse as plaintext
-    console.warn(`Failed to parse JSON from ${AGENT_NAME} agent: ${error}`);
-
-    return {
-      agent: AGENT_NAME,
-      score: 5.0, // Neutral score when parsing fails
-      findings: [
-        {
-          severity: "warning",
-          title: "Agent response parsing failed",
-          description: `Could not parse structured response from ${AGENT_NAME} agent.`,
-          file: "package.json",
-        },
-      ],
-      summary: "Analysis completed but response format was invalid",
-      durationMs: 0,
-    };
-  }
-}
-
-export const dependencySecurityAgent: AgentDefinition = {
-  name: AGENT_NAME,
-  weight: WEIGHT,
+export const dependencySecurityAgent = createAgent({
+  name: "dependency-security",
+  weight: 0.0,
   systemPrompt: SYSTEM_PROMPT,
-  userPromptTemplate: createUserPrompt,
-  parseResponse,
-};
+  topic: "dependency security issues",
+  fallbackFile: "package.json",
+  customPromptBuilder: buildDependencyPrompt,
+});
