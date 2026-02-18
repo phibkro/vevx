@@ -20,7 +20,6 @@ Compliance audit:   files + ruleset → planner → 3-wave executor → complian
 | `orchestrator.ts` | Generic review — runs weighted agents in parallel, scores results |
 | `chunker.ts` | Splits source files into token-bounded chunks |
 | `discovery.ts` | File discovery (Bun runtime) |
-| `discovery-node.ts` | File discovery (Node.js runtime) |
 | `errors.ts` | Domain error types |
 | `agents/` | Specialized review agents with weights (see `agents/README.md`) |
 | `planner/` | Compliance audit pipeline (see `planner/README.md`) |
@@ -38,4 +37,4 @@ Compliance audit:   files + ruleset → planner → 3-wave executor → complian
 3. `executeAuditPlan()` — execute waves via `ModelCaller`, with optional token budget enforcement (`--budget`)
 4. `printComplianceReport()` / `generateComplianceMarkdown()` / `generateComplianceJson()` — render results
 
-Features: suppressions (`// audit-suppress`), incremental audits (`--diff`), token budgeting (`--budget`), drift tracking (`diffReports()`), structured output via JSON schema. See `planner/README.md` for details.
+Features: suppressions (`// audit-suppress`), incremental audits (`--diff`), token budgeting (`--budget`), structured output via JSON schema. See `planner/README.md` for details.
