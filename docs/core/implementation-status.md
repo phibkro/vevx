@@ -94,4 +94,4 @@ Not in design doc. Parser caches by `(absolutePath, mtimeMs)` to avoid re-parsin
 
 ## Architecture
 
-See [Design Principles](design-principles.md) for foundations, [Architecture](design-architecture.md) for the full design, and [Internal Architecture](../src/docs/architecture.md) for module-level implementation details.
+See [Design Principles](design-principles.md) for foundations, [Architecture](design-architecture.md) for the full design, and [Internal Architecture](../../packages/core/src/docs/architecture.md) for module-level implementation details.

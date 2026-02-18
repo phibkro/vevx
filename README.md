@@ -157,11 +157,11 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 
 | Doc | Purpose |
 |-----|---------|
-| [Design Principles](packages/core/docs/design-principles.md) | Problem, core principles, agent model |
-| [Architecture](packages/core/docs/design-architecture.md) | Manifest, plans, orchestrator, concurrency |
-| [Design Notes](packages/core/docs/design-notes.md) | Feedback loops, open questions, extensions |
-| [Implementation Status](packages/core/docs/implementation-status.md) | What's built, what changed, what's deferred |
-| [Audit Design](packages/audit/docs/design.md) | Compliance audit engine design |
+| [Design Principles](docs/core/design-principles.md) | Problem, core principles, agent model |
+| [Architecture](docs/core/design-architecture.md) | Manifest, plans, orchestrator, concurrency |
+| [Design Notes](docs/core/design-notes.md) | Feedback loops, open questions, extensions |
+| [Implementation Status](docs/core/implementation-status.md) | What's built, what changed, what's deferred |
+| [Audit Design](docs/audit/design.md) | Compliance audit engine design |
 
 ## Developer Reference
 
