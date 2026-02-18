@@ -1,0 +1,223 @@
+import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+import {
+  parseRuleset,
+  generatePlan,
+  executeAuditPlan,
+  printComplianceReport,
+  generateComplianceMarkdown,
+  generateComplianceJson,
+} from '@varp/audit';
+import { discoverFiles } from '@varp/audit/src/discovery';
+import type { FileContent } from '@varp/audit';
+import type { AuditProgressEvent } from '@varp/audit';
+
+import { validateInput } from './validation';
+
+// ── Arg parsing ──
+
+export interface AuditArgs {
+  path: string;
+  ruleset: string;
+  model?: string;
+  concurrency?: number;
+  format?: 'text' | 'json' | 'markdown';
+  output?: string;
+  quiet?: boolean;
+}
+
+export function parseAuditArgs(argv: string[]): AuditArgs {
+  // argv: everything after "audit" subcommand
+  let path: string | undefined;
+  let ruleset = 'owasp-top-10';
+  let model: string | undefined;
+  let concurrency: number | undefined;
+  let format: 'text' | 'json' | 'markdown' | undefined;
+  let output: string | undefined;
+  let quiet = false;
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--ruleset' && argv[i + 1]) {
+      ruleset = argv[++i];
+    } else if (arg === '--model' && argv[i + 1]) {
+      model = argv[++i];
+    } else if (arg === '--concurrency' && argv[i + 1]) {
+      concurrency = parseInt(argv[++i], 10);
+    } else if (arg === '--format' && argv[i + 1]) {
+      const f = argv[++i];
+      if (f === 'text' || f === 'json' || f === 'markdown') {
+        format = f;
+      } else {
+        throw new Error(`Invalid format: ${f}. Must be text, json, or markdown`);
+      }
+    } else if (arg === '--output' && argv[i + 1]) {
+      output = argv[++i];
+    } else if (arg === '--quiet') {
+      quiet = true;
+    } else if (!arg.startsWith('-') && !path) {
+      path = arg;
+    }
+  }
+
+  if (!path) {
+    throw new Error('Path argument is required.\nUsage: varp audit <path> [--ruleset <name>] [--format text|json|markdown]');
+  }
+
+  return { path, ruleset, model, concurrency, format, output, quiet };
+}
+
+// ── Ruleset resolution ──
+
+function resolveRuleset(name: string): string {
+  // 1. Check if it's a direct path
+  if (existsSync(name)) {
+    return readFileSync(name, 'utf-8');
+  }
+
+  // 2. Check built-in rulesets
+  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../packages/audit/rulesets');
+  const builtinPath = resolve(builtinDir, `${name}.md`);
+  if (existsSync(builtinPath)) {
+    return readFileSync(builtinPath, 'utf-8');
+  }
+
+  // 3. Check relative to cwd
+  const cwdPath = resolve(process.cwd(), name);
+  if (existsSync(cwdPath)) {
+    return readFileSync(cwdPath, 'utf-8');
+  }
+
+  // 4. Try with .md extension
+  const cwdPathMd = resolve(process.cwd(), `${name}.md`);
+  if (existsSync(cwdPathMd)) {
+    return readFileSync(cwdPathMd, 'utf-8');
+  }
+
+  throw new Error(
+    `Ruleset not found: ${name}\n` +
+    `Searched:\n` +
+    `  ${name} (direct path)\n` +
+    `  ${builtinPath} (built-in)\n` +
+    `  ${cwdPath} (relative)\n` +
+    `  ${cwdPathMd} (relative with .md)`
+  );
+}
+
+// ── Progress reporter ──
+
+function createAuditProgress(quiet: boolean) {
+  if (quiet) return undefined;
+
+  let currentWave = 0;
+  let tasksInWave = 0;
+  let completedInWave = 0;
+
+  return (event: AuditProgressEvent) => {
+    switch (event.type) {
+      case 'plan-ready':
+        console.log(`\nAudit plan: ${event.plan.stats.totalTasks} tasks, ~${event.plan.stats.estimatedTokens.toLocaleString()} tokens`);
+        break;
+      case 'wave-start':
+        currentWave = event.wave;
+        tasksInWave = event.taskCount;
+        completedInWave = 0;
+        if (event.wave <= 2) {
+          console.log(`\nWave ${event.wave}: ${event.taskCount} tasks`);
+        }
+        break;
+      case 'task-complete':
+        completedInWave++;
+        const findings = event.result.findings.length;
+        const findingsStr = findings > 0 ? ` (${findings} findings)` : '';
+        console.log(`  [${completedInWave}/${tasksInWave}] ${event.task.description}${findingsStr}`);
+        break;
+      case 'task-error':
+        completedInWave++;
+        console.error(`  [${completedInWave}/${tasksInWave}] FAILED: ${event.task.description} — ${event.error.message}`);
+        break;
+      case 'complete':
+        console.log();
+        break;
+    }
+  };
+}
+
+// ── Main audit flow ──
+
+export async function runAuditCommand(argv: string[]): Promise<void> {
+  const args = parseAuditArgs(argv);
+
+  // Validate path
+  const validatedPath = validateInput(args.path);
+
+  // Resolve and parse ruleset
+  if (!args.quiet) {
+    console.log(`Ruleset: ${args.ruleset}`);
+  }
+  const rulesetContent = resolveRuleset(args.ruleset);
+  const ruleset = parseRuleset(rulesetContent);
+  if (!args.quiet) {
+    console.log(`  ${ruleset.meta.framework} v${ruleset.meta.version} — ${ruleset.rules.length} rules, ${ruleset.crossCutting.length} cross-cutting patterns`);
+  }
+
+  // Discover files
+  if (!args.quiet) {
+    console.log(`\nDiscovering files in: ${validatedPath}`);
+  }
+  const discoveredFiles = await discoverFiles(validatedPath);
+  if (!args.quiet) {
+    console.log(`  Found ${discoveredFiles.length} files`);
+  }
+
+  // Convert discovered files to FileContent
+  const files: FileContent[] = discoveredFiles.map(f => ({
+    path: f.path,
+    relativePath: f.relativePath,
+    content: f.content,
+    language: f.language,
+  }));
+
+  // Generate plan
+  const plan = generatePlan(files, ruleset);
+
+  // Execute
+  const report = await executeAuditPlan(plan, files, ruleset, {
+    model: args.model || 'claude-sonnet-4-5-20250929',
+    concurrency: args.concurrency,
+    onProgress: createAuditProgress(args.quiet ?? false),
+  });
+
+  // Output
+  const fmt = args.format || 'text';
+  if (fmt === 'json') {
+    console.log(generateComplianceJson(report));
+  } else if (fmt === 'markdown') {
+    console.log(generateComplianceMarkdown(report));
+  } else {
+    printComplianceReport(report);
+  }
+
+  // Save to file
+  if (args.output) {
+    let content: string;
+    if (fmt === 'json') {
+      content = generateComplianceJson(report);
+    } else if (fmt === 'markdown') {
+      content = generateComplianceMarkdown(report);
+    } else {
+      content = generateComplianceMarkdown(report); // text saves as markdown
+    }
+    writeFileSync(args.output, content, 'utf-8');
+    if (!args.quiet) {
+      console.log(`Report saved to: ${args.output}`);
+    }
+  }
+
+  // Exit with non-zero if critical findings
+  if (report.summary.critical > 0) {
+    process.exit(1);
+  }
+}

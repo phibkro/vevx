@@ -37,3 +37,8 @@ export type {
   ProgressCallback,
   ExecutorOptions,
 } from './executor';
+export {
+  printComplianceReport,
+  generateComplianceMarkdown,
+  generateComplianceJson,
+} from './compliance-reporter';

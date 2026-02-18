@@ -14,6 +14,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { parseArgs } from "util";
 
+import { runAuditCommand } from "./audit";
 import { login, logout } from "./auth";
 import { generateCompletions } from "./completions";
 import {
@@ -57,6 +58,7 @@ USAGE:
   bun run src/cli.ts <path> [options]
 
 COMMANDS:
+  audit <path>        Compliance audit against a ruleset
   login               Save API key for dashboard syncing
   logout              Remove saved API key
   completions [bash|zsh]  Generate shell completion script
@@ -90,7 +92,14 @@ CONFIGURATION:
     "parallel": true
   }
 
+AUDIT OPTIONS:
+  --ruleset <name>    Ruleset name or path (default: owasp-top-10)
+  --concurrency <n>   Max parallel API calls (default: 5)
+
 EXAMPLES:
+  # Compliance audit
+  code-audit audit src/ --ruleset owasp-top-10
+
   # Login to dashboard
   code-audit login
 
@@ -304,6 +313,16 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     console.log(generateCompletions(shell));
+    return;
+  }
+
+  if (firstArg === "audit") {
+    try {
+      await runAuditCommand(process.argv.slice(3));
+    } catch (error) {
+      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
+      process.exit(1);
+    }
     return;
   }
 
