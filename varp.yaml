@@ -61,6 +61,6 @@ audit:
     - ./docs/audit/design.md
 
 cli:
-  path: ./apps/cli/src
+  path: ./packages/cli/src
   deps: [audit]
   stability: experimental

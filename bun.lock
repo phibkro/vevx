@@ -12,7 +12,14 @@
         "typescript": "^5.7.0",
       },
     },
-    "apps/cli": {
+    "packages/audit": {
+      "name": "@varp/audit",
+      "version": "0.1.0",
+      "dependencies": {
+        "@varp/core": "workspace:*",
+      },
+    },
+    "packages/cli": {
       "name": "@varp/cli",
       "version": "0.1.0",
       "bin": {
@@ -23,13 +30,6 @@
         "@varp/core": "workspace:*",
         "chokidar": "^5.0.0",
         "ora": "^9.3.0",
-      },
-    },
-    "packages/audit": {
-      "name": "@varp/audit",
-      "version": "0.1.0",
-      "dependencies": {
-        "@varp/core": "workspace:*",
       },
     },
     "packages/core": {
@@ -129,7 +129,7 @@
 
     "@varp/audit": ["@varp/audit@workspace:packages/audit"],
 
-    "@varp/cli": ["@varp/cli@workspace:apps/cli"],
+    "@varp/cli": ["@varp/cli@workspace:packages/cli"],
 
     "@varp/core": ["@varp/core@workspace:packages/core"],
 

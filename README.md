@@ -151,7 +151,7 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 | `@varp/core` | `packages/core/` | MCP server — manifest, plan, scheduler, enforcement tools |
 | `@varp/audit` | `packages/audit/` | Compliance audit engine — multi-agent code review |
 | `@varp/plugin` | `packages/plugin/` | Claude Code plugin — skills, hooks, plugin manifest |
-| `@varp/cli` | `apps/cli/` | Unified CLI for varp tools |
+| `@varp/cli` | `packages/cli/` | CLI — wraps core and audit with I/O, file discovery, Anthropic SDK |
 
 ## Design Docs
 

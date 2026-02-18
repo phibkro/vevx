@@ -18,6 +18,6 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 
 **Audit** (experimental): `audit` = `packages/audit/src/`. Single component — planner and agents are internal subdirectories.
 
-**CLI** (experimental): `cli` = `apps/cli/src/`. Unified CLI for all varp tools.
+**CLI** (experimental): `cli` = `packages/cli/src/`. Wraps core and audit with I/O, file discovery, and Anthropic SDK.
 
 If you modify component files, note which components were affected in your response.

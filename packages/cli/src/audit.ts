@@ -107,7 +107,7 @@ function resolveRuleset(name: string): string {
   }
 
   // 2. Check built-in rulesets
-  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../packages/audit/rulesets');
+  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../audit/rulesets');
   const builtinPath = resolve(builtinDir, `${name}.md`);
   if (existsSync(builtinPath)) {
     return readFileSync(builtinPath, 'utf-8');

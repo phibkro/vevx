@@ -14,7 +14,7 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 - **Format**: oxfmt (100-char width, double quotes, trailing commas)
 
 ## Architecture
-Monorepo with Bun workspaces (`packages/*`, `apps/*`):
+Monorepo with Bun workspaces (`packages/*`):
 
 ### @varp/core (packages/core/)
 Components defined in `varp.yaml`:
@@ -31,8 +31,8 @@ Components defined in `varp.yaml`:
 Compliance audit engine (experimental):
 - `audit` (packages/audit/src/) — Single component: orchestrator, planner, agents, chunker, client
 
-### @varp/cli (apps/cli/)
-CLI for running audits. Depends on @varp/audit (workspace).
+### @varp/cli (packages/cli/)
+CLI wrapping core and audit with I/O, file discovery, and Anthropic SDK. Depends on @varp/audit (workspace).
 
 Import alias `#shared/*` → `packages/core/src/shared/` (tsconfig paths in packages/core/).
 `tsconfig.base.json` at root, packages extend it.

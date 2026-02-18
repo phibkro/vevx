@@ -12,10 +12,10 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 | `cd packages/core && bun run typecheck` | Type-check core via tsc --noEmit |
 | `bun test packages/core/src/index.test.ts` | MCP integration tests only |
 | `bun test packages/core/src/scheduler/` | Scheduler tests only |
-| `bun run apps/cli/dist/cli.js lint` | Lint manifest for issues |
-| `bun run apps/cli/dist/cli.js graph` | Render dependency graph (Mermaid) |
-| `bun run apps/cli/dist/cli.js freshness` | Check doc freshness |
-| `bun run apps/cli/dist/cli.js validate plan.xml` | Validate plan against manifest |
+| `bun run packages/cli/dist/cli.js lint` | Lint manifest for issues |
+| `bun run packages/cli/dist/cli.js graph` | Render dependency graph (Mermaid) |
+| `bun run packages/cli/dist/cli.js freshness` | Check doc freshness |
+| `bun run packages/cli/dist/cli.js validate plan.xml` | Validate plan against manifest |
 
 ## Stack
 
@@ -47,9 +47,8 @@ packages/
   audit/                  Compliance audit engine (@varp/audit)
     src/                  Orchestrator, agents, planner, report
     rulesets/             Audit rulesets (OWASP, etc.)
-apps/
   cli/                    Varp CLI (@varp/cli) — subcommands: audit, lint, graph, freshness, validate
-  plugin/                  Claude Code plugin distribution (@varp/plugin)
+  plugin/                 Claude Code plugin distribution (@varp/plugin)
     .claude-plugin/       Plugin manifest (plugin.json, marketplace.json)
     skills/               5 prompt-based skills (init, status, plan, execute, review)
     hooks/                3 lifecycle hooks (session-start, subagent-context, freshness-track)
