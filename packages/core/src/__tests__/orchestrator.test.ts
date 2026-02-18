@@ -318,7 +318,7 @@ describe('Orchestrator Score Calculation', () => {
 describe('Orchestrator Integration', () => {
   it('agent system is correctly configured', () => {
     // Verify we have all expected agents
-    expect(agents).toHaveLength(5)
+    expect(agents).toHaveLength(7)
 
     const agentNames = agents.map(a => a.name)
     expect(agentNames).toContain('correctness')
@@ -326,6 +326,8 @@ describe('Orchestrator Integration', () => {
     expect(agentNames).toContain('performance')
     expect(agentNames).toContain('maintainability')
     expect(agentNames).toContain('edge-cases')
+    expect(agentNames).toContain('accessibility')
+    expect(agentNames).toContain('documentation')
   })
 
   it('all agents have required properties', () => {
@@ -350,10 +352,12 @@ describe('Orchestrator Integration', () => {
       return map
     }, {} as Record<string, number>)
 
-    expect(weightMap['correctness']).toBe(0.25)
-    expect(weightMap['security']).toBe(0.25)
-    expect(weightMap['performance']).toBe(0.15)
-    expect(weightMap['maintainability']).toBe(0.20)
-    expect(weightMap['edge-cases']).toBe(0.15)
+    expect(weightMap['correctness']).toBe(0.22)
+    expect(weightMap['security']).toBe(0.22)
+    expect(weightMap['performance']).toBe(0.13)
+    expect(weightMap['maintainability']).toBe(0.15)
+    expect(weightMap['edge-cases']).toBe(0.13)
+    expect(weightMap['accessibility']).toBe(0.10)
+    expect(weightMap['documentation']).toBe(0.05)
   })
 })

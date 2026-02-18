@@ -5,12 +5,15 @@ import { writeFileSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { loadConfig, validateConfig, type Config, type OutputFormat, type VerbosityLevel } from "./config";
-import { discoverFiles } from "./discovery";
-import { createChunks, formatChunkSummary } from "./chunker";
-import { runAudit } from "./orchestrator";
-import { synthesizeReport } from "./report/synthesizer";
-import { printReport } from "./report/terminal";
-import { generateMarkdown } from "./report/markdown";
+import {
+  createChunks,
+  formatChunkSummary,
+  runAudit,
+  synthesizeReport,
+  printReport,
+  generateMarkdown,
+} from "@code-auditor/core";
+import { discoverFiles } from "@code-auditor/core/src/discovery";
 import { formatJson } from "./formatters/json";
 import { formatMarkdown } from "./formatters/markdown";
 import { formatHtml } from "./formatters/html";
@@ -199,11 +202,11 @@ async function runAuditFlow(validatedPath: string, config: Config, args: CliArgs
   // Run multi-agent audit with progress reporting
   const startTime = Date.now();
   const reporter = config.verbosity !== "quiet" ? createProgressReporter() : null;
-  const agentResults = await runAudit(files, {
-    model: config.model,
-    maxTokens: 4096, // Per-agent response limit
-    onProgress: reporter?.onProgress,
-  });
+  const agentResults = await runAudit(
+    files,
+    { model: config.model, maxTokens: 4096 },
+    reporter?.onProgress,
+  );
   const durationMs = Date.now() - startTime;
 
   // Synthesize report

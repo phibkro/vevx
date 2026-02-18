@@ -1,13 +1,5 @@
 import ora from 'ora'
-
-export interface ProgressEvent {
-  type: 'started' | 'agent-started' | 'agent-completed' | 'completed'
-  agentCount?: number
-  agent?: string
-  score?: number
-  duration?: number
-  totalDuration?: number
-}
+import type { ProgressEvent } from '@code-auditor/core'
 
 export function createProgressReporter() {
   let spinner: any = null
