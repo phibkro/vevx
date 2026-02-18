@@ -76,7 +76,7 @@ Not in design doc. Parser caches by `(absolutePath, mtimeMs)` to avoid re-parsin
 | WAR context snapshotting | 4.2 | Deferred | Depends on worktree isolation |
 | Prompt caching integration | 3.4 | Deferred | Requires Anthropic SDK cache breakpoint API |
 | Batch API for verification | 3.4 | Deferred | Optimization, not blocking |
-| Budget enforcement at runtime | 2.2 | Partial | Budgets declared in plans, tracked in skills, not enforced by MCP tools |
+| ~~Budget enforcement at runtime~~ | 2.2 | Dropped | Reframed as observability metrics — see [ADR-001](../decisions/adr-001-budget-observability.md) |
 | Warm agent staleness detection | 7.7 | Open | Skills document the protocol, no automated check |
 | Medium loop UX | 7.1 | Partial | `/varp:review` skill exists but UX is underspecified |
 | Decision authority matrix | 7.3 | Open | Escalation thresholds need empirical tuning |

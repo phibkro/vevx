@@ -104,7 +104,7 @@ Cycle detection is implicit — the recursive `getWave` throws if it revisits a 
 
 Longest chain of RAW dependencies via memoized DP. For each task, compute `longestPathTo(task) = max(longestPathTo(pred) + 1)` across all RAW predecessors. The global maximum is the critical path.
 
-Returns task IDs in chain order plus the summed budget (tokens + minutes) along the path.
+Returns task IDs in chain order plus the chain length.
 
 ### Restart Strategy (`restart.ts`)
 
@@ -164,7 +164,7 @@ Tools are defined as `ToolDef` objects in `index.ts` — each with name, descrip
 2. Error handling (catch → `{ isError: true }`)
 3. MCP response formatting (`{ content: [{ type: "text", text }] }`)
 
-Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `touchesSchema`, `budgetSchema`, `taskRefSchema`, `schedulableTaskSchema`) are defined once and reused across tool definitions. Scheduler and enforcement tools accept minimal task objects (`{id, touches}` or `{id, touches, budget}`) rather than full `Task` schemas — reduces tool description token overhead.
+Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `touchesSchema`, `taskRefSchema`, `schedulableTaskSchema`) are defined once and reused across tool definitions. Scheduler and enforcement tools accept minimal task objects (`{id, touches}`) rather than full `Task` schemas — reduces tool description token overhead.
 
 `varp_compute_waves` accepts inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 

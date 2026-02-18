@@ -79,7 +79,7 @@ The planner and orchestrator never run simultaneously. The planner session is a 
 
 **Verification is test-driven.** Postconditions should be test suites, not bespoke shell commands. The planner writes test expectations ("rate limiting returns 429 after threshold"), the subagent implements TDD (write failing tests, implement until they pass), and the orchestrator verifies at wave boundaries by running the test suite. Invariants remain as the broader regression check ("full test suite still passes, types compile"). Each `<verify>` element is a shell command that exits 0 on success — prefer `bun test --filter=rate-limit` over `grep -r "router\."`.
 
-**Resource budgets are per-task.** Each task declares token and time limits that the orchestrator enforces during execution. Directed tasks get tighter budgets (the path is known). Contract tasks get more headroom (the agent must discover its own approach). The planner sets initial budgets based on task complexity; the orchestrator can adjust based on execution history from previous waves or sessions.
+**Resource consumption is observed, not budgeted.** The original design specified per-task token and time budgets enforced at runtime. This was dropped ([ADR-001](../decisions/adr-001-budget-observability.md)) because the platform lacks enforcement APIs, estimation has no reliable basis, and failure modes are asymmetric (too-tight budgets cut off useful work; too-loose budgets never bind). Actual resource consumption is tracked as execution metrics in `log.xml` for medium loop review.
 
 #### 3.2.1 The Planner Agent
 
@@ -91,10 +91,9 @@ The planner agent is a specialized agent whose domain is decomposing vague human
 2. **Clarify intent** — ask the human targeted questions to resolve ambiguity ("per-user or per-IP? what HTTP status on limit?")
 3. **Decompose** — break the feature into tasks scoped to individual components. Each task covers implementation, tests, and doc updates for its scope. Split by context window pressure, not by action type.
 4. **Derive `touches`** — for each task, determine which components it reads from and writes to, cross-referencing the manifest's `deps` graph for consistency. Two tasks writing the same component is a plan smell — merge them.
-5. **Set budgets** — assign token and time limits per task, scaled to scope complexity (budgets include implementation + tests + docs)
-6. **Write contracts** — preconditions (readiness), invariants (regression checks at wave boundaries), and postconditions (test suites that verify the feature works). Prefer test-driven postconditions over bespoke shell scripts.
-7. **Choose plan mode** — directed (explicit steps) for well-understood work, contract (postconditions only) for complex autonomous work
-8. **Output `plan.xml`** — the complete plan artifact
+5. **Write contracts** — preconditions (readiness), invariants (regression checks at wave boundaries), and postconditions (test suites that verify the feature works). Prefer test-driven postconditions over bespoke shell scripts.
+6. **Choose plan mode** — directed (explicit steps) for well-understood work, contract (postconditions only) for complex autonomous work
+7. **Output `plan.xml`** — the complete plan artifact
 
 **`touches` validation is the planner's responsibility.** The entire concurrency model depends on correct read/write declarations. The planner derives `touches` from both the task description and the manifest's dependency graph. If a task on `web` needs to change behavior that flows through `auth`, that's a write to `auth`, not just `web` — even if the files being edited are in `web`'s directory. The planner must reason about behavioral dependencies, not just file locations.
 
@@ -102,7 +101,7 @@ The orchestrator performs a consistency check at dispatch time: if a task's `tou
 
 ### 3.3 The Orchestrator
 
-The orchestrator is Claude Code — specifically, a Claude Code session with Varp's MCP tools and skills loaded. It is both coordinator and process manager: it maintains the accurate project model, translates architectural intent into concrete subagent prompts, schedules and supervises task execution, enforces resource budgets, handles failures, and executes the plan's task graph.
+The orchestrator is Claude Code — specifically, a Claude Code session with Varp's MCP tools and skills loaded. It is both coordinator and process manager: it maintains the accurate project model, translates architectural intent into concrete subagent prompts, schedules and supervises task execution, handles failures, and executes the plan's task graph.
 
 Varp does not implement its own orchestrator runtime. Claude Code already provides the agent loop, tool execution, subagent dispatch (Task tool), session management, hooks system, and context compaction. Varp adds manifest-awareness to this existing infrastructure through MCP tools that the orchestrator calls during its work cycle.
 

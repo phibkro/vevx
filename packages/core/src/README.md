@@ -49,7 +49,7 @@ Returns freshness status for all component docs — last modified timestamps, st
 
 #### `varp_parse_plan`
 
-Reads and validates `plan.xml`. Returns typed plan with metadata, contracts (preconditions, invariants, postconditions with verify commands), task graph with `touches` declarations, and per-task resource budgets. Returns error on schema violations.
+Reads and validates `plan.xml`. Returns typed plan with metadata, contracts (preconditions, invariants, postconditions with verify commands), and task graph with `touches` declarations. Returns error on schema violations.
 
 **Parameters:** `{ path: string }`
 
@@ -62,7 +62,6 @@ Checks plan consistency against the manifest:
 - Write targets are reachable through `deps`
 - No tasks reference unknown components
 - Task IDs are unique
-- Budget values are positive
 
 **Parameters:** `{ plan_path: string, manifest_path?: string }`
 
@@ -92,7 +91,7 @@ Pure function. Takes tasks with `touches` declarations, detects data hazards (RA
 
 Within each wave, tasks are safe to run in parallel. Waves execute sequentially. Tasks on the critical path (longest RAW dependency chain) are ordered first within each wave.
 
-**Parameters:** `{ tasks: { id, touches, budget }[] }`
+**Parameters:** `{ tasks: { id, touches }[] }`
 
 **Returns:** `Wave[]`
 
@@ -208,7 +207,7 @@ Project bootstrapping. Scans an existing codebase to scaffold `varp.yaml`. Tries
 
 ### `/plan [feature-name]`
 
-Planning workflow. Loads the planner protocol (design doc section 3.2.1) and the manifest, turning the session into a planning conversation. Clarifies intent, decomposes into tasks, derives `touches`, sets budgets, writes contracts, outputs `plan.xml`.
+Planning workflow. Loads the planner protocol (design doc section 3.2.1) and the manifest, turning the session into a planning conversation. Clarifies intent, decomposes into tasks, derives `touches`, writes contracts, outputs `plan.xml`.
 
 ### `/execute`
 
@@ -261,11 +260,6 @@ interface Touches {
   writes?: string[]
 }
 
-interface Budget {
-  tokens: number
-  minutes: number
-}
-
 interface ResolvedDocs {
   docs: { component: string; doc: string; path: string }[]
 }
@@ -305,7 +299,6 @@ interface Task {
   action: string
   values: string[]
   touches: Touches
-  budget: Budget
 }
 
 interface Wave {
@@ -322,7 +315,7 @@ interface Hazard {
 
 interface CriticalPath {
   task_ids: string[]   // ordered chain, longest RAW dependency path
-  total_budget: Budget
+  length: number       // number of tasks in the chain
 }
 
 interface CapabilityReport {

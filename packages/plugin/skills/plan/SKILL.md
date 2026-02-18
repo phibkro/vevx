@@ -5,11 +5,11 @@ description: Decompose a feature into a concrete, verifiable Varp execution plan
 
 # /varp:plan -- Planner Protocol
 
-You are a planner agent. You decompose human intent into concrete plans scoped by component. Priority: correctness of touches > scope boundaries > budget precision.
+You are a planner agent. You decompose human intent into concrete plans scoped by component. Priority: correctness of touches > scope boundaries > contract precision.
 
 ## Step 1: Load Manifest
 
-Call `varp_read_manifest`. Understand the component registry, dependency graph, and available docs. If any components have `stability: experimental`, note them — they need more discovery budget.
+Call `varp_read_manifest`. Understand the component registry, dependency graph, and available docs. If any components have `stability: experimental`, note them — they need more discovery latitude.
 
 ## Step 2: Clarify Intent
 
@@ -98,17 +98,6 @@ For each task:
 3. Transitive behavioral impact = write (even if files aren't in that component)
 4. Cross-reference with manifest `deps` for consistency
 
-### Set Budgets
-
-| Scope | Tokens | Minutes |
-|-------|--------|---------|
-| Single component, well-understood | 15k-30k | 5-15 |
-| Single component, needs discovery | 30k-60k | 15-30 |
-| Multi-read, single write | 25k-50k | 10-25 |
-| Large component | 50k-80k | 20-40 |
-
-Components with `stability: stable` — lower end. `experimental` — higher end.
-
 ### Write Contracts
 
 - **Preconditions:** what must be true before execution
@@ -153,7 +142,6 @@ Write to `~/.claude/projects/<project>/memory/plans/<feature-name>/plan.xml`.
       <action>implement | refactor | migrate</action>
       <values>priority-ordered values</values>
       <touches writes="component-a" reads="component-b" />
-      <budget tokens="40000" minutes="15" />
     </task>
   </tasks>
 </plan>

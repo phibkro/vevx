@@ -72,7 +72,7 @@ For each component in the task's write set, check if it has an `env` field in th
 
 Send the task to a subagent using the Task tool. Assemble the prompt:
 
-**Stability-aware dispatch:** When dispatching to an `experimental` component, increase budget by 1.5x. When dispatching to a `stable` component with many dependents, emphasize in the subagent prompt that changes must preserve backward compatibility.
+**Stability-aware dispatch:** When dispatching to a `stable` component with many dependents, emphasize in the subagent prompt that changes must preserve backward compatibility. When dispatching to an `experimental` component, allow more exploratory latitude.
 
 - **Domain:** Component scope from the task's touches — tell the subagent which component(s) it owns
 - **Action:** From the task's `<action>` element
@@ -88,8 +88,6 @@ The subagent prompt must mandate:
 3. Update any docs within the write scope that are affected by the changes (README.md, docs/*.md). If the task adds new public API surface, types, or tools, the component's README.md must reflect them.
 4. Run postcondition verification commands before reporting completion
 5. Report exit status: `COMPLETE | PARTIAL | BLOCKED | NEEDS_REPLAN`
-
-**Budget:** Set `max_turns` on the Task tool based on the plan's per-task budget. If this is a retry, increase by 1.5x.
 
 **Warm resumption:** If the next task shares a component scope with the just-completed task and no intervening writes occurred, resume the previous subagent session instead of starting cold.
 
@@ -166,7 +164,7 @@ Call `varp_derive_restart_strategy` with the failed task, all tasks, and complet
 
 | Strategy | Action |
 |----------|--------|
-| `isolated_retry` | Redispatch with increased budget (max 2 retries) |
+| `isolated_retry` | Redispatch the task (max 2 retries) |
 | `cascade_restart` | Cancel affected wave, restart from failed task forward |
 | `escalate` | Stop execution, report to human with diagnosis |
 

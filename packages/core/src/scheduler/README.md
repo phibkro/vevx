@@ -16,8 +16,8 @@ Deterministic scheduling algorithms for task dependency analysis and parallel ex
 
 **Wave computation** — Topological sort over RAW dependencies. Tasks within the same wave have no data dependencies and can execute in parallel. WAR/WAW hazards are warnings, not blockers.
 
-**Critical path** — Memoized dynamic programming over RAW chains. Returns the longest dependency sequence with cumulative token/minute budgets. Used to estimate minimum sequential execution time.
+**Critical path** — Memoized dynamic programming over RAW chains. Returns the longest dependency sequence. Used to estimate minimum sequential execution depth.
 
 ## Data Flow
 
-All three functions accept a task array with `touches` (reads/writes) and `budget` (tokens/minutes) declarations. Input comes from a parsed `plan.xml`. Output is pure JSON — no side effects.
+All three functions accept a task array with `touches` (reads/writes) declarations. Input comes from a parsed `plan.xml`. Output is pure JSON — no side effects.

@@ -1,6 +1,6 @@
 # Plan Schema
 
-Reference for `plan.xml`, the execution plan that declares tasks, contracts, and resource budgets.
+Reference for `plan.xml`, the execution plan that declares tasks and contracts.
 
 ## Example
 
@@ -40,7 +40,6 @@ Reference for `plan.xml`, the execution plan that declares tasks, contracts, and
       <action>implement</action>
       <values>security, correctness, backwards-compatibility</values>
       <touches writes="auth" reads="api" />
-      <budget tokens="30000" minutes="10" />
     </task>
 
     <task id="2">
@@ -48,7 +47,6 @@ Reference for `plan.xml`, the execution plan that declares tasks, contracts, and
       <action>test</action>
       <values>coverage, correctness</values>
       <touches writes="auth" reads="auth" />
-      <budget tokens="20000" minutes="8" />
     </task>
 
     <task id="3">
@@ -56,7 +54,6 @@ Reference for `plan.xml`, the execution plan that declares tasks, contracts, and
       <action>document</action>
       <values>accuracy, completeness</values>
       <touches reads="auth, api" />
-      <budget tokens="10000" minutes="5" />
     </task>
   </tasks>
 </plan>
@@ -117,7 +114,6 @@ Contains one or more `<task>` elements.
 | `<action>` | element | yes | Action verb: `implement`, `test`, `document`, `refactor`, `migrate`, etc. |
 | `<values>` | element | yes | Comma-separated priority ordering (e.g. `"security, correctness"`) |
 | `<touches>` | element | yes | Component read/write declarations (see below) |
-| `<budget>` | element | yes | Resource limits (see below) |
 
 #### `<touches>`
 
@@ -143,25 +139,6 @@ Component names must match entries in `varp.yaml`. The orchestrator uses these d
 - **Schedule** — derive execution waves and detect data hazards (RAW/WAR/WAW)
 - **Enforce** — verify file changes stay within declared write scope
 - **Recover** — derive restart strategies from dependency overlap on failure
-
-#### `<budget>`
-
-Self-closing element with resource limits for this task.
-
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `tokens` | yes | Maximum token consumption (positive number) |
-| `minutes` | yes | Maximum time in minutes (positive number) |
-
-```xml
-<budget tokens="30000" minutes="10" />
-```
-
-Budget guidelines:
-- Directed tasks (explicit steps): 10k-30k tokens, 5-15 minutes
-- Contract tasks (postconditions only): 20k-50k tokens, 10-30 minutes
-- Test tasks: 15k-25k tokens, 5-15 minutes
-- Documentation tasks: 5k-15k tokens, 3-10 minutes
 
 ## Verification Commands
 
@@ -207,7 +184,6 @@ Use `varp_validate_plan` to check a plan against the manifest. Validation catche
 
 - Components in `touches` that don't exist in the manifest
 - Duplicate task IDs
-- Missing or invalid budgets (must be positive numbers)
 - WAW hazards (reported as warnings, not errors)
 
 ## Diffing
@@ -216,7 +192,7 @@ Use `varp_validate_plan` to check a plan against the manifest. Validation catche
 
 - **`metadata`** — field-level changes to `feature` and `created`
 - **`contracts`** — added, removed, or modified conditions/invariants, matched by `id` across preconditions, invariants, and postconditions
-- **`tasks`** — added, removed, or modified tasks, matched by `id` with field-level detail (description, action, values, touches, budget)
+- **`tasks`** — added, removed, or modified tasks, matched by `id` with field-level detail (description, action, values, touches)
 
 The pure `diffPlans()` function accepts two `Plan` objects and performs no I/O. Matching is by ID — reordered entries with the same IDs don't produce diffs, only content differences are surfaced.
 

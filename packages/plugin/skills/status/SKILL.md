@@ -78,7 +78,7 @@ Output a structured report with these sections:
 
 ### Critical Path
 Tasks: <id> -> <id> -> <id>
-Estimated budget: <tokens> tokens, <minutes> minutes
+Critical path length: <n> tasks
 
 ## Active Plans
 

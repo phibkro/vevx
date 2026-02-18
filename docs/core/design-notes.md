@@ -16,7 +16,7 @@ The orchestrator's inner execution cycle: select → verify → resolve → disp
 
 Plan → execute → observe → replan. The human reviews the **manifest diff** between pre-execution and post-execution state: which tasks completed, which failed, which docs were invalidated, which interfaces broke, what the orchestrator flagged as uncertain.
 
-The execution metrics from `log.xml` inform the next cycle: tasks that consumed disproportionate resources suggest misscoped work, high restart rates on a component suggest inadequate interface documentation, capability violations suggest incorrect `touches` derivation by the planner. These signals feed back into planning — the planner can use execution history to set better budgets, write tighter `touches`, and decompose more carefully.
+The execution metrics from `log.xml` inform the next cycle: tasks that consumed disproportionate resources suggest misscoped work, high restart rates on a component suggest inadequate interface documentation, capability violations suggest incorrect `touches` derivation by the planner. These signals feed back into planning — the planner can use execution history to write tighter `touches` and decompose more carefully.
 
 This annotated diff is the decision surface. The human decides whether to proceed, replan, or intervene. The planner agent (a separate session, never running simultaneously with the orchestrator) produces or refines the next plan based on the current state, guided by the human's intent.
 
@@ -60,9 +60,9 @@ The concurrency model is only as good as the `touches` declarations. If a task d
 
 The behavioral assumptions in interface docs are human-written because the important ones can't be mechanically extracted. But how do you know you've documented all the important assumptions? Missing interface assumptions are the most dangerous failure mode — the system has no way to verify what it doesn't know about. This is fundamentally unsolvable in general, but heuristics for surfacing likely-missing assumptions (e.g., components that interact frequently but have sparse interface docs, or high capability-violation rates on a component boundary) could help.
 
-### 7.6 Budget Calibration
+### 7.6 Execution Cost Visibility
 
-Initial resource budgets are set by the planner based on task complexity estimates, but these estimates may be systematically wrong — especially early in a project's lifecycle when there's no execution history. The orchestrator can adjust budgets based on observed consumption patterns, but the feedback loop between observed costs and planned budgets crosses the session boundary. How budget learning feeds from `log.xml` back into planning, and whether the planner should have access to aggregate execution metrics, needs design work.
+~~Budget calibration was the original framing — dropped per [ADR-001](../decisions/adr-001-budget-observability.md).~~ The remaining question is how to surface execution cost data usefully. `log.xml` captures per-task token/time/tool metrics, but the medium loop review currently presents them as a flat table. Whether aggregate cost trends across sessions (e.g., "auth tasks consistently cost 2x more than api tasks") can inform future planning — and what the right storage and retrieval mechanism is — needs design work.
 
 ### 7.7 Warm Agent Staleness
 
@@ -114,7 +114,7 @@ experiments:
   stability: experimental
 ```
 
-Three levels: `stable` (rarely changes, many dependents), `active` (regular development), `experimental` (frequent changes, few dependents). Informs the planner's budget calibration (stable components need less discovery budget) and the orchestrator's restart strategy (experimental failures are more likely isolated). Default: `active`.
+Three levels: `stable` (rarely changes, many dependents), `active` (regular development), `experimental` (frequent changes, few dependents). Informs the planner's scope estimation (stable components need less discovery) and the orchestrator's restart strategy (experimental failures are more likely isolated). Default: `active`.
 
 ### 8.5 Design Considerations
 
@@ -132,7 +132,7 @@ Named **mutexes** (exclusive resource locks on plan tasks, e.g., `mutex: ["db-mi
 
 **CPU pipeline theory:** RAW/WAR/WAW hazard detection for task scheduling, register renaming via context snapshotting, speculative execution via parallel worktrees.
 
-**OS process management:** Resource limits (token/time budgets as cgroups), capability restrictions (`touches` as namespace boundaries), process accounting (structured execution metrics), wave cancellation (process group signals), fork-and-COW semantics (warm agent resumption).
+**OS process management:** Process accounting (structured execution metrics as /proc), capability restrictions (`touches` as namespace boundaries), wave cancellation (process group signals), fork-and-COW semantics (warm agent resumption).
 
 **Erlang/OTP supervision trees:** Two-layer constraint as flat supervision hierarchy. Restart strategies (isolated retry, cascade restart, escalate) derived mechanically from dependency metadata rather than configured per-worker. The supervisor (orchestrator) has a global view; workers (subagents) are isolated.
 

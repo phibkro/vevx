@@ -27,7 +27,6 @@ Compare the plan's intended outcomes against what actually happened.
 **Completed tasks:**
 - Which tasks reached COMPLETE status
 - Did their postconditions pass
-- Were they within budget (tokens and time)
 - Any capability violations detected
 
 **Failed tasks:**
@@ -54,10 +53,10 @@ Present per-task and aggregate metrics from log.xml.
 
 | Task | Status | Tokens | Time | Tools | Files | Retries | Violations |
 |------|--------|--------|------|-------|-------|---------|------------|
-| <id>: <description> | <status> | <used>/<budget> | <elapsed>/<budget> | <count> | <count> | <count> | <count> |
+| <id>: <description> | <status> | <used> | <elapsed> | <count> | <count> | <count> | <count> |
 
 **Aggregate metrics:**
-- Total tokens consumed vs total budget
+- Total tokens consumed
 - Total time elapsed
 - Task completion rate (COMPLETE / total)
 - Failure rate (non-COMPLETE / total)
@@ -65,7 +64,7 @@ Present per-task and aggregate metrics from log.xml.
 - Capability violation count
 
 **Signals to highlight:**
-- Tasks that consumed >80% of budget indicate tight scoping
+- Tasks with disproportionately high token counts may indicate scope issues
 - Tasks with >0 retries indicate potential planning issues
 - Tasks with capability violations indicate incorrect touches derivation
 - Components with high failure rates may need better interface documentation
