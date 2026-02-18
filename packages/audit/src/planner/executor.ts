@@ -6,7 +6,7 @@ import type {
   CoverageEntry,
 } from './findings';
 import { callClaude, type ApiCallOptions } from '../client';
-import { generatePrompt, parseAuditResponse } from './prompt-generator';
+import { generatePrompt, parseAuditResponse, AUDIT_FINDINGS_SCHEMA } from './prompt-generator';
 import { deduplicateFindings, summarizeFindings } from './findings';
 
 // ── Progress events ──
@@ -46,6 +46,7 @@ const DEFAULT_CONCURRENCY = 5;
 
 /**
  * Execute a single audit task: generate prompt, call Claude, parse response.
+ * Uses structured outputs (--json-schema) for constrained decoding when available.
  */
 async function executeTask(
   task: AuditTask,
@@ -56,17 +57,19 @@ async function executeTask(
   const prompt = generatePrompt(task, files, ruleset);
   const start = Date.now();
 
-  const raw = await callClaude(prompt.systemPrompt, prompt.userPrompt, options);
+  const result = await callClaude(prompt.systemPrompt, prompt.userPrompt, {
+    ...options,
+    jsonSchema: AUDIT_FINDINGS_SCHEMA,
+  });
 
   const durationMs = Date.now() - start;
-  // Rough token estimate: ~4 chars per token for prompt, actual completion unknown
-  const promptTokens = Math.ceil(
-    (prompt.systemPrompt.length + prompt.userPrompt.length) / 4
-  );
-  const completionTokens = Math.ceil(raw.length / 4);
-  const tokensUsed = promptTokens + completionTokens;
 
-  return parseAuditResponse(raw, task, options.model, tokensUsed, durationMs);
+  // Use real token counts from API when available, fall back to estimate
+  const tokensUsed = result.usage
+    ? result.usage.inputTokens + result.usage.outputTokens
+    : Math.ceil((prompt.systemPrompt.length + prompt.userPrompt.length + result.text.length) / 4);
+
+  return parseAuditResponse(result.text, task, options.model, tokensUsed, durationMs, result.structured);
 }
 
 /**

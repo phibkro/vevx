@@ -31,8 +31,8 @@ async function runAgent(
     // Generate user prompt from files
     const userPrompt = agent.userPromptTemplate(files);
 
-    // Call Claude API
-    const rawResponse = await callClaude(
+    // Call Claude API (no JSON schema for generic agents — they use their own text parsers)
+    const apiResult = await callClaude(
       agent.systemPrompt,
       userPrompt,
       {
@@ -42,7 +42,7 @@ async function runAgent(
     );
 
     // Parse response
-    const result = agent.parseResponse(rawResponse);
+    const result = agent.parseResponse(apiResult.text);
 
     // Set actual duration
     result.durationMs = Date.now() - startTime;

@@ -332,4 +332,33 @@ describe('parseAuditResponse', () => {
     expect(result.tokensUsed).toBe(5000);
     expect(result.durationMs).toBe(3000);
   });
+
+  it('uses pre-parsed structured output when provided', () => {
+    const structured = {
+      findings: [{
+        ruleId: 'BAC-01',
+        severity: 'critical',
+        title: 'Structured output finding',
+        description: 'From constrained decoding',
+        locations: [{ file: 'src/api/routes.ts', startLine: 5 }],
+        evidence: 'some evidence',
+        remediation: 'fix it',
+        confidence: 0.95,
+      }],
+    };
+
+    // raw text is ignored when structured is provided
+    const result = parseAuditResponse('ignored', SCAN_TASK, META.model, META.tokensUsed, META.durationMs, structured);
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0].ruleId).toBe('BAC-01');
+    expect(result.findings[0].title).toBe('Structured output finding');
+    expect(result.findings[0].confidence).toBe(0.95);
+  });
+
+  it('falls back to text parsing when structured is null', () => {
+    const raw = JSON.stringify({ findings: [{ ruleId: 'X-01', severity: 'low', title: 'text parsed', description: '', locations: [], evidence: '', remediation: '', confidence: 0.5 }] });
+    const result = parseAuditResponse(raw, SCAN_TASK, META.model, META.tokensUsed, META.durationMs, null);
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0].title).toBe('text parsed');
+  });
 });

@@ -127,8 +127,15 @@ function makePlan(): AuditPlan {
 
 // ── Helpers ──
 
+/** Simulate a structured output response from callClaude */
 function validResponse(findings: object[] = []) {
-  return JSON.stringify({ findings });
+  const obj = { findings };
+  return {
+    text: JSON.stringify(obj),
+    structured: obj,
+    usage: { inputTokens: 1000, outputTokens: 500 },
+    costUsd: 0.01,
+  };
 }
 
 const FINDING_SQL_INJECTION = {

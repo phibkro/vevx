@@ -72,8 +72,51 @@ function formatCrossCuttingPattern(pattern: CrossCuttingPattern): string {
   return lines.join('\n');
 }
 
-// ── Output schema (embedded in prompts) ──
+// ── Output schema ──
 
+/**
+ * JSON Schema for structured output (constrained decoding via --json-schema).
+ * Guarantees the model emits valid JSON matching this schema.
+ */
+export const AUDIT_FINDINGS_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          ruleId: { type: 'string' },
+          severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low', 'informational'] },
+          title: { type: 'string' },
+          description: { type: 'string' },
+          locations: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                file: { type: 'string' },
+                startLine: { type: 'number' },
+                endLine: { type: 'number' },
+              },
+              required: ['file', 'startLine'],
+              additionalProperties: false,
+            },
+          },
+          evidence: { type: 'string' },
+          remediation: { type: 'string' },
+          confidence: { type: 'number' },
+        },
+        required: ['ruleId', 'severity', 'title', 'description', 'locations', 'evidence', 'remediation', 'confidence'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['findings'],
+  additionalProperties: false,
+};
+
+/** Human-readable schema description embedded in prompts for the model's benefit. */
 const FINDING_SCHEMA = `{
   "ruleId": "<rule ID from the rules above, e.g. BAC-01>",
   "severity": "critical" | "high" | "medium" | "low" | "informational",
@@ -263,13 +306,13 @@ function normalizeSeverity(raw: string): AuditSeverity {
 }
 
 /**
- * Parse a raw LLM response into an AuditTaskResult.
+ * Parse an LLM response into an AuditTaskResult.
  *
- * Handles common LLM output issues:
- * - JSON wrapped in markdown code fences
- * - Missing or malformed fields (uses defaults)
- * - Severity normalization
- * - Confidence clamping to [0, 1]
+ * Accepts either:
+ * - Pre-parsed structured output (from --json-schema constrained decoding) — no parsing needed
+ * - Raw text (fallback) — extracts JSON with regex, handles markdown fences and LLM quirks
+ *
+ * Both paths normalize severity, clamp confidence, and handle field variations.
  */
 export function parseAuditResponse(
   raw: string,
@@ -277,6 +320,7 @@ export function parseAuditResponse(
   model: string,
   tokensUsed: number,
   durationMs: number,
+  structured?: unknown,
 ): AuditTaskResult {
   const baseResult: Omit<AuditTaskResult, 'findings'> = {
     taskId: task.id,
@@ -289,16 +333,21 @@ export function parseAuditResponse(
   };
 
   try {
-    // Strip markdown code fences if present
-    const cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '');
+    let parsed: any;
 
-    // Extract JSON object
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON object found in response');
+    if (structured && typeof structured === 'object') {
+      // Structured output from --json-schema: already parsed, schema-validated
+      parsed = structured;
+    } else {
+      // Text fallback: extract JSON from free-form response
+      const cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '');
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON object found in response');
+      }
+      parsed = JSON.parse(jsonMatch[0]);
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
     const rawFindings: any[] = Array.isArray(parsed.findings) ? parsed.findings : [];
 
     const findings: AuditFinding[] = rawFindings.map((f: any) => ({

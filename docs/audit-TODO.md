@@ -14,6 +14,10 @@
 
 ## Next
 
+### CI Integration
+
+GitHub Action or similar. Exit code 1 on critical findings is already CI-friendly. Needs: action YAML, markdown report as PR comment or artifact, configurable severity threshold for exit code.
+
 ### Varp Core Integration (post-merge)
 
 Replace stopgap implementations with varp core primitives:

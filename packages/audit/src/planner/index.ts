@@ -29,6 +29,7 @@ export {
   generateComponentScanPrompt,
   generateCrossCuttingPrompt,
   parseAuditResponse,
+  AUDIT_FINDINGS_SCHEMA,
 } from './prompt-generator';
 export type { AuditPrompt } from './prompt-generator';
 export { executeAuditPlan } from './executor';
