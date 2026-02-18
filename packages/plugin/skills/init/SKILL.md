@@ -82,6 +82,13 @@ For each component, check for:
 - `{component.path}/docs/*.md` — auto-discovered by varp, no manifest entry needed
 - Documentation files outside the component's path tree — these require explicit `docs:` entries
 
+Then check for a root-level `docs/` folder. If it exists, scan its files and subfolders for names that match discovered components:
+
+- `docs/{component-name}.md` → add as `docs:` entry for that component
+- `docs/{component-name}/` (folder with `.md` files) → add the folder's `.md` files as `docs:` entries
+
+Only match clear name correspondences (exact match or obvious variants like `docs/auth.md` → `auth` component). Skip generic docs that don't map to a specific component (e.g. `docs/getting-started.md`, `docs/contributing.md`).
+
 Note the doc coverage for each component in the summary output.
 
 ### Step 5: Generate Manifest
