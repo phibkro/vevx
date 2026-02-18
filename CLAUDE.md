@@ -42,7 +42,7 @@ packages/
     src/                  Orchestrator, agents, planner, report
     rulesets/             Audit rulesets (OWASP, etc.)
 apps/
-  audit-cli/              Audit CLI (@varp/audit-cli)
+  cli/                    Varp CLI (@varp/cli)
 skills/                   5 prompt-based skills (init, status, plan, execute, review)
 hooks/                    3 lifecycle hooks (session-start, subagent-context, freshness-track)
 docs/                     Design docs, getting started, reference URLs

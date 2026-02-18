@@ -64,8 +64,8 @@ audit-agents:
   tags: [audit]
   stability: experimental
 
-audit-cli:
-  path: ./apps/audit-cli/src
+cli:
+  path: ./apps/cli/src
   deps: [audit-core]
-  tags: [audit, cli]
+  tags: [cli]
   stability: experimental

@@ -9,11 +9,11 @@
         "typescript": "^5.7.0",
       },
     },
-    "apps/audit-cli": {
-      "name": "@varp/audit-cli",
+    "apps/cli": {
+      "name": "@varp/cli",
       "version": "0.1.0",
       "bin": {
-        "varp-audit": "./dist/cli.js",
+        "varp": "./dist/cli.js",
       },
       "dependencies": {
         "@varp/audit": "workspace:*",
@@ -276,7 +276,7 @@
 
     "@varp/audit": ["@varp/audit@workspace:packages/audit"],
 
-    "@varp/audit-cli": ["@varp/audit-cli@workspace:apps/audit-cli"],
+    "@varp/cli": ["@varp/cli@workspace:apps/cli"],
 
     "@varp/core": ["@varp/core@workspace:packages/core"],
 
