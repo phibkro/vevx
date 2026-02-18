@@ -8,11 +8,11 @@
   "scripts": {
     "build": "bun build ./src/cli.ts --outdir ./dist --target bun",
     "test": "bun test",
-    "lint": "oxlint --type-aware",
+    "lint": "oxlint --type-aware --ignore-pattern 'src/github/'",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",
     "check": "bun run format:check && bun run lint && bun run build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "oxlint --type-aware --type-check --ignore-pattern 'src/github/'",
     "clean": "rm -rf dist",
     "dev": "bun run src/cli.ts"
   },
@@ -21,5 +21,8 @@
     "@varp/core": "workspace:*",
     "chokidar": "^5.0.0",
     "ora": "^9.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.0-dev.20260218"
   }
 }

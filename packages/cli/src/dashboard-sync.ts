@@ -1,7 +1,8 @@
 import { execSync } from "child_process";
 
+import type { AuditReport } from "@varp/audit";
+
 import { getApiKey } from "./auth";
-import type { AuditReport } from "./report/synthesizer";
 
 interface DashboardResponse {
   auditId: string;

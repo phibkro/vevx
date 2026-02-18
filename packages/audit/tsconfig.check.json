@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmit": true
+  },
+  "include": ["src/**/*"],
+  "exclude": [],
+  "files": ["../../node_modules/bun-types/test-globals.d.ts"]
+}

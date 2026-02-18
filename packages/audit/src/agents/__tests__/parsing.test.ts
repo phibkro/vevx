@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { accessibilityAgent } from "../accessibility";
 import { correctnessAgent } from "../correctness";
 import { documentationAgent } from "../documentation";
@@ -270,6 +272,7 @@ Hope this helps!`;
         relativePath: "file.ts",
         content: "const x = 1;\nconst y = 2;",
         language: "typescript",
+        size: 100,
       },
     ];
 
@@ -299,12 +302,14 @@ Hope this helps!`;
           relativePath: "file1.ts",
           content: "code1",
           language: "typescript",
+          size: 100,
         },
         {
           path: "/test/file2.ts",
           relativePath: "file2.ts",
           content: "code2",
           language: "typescript",
+          size: 100,
         },
       ];
 

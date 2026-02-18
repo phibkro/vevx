@@ -7,14 +7,18 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun --sourcemap=external --external @varp/core && tsc --emitDeclarationOnly",
     "test": "bun test",
-    "lint": "oxlint --type-aware",
+    "lint": "oxlint --type-aware --tsconfig tsconfig.check.json",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",
     "check": "bun run format:check && bun run lint && bun run build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "oxlint --type-aware --type-check --tsconfig tsconfig.check.json",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@varp/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.9",
+    "typescript": "^5.9.0"
   }
 }

@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { RateLimitError, AuthenticationError, ValidationError, AgentError } from "../errors";
 
 describe("Error Classes", () => {

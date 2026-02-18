@@ -207,13 +207,7 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
     console.log(`  Found ${discoveredFiles.length} files`);
   }
 
-  // Convert discovered files to FileContent
-  let files: FileContent[] = discoveredFiles.map((f) => ({
-    path: f.path,
-    relativePath: f.relativePath,
-    content: f.content,
-    language: f.language,
-  }));
+  let files: FileContent[] = discoveredFiles;
 
   // Apply diff filter for incremental audits
   let diffMeta: { ref: string; changedFiles: number } | undefined;

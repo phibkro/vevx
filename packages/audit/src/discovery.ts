@@ -3,13 +3,8 @@ import { resolve, relative, join } from "path";
 
 import { Glob } from "bun";
 
-export interface FileContent {
-  path: string;
-  relativePath: string;
-  language: string;
-  content: string;
-  size: number;
-}
+import type { FileContent } from "./agents/types";
+export type { FileContent };
 
 const LANGUAGE_MAP: Record<string, string> = {
   ".ts": "typescript",

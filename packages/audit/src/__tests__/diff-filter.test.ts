@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import type { FileContent } from "../agents/types";
 import { filterToChanged, expandWithDependents } from "../planner/diff-filter";
 
@@ -9,6 +11,7 @@ describe("filterToChanged", () => {
     relativePath,
     language: "typescript",
     content: "// code",
+    size: 100,
   });
 
   it("filters files to only those in the changed list", () => {

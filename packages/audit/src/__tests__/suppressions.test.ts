@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -51,8 +52,11 @@ describe("parseInlineSuppressions", () => {
   it("extracts suppression from inline comment", () => {
     const files = [
       {
+        path: "/test/src/api/routes.ts",
         relativePath: "src/api/routes.ts",
         content: 'app.get("/admin") // audit-suppress BAC-01',
+        language: "typescript",
+        size: 100,
       },
     ];
 
@@ -71,8 +75,11 @@ describe("parseInlineSuppressions", () => {
   it("extracts reason from quoted string", () => {
     const files = [
       {
+        path: "/test/src/api/routes.ts",
         relativePath: "src/api/routes.ts",
         content: '// audit-suppress BAC-01 "validated in middleware"\napp.get("/admin")',
+        language: "typescript",
+        size: 100,
       },
     ];
 
@@ -86,8 +93,11 @@ describe("parseInlineSuppressions", () => {
   it("suppresses the next line when comment is on its own line", () => {
     const files = [
       {
+        path: "/test/src/api/routes.ts",
         relativePath: "src/api/routes.ts",
         content: '// audit-suppress BAC-01\napp.get("/admin")',
+        language: "typescript",
+        size: 100,
       },
     ];
 
@@ -102,8 +112,11 @@ describe("parseInlineSuppressions", () => {
   it("handles files with no suppressions", () => {
     const files = [
       {
+        path: "/test/src/clean.ts",
         relativePath: "src/clean.ts",
         content: "const x = 1;\nconst y = 2;",
+        language: "typescript",
+        size: 100,
       },
     ];
 

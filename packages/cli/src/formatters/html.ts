@@ -1,4 +1,4 @@
-import type { AuditReport } from "../report/synthesizer";
+import type { AuditReport } from "@varp/audit";
 
 /**
  * Format audit report as self-contained HTML for sharing

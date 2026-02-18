@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import type { FileContent } from "../agents/types";
 import { generatePlan, groupIntoComponents } from "../planner/planner";
 import type { Ruleset } from "../planner/types";
@@ -8,6 +10,7 @@ function makeFile(relativePath: string, content = "// code"): FileContent {
     relativePath,
     language: /\.tsx?$/.test(relativePath) ? "typescript" : "javascript",
     content,
+    size: 100,
   };
 }
 

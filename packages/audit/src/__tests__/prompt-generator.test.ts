@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import type { FileContent } from "../agents/types";
 import {
   generateComponentScanPrompt,
@@ -59,6 +61,7 @@ function makeFile(relativePath: string, content: string): FileContent {
     relativePath,
     language: "typescript",
     content,
+    size: 100,
   };
 }
 

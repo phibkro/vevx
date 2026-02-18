@@ -9,5 +9,5 @@
     "@typescript-eslint/no-unused-vars": "warn",
     "@typescript-eslint/no-explicit-any": "off"
   },
-  "ignorePatterns": ["build/", "node_modules/", "test-fixtures/"]
+  "ignorePatterns": ["build/", "dist/", "node_modules/", "test-fixtures/"]
 }

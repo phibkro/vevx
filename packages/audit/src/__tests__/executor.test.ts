@@ -16,18 +16,21 @@ const FILES: FileContent[] = [
     relativePath: "src/api/routes.ts",
     language: "typescript",
     content: 'app.get("/users", handler)',
+    size: 100,
   },
   {
     path: "/p/src/api/auth.ts",
     relativePath: "src/api/auth.ts",
     language: "typescript",
     content: "function login(req, res) {}",
+    size: 100,
   },
   {
     path: "/p/src/db/query.ts",
     relativePath: "src/db/query.ts",
     language: "typescript",
     content: 'db.query("SELECT * FROM users")',
+    size: 100,
   },
 ];
 

@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import type { FileContent } from "../agents/types";
 import { createChunks, estimateTokens, formatChunkSummary } from "../chunker";
 
@@ -31,6 +33,7 @@ describe("File Chunking", () => {
     relativePath: name,
     content: "x".repeat(size * 4), // size * 4 chars = size tokens
     language: "typescript",
+    size: 100,
   });
 
   it("creates single chunk when files fit under limit", () => {
@@ -114,6 +117,7 @@ describe("File Chunking", () => {
         relativePath: "src/file.ts",
         content: "const x = 1;",
         language: "typescript",
+        size: 100,
       },
     ];
 
@@ -183,6 +187,7 @@ describe("Chunk Summary Formatting", () => {
     relativePath: name,
     content: "x".repeat(size * 4),
     language: "typescript",
+    size: 100,
   });
 
   it("formats single chunk summary", () => {
@@ -263,6 +268,7 @@ describe("Edge Cases", () => {
     relativePath: name,
     content: "x".repeat(size * 4),
     language: "typescript",
+    size: 100,
   });
 
   it("handles very small chunk limit", () => {
@@ -292,12 +298,14 @@ describe("Edge Cases", () => {
         relativePath: "file-with-dashes.ts",
         content: "test",
         language: "typescript",
+        size: 100,
       },
       {
         path: "/test/file_with_underscores.ts",
         relativePath: "file_with_underscores.ts",
         content: "test",
         language: "typescript",
+        size: 100,
       },
     ];
 
@@ -314,12 +322,14 @@ describe("Edge Cases", () => {
         relativePath: "file.ts",
         content: "typescript code",
         language: "typescript",
+        size: 100,
       },
       {
         path: "/test/file.py",
         relativePath: "file.py",
         content: "python code",
         language: "python",
+        size: 100,
       },
     ];
 

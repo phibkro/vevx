@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { resolve, join } from "path";
@@ -180,10 +181,34 @@ describe("assignFilesToComponents", () => {
     ];
 
     const files = [
-      { relativePath: "src/api/routes.ts", language: "typescript", content: "const x = 1;" },
-      { relativePath: "src/api/auth.ts", language: "typescript", content: "const y = 2;" },
-      { relativePath: "src/db/queries.ts", language: "typescript", content: "const z = 3;" },
-      { relativePath: "src/other/util.ts", language: "typescript", content: "const w = 4;" },
+      {
+        relativePath: "src/api/routes.ts",
+        language: "typescript",
+        content: "const x = 1;",
+        path: "/test/src/api/routes.ts",
+        size: 100,
+      },
+      {
+        relativePath: "src/api/auth.ts",
+        language: "typescript",
+        content: "const y = 2;",
+        path: "/test/src/api/auth.ts",
+        size: 100,
+      },
+      {
+        relativePath: "src/db/queries.ts",
+        language: "typescript",
+        content: "const z = 3;",
+        path: "/test/src/db/queries.ts",
+        size: 100,
+      },
+      {
+        relativePath: "src/other/util.ts",
+        language: "typescript",
+        content: "const w = 4;",
+        path: "/test/src/other/util.ts",
+        size: 100,
+      },
     ];
 
     assignFilesToComponents(components, manifest, files, tempDir);

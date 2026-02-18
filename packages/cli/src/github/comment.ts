@@ -1,5 +1,4 @@
-import { agents } from "../agents/index";
-import type { AuditReport } from "../report/index";
+import { agents, type AuditReport } from "@varp/audit";
 
 /**
  * Format score as star rating (0-10 → 0-5 stars)

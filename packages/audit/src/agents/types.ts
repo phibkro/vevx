@@ -3,6 +3,7 @@ export interface FileContent {
   relativePath: string;
   content: string;
   language: string;
+  size: number;
 }
 
 export type Severity = "critical" | "warning" | "info";
