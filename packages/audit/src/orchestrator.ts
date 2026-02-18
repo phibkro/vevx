@@ -52,7 +52,7 @@ async function runAgent(
     // If agent fails, return error result with sanitized message
     const durationMs = Date.now() - startTime;
 
-    console.error(`Agent ${agent.name} failed:`, error);
+    console.error(`Agent ${agent.name} failed:`, error instanceof Error ? error.message : String(error));
 
     return {
       agent: agent.name,
@@ -120,7 +120,7 @@ export async function runAudit(
       return result.value;
     } else {
       // Promise was rejected — log full detail, return sanitized message
-      console.error(`Agent ${agent.name} promise rejected:`, result.reason);
+      console.error(`Agent ${agent.name} promise rejected:`, result.reason instanceof Error ? result.reason.message : String(result.reason));
       return {
         agent: agent.name,
         score: 0,
