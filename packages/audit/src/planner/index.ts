@@ -31,3 +31,9 @@ export {
   parseAuditResponse,
 } from './prompt-generator';
 export type { AuditPrompt } from './prompt-generator';
+export { executeAuditPlan } from './executor';
+export type {
+  AuditProgressEvent,
+  ProgressCallback,
+  ExecutorOptions,
+} from './executor';
