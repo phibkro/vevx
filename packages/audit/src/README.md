@@ -17,7 +17,7 @@ Source files        →  Chunker  →  Executor  →  Agents  →  Report
 | Module | Purpose |
 |--------|---------|
 | `orchestrator.ts` | Runs generic agents against file chunks, scores results |
-| `client.ts` | Claude Code CLI wrapper (spawns `claude -p` subprocesses) |
+| `client.ts` | Claude Code CLI wrapper (spawns `claude -p` subprocesses, supports structured output) |
 | `chunker.ts` | Splits source files into token-bounded chunks |
 | `discovery.ts` | Finds source files (Bun runtime) |
 | `discovery-node.ts` | Finds source files (Node.js runtime) |
@@ -34,7 +34,7 @@ Source files        →  Chunker  →  Executor  →  Agents  →  Report
 3. Calculates per-agent and overall scores (weighted average)
 4. Emits progress events during execution
 
-Options: `model` (Claude model ID) and `maxTokens` (per-call budget).
+Options: `model` (Claude model ID), `maxTokens` (per-call budget), and `jsonSchema` (for constrained decoding via `--json-schema`). Returns `ApiCallResult` with `text`, optional `structured` output, `usage` (token counts), and `costUsd`.
 
 ## Compliance Audit
 

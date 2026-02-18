@@ -9,7 +9,8 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 | `parseRuleset()` | Parses a markdown ruleset into structured rules |
 | `generatePlan()` | Creates an `AuditPlan` from a ruleset and file list |
 | `generatePrompt()` | Builds system/user prompts for an audit task |
-| `parseAuditResponse()` | Extracts findings from LLM responses |
+| `parseAuditResponse()` | Extracts findings from LLM responses (structured or text) |
+| `AUDIT_FINDINGS_SCHEMA` | JSON Schema for structured output (constrained decoding) |
 | `executeAuditPlan()` | Runs a plan end-to-end (waves → Claude CLI → report) |
 | `printComplianceReport()` | Renders report to terminal with ANSI colors |
 | `generateComplianceMarkdown()` | Renders report as markdown |
@@ -21,7 +22,7 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 2. **Group files** — Clusters source files into logical components by directory
 3. **Match rules** — Maps rules to components based on file patterns and tag matching
 4. **Plan waves** — Wave 1 (component scans, parallel), Wave 2 (cross-cutting, parallel), Wave 3 (synthesis, in-process)
-5. **Execute** — Runs wave 1 and 2 tasks via Claude Code CLI with bounded concurrency, then synthesizes in-process (dedup, coverage)
+5. **Execute** — Runs wave 1 and 2 tasks via Claude Code CLI with bounded concurrency and structured output (constrained decoding via `--json-schema`), then synthesizes in-process (dedup, coverage). Real token usage and cost are captured from API responses when available.
 6. **Report** — Renders findings to terminal, markdown, or JSON
 
 ## Types
