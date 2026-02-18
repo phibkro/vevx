@@ -16,7 +16,7 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 
 **Core components** (8): `shared` = `packages/core/src/shared/`, `server` = `packages/core/src/`, `manifest` = `packages/core/src/manifest/`, `plan` = `packages/core/src/plan/`, `scheduler` = `packages/core/src/scheduler/`, `enforcement` = `packages/core/src/enforcement/`, `skills` = `packages/plugin/skills/`, `hooks` = `packages/plugin/hooks/`. Domain components import shared types via `#shared/*` alias. Skills/hooks depend on manifest.
 
-**Audit components** (3, experimental): `audit-core` = `packages/audit/src/`, `audit-planner` = `packages/audit/src/planner/`, `audit-agents` = `packages/audit/src/agents/`.
+**Audit** (1, experimental): `audit` = `packages/audit/src/`. Single component — planner and agents are internal subdirectories.
 
 **CLI** (experimental): `cli` = `apps/cli/src/`. Unified CLI for all varp tools.
 

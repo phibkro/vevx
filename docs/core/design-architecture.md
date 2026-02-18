@@ -42,7 +42,7 @@ web:
     - ./docs/web/internal.md
 ```
 
-**The manifest is flat.** The `varp` key holds the version string. Every other top-level key is a component name. No `components:` wrapper, no `name:` field. Docs are plain string paths, not objects. Optional fields (`tags`, `test`, `env`, `stability`) provide richer signals to the planner and orchestrator — see [Manifest Schema](../src/manifest/README.md) for the full reference.
+**The manifest is flat.** The `varp` key holds the version string. Every other top-level key is a component name. No `components:` wrapper, no `name:` field. Docs are plain string paths, not objects. Optional fields (`tags`, `test`, `env`, `stability`) provide richer signals to the planner and orchestrator — see [Manifest Schema](../../packages/core/src/manifest/README.md) for the full reference.
 
 **Doc visibility uses the README.md convention.** Docs named `README.md` are public — loaded when a task reads from or writes to the component. All other docs are private — loaded only when a task writes. This replaces the previous `load_on` tag system. Auto-discovery: if `{component.path}/README.md` exists on disk, it's included automatically as a public doc.
 

@@ -70,7 +70,7 @@ Resuming a subagent session preserves its accumulated context, but that context 
 
 ## 8. Manifest Extensions
 
-Four optional component fields that give the planner and orchestrator richer signals without changing the core scheduling model. All are implemented — see [Manifest Schema](../src/manifest/README.md) for the full reference.
+Four optional component fields that give the planner and orchestrator richer signals without changing the core scheduling model. All are implemented — see [Manifest Schema](../../packages/core/src/manifest/README.md) for the full reference.
 
 ### 8.1 `tags` — Freeform Labels
 
@@ -154,7 +154,7 @@ Named **mutexes** are implemented as an optional `<mutexes>` element on plan tas
 
 ## 10. Implementation Path
 
-All build steps (1-8) are complete. See the [architecture doc](../src/docs/architecture.md) for current module structure and algorithms.
+All build steps (1-8) are complete. See the [architecture doc](../../packages/core/src/docs/architecture.md) for current module structure and algorithms.
 
 ### 10.1 Technical Choices
 

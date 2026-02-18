@@ -29,11 +29,9 @@ Monorepo with Bun workspaces (`packages/*`, `apps/*`):
 
 ### @varp/audit (packages/audit/)
 Compliance audit engine (experimental):
-- `audit-core` (packages/audit/src/) — Orchestrator, chunker, client
-- `audit-planner` (packages/audit/src/planner/) — Planner, ruleset parser
-- `audit-agents` (packages/audit/src/agents/) — Domain-specific audit agents
+- `audit` (packages/audit/src/) — Single component: orchestrator, planner, agents, chunker, client
 
-### @varp/audit-cli (apps/audit-cli/)
+### @varp/cli (apps/cli/)
 CLI for running audits. Depends on @varp/audit (workspace).
 
 Import alias `#shared/*` → `packages/core/src/shared/` (tsconfig paths in packages/core/).
