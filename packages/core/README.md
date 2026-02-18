@@ -13,7 +13,7 @@ import { componentPaths, findOwningComponent, invalidationCascade } from "@varp/
 import type { Manifest, Component, Stability } from "@varp/core/lib";
 ```
 
-Exports: `componentPaths`, `findOwningComponent`, `buildComponentPaths`, `invalidationCascade`, `validateDependencyGraph`, and associated types. Does NOT export `parseManifest` (uses Bun-specific YAML parser).
+Exports: `componentPaths`, `findOwningComponent`, `buildComponentPaths`, `invalidationCascade`, `validateDependencyGraph`, and associated types. Does NOT export `parseManifest` (uses Bun-specific YAML parser). Types are provided by a hand-maintained `lib.d.ts` (avoids leaking Zod internals to consumers) — update it when `Manifest`, `Component`, or exported function signatures change.
 
 ## MCP Tools
 
