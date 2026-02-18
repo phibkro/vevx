@@ -28,7 +28,7 @@ Current state of Varp relative to the design documents. Updated February 2026.
 | Skill | Status | Notes |
 |-------|--------|-------|
 | `/varp:init` | Complete | Scaffolds `varp.yaml`. Supports Nx, Turborepo, moon graph import. |
-| `/varp:plan` | Complete | Planner protocol (9 steps). Suggests Turbo/Nx test runners. |
+| `/varp:plan` | Complete | Planner protocol (8 steps, budget step removed per ADR-001). Suggests Turbo/Nx test runners. |
 | `/varp:execute` | Complete | Orchestrator protocol (11 steps). Advisory monorepo scope checks. |
 | `/varp:review` | Complete | Medium loop: diff plan vs log.xml. |
 | `/varp:status` | Complete | Project state report. |
@@ -65,6 +65,10 @@ Design doc used `varp` as just another field. Implementation makes `varp` the ve
 ### Manifest Caching
 
 Not in design doc. Parser caches by `(absolutePath, mtimeMs)` to avoid re-parsing on repeated tool calls within a session.
+
+### Budget Removal ([ADR-001](../decisions/adr-001-budget-observability.md))
+
+Design doc specified per-task token/time budgets enforced at runtime. Dropped entirely — `<budget>` elements removed from the plan schema, planner protocol, orchestrator chain of thought, and all tool/skill documentation. The parser silently ignores legacy `<budget>` elements for backward compatibility. Critical path returns chain length instead of summed budget. Resource consumption is tracked as execution metrics in `log.xml` (observability, not enforcement).
 
 ## What's Deferred
 
