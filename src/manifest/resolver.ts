@@ -1,6 +1,6 @@
 import { basename, relative } from "node:path";
 
-import type { Manifest, Touches, ResolvedDocs } from "#shared/types.js";
+import { componentPaths, type Manifest, type Touches, type ResolvedDocs } from "#shared/types.js";
 
 import { discoverDocs } from "./discovery.js";
 
@@ -30,7 +30,9 @@ export function resolveDocs(manifest: Manifest, touches: Touches): ResolvedDocs 
 
       if (shouldLoad && !seen.has(docPath)) {
         seen.add(docPath);
-        const rel = relative(component.path, docPath);
+        // Use first path as base for relative doc name computation
+        const basePath = componentPaths(component)[0];
+        const rel = relative(basePath, docPath);
         const docName = rel.startsWith("..") ? basename(docPath, ".md") : rel.replace(/\.md$/, "");
         docs.push({ component: name, doc: docName, path: docPath });
       }

@@ -1,6 +1,6 @@
 import { resolve, relative } from "node:path";
 
-import type { Manifest } from "./types.js";
+import { componentPaths, type Manifest } from "./types.js";
 
 export type ComponentPathEntry = { name: string; path: string };
 
@@ -8,13 +8,16 @@ export type ComponentPathEntry = { name: string; path: string };
  * Build a sorted list of component paths for ownership lookup.
  * Sorted by descending path length so longer (more specific) paths match first.
  * Call once and pass the result to findOwningComponent for batch lookups.
+ * Multi-path components emit one entry per path.
  */
 export function buildComponentPaths(manifest: Manifest): ComponentPathEntry[] {
   return Object.entries(manifest.components)
-    .map(([name, comp]) => ({
-      name,
-      path: resolve(comp.path),
-    }))
+    .flatMap(([name, comp]) =>
+      componentPaths(comp).map((p) => ({
+        name,
+        path: resolve(p),
+      })),
+    )
     .sort((a, b) => b.path.length - a.path.length);
 }
 

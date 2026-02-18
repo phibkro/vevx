@@ -5,7 +5,7 @@ import { z } from "zod";
 export const StabilitySchema = z.enum(["stable", "active", "experimental"]);
 
 export const ComponentSchema = z.object({
-  path: z.string(),
+  path: z.union([z.string(), z.array(z.string()).min(1)]),
   deps: z.array(z.string()).optional(),
   docs: z.array(z.string()).default([]),
   tags: z.array(z.string()).optional(),
@@ -23,6 +23,11 @@ export type DocEntry = string;
 export type Stability = z.infer<typeof StabilitySchema>;
 export type Component = z.infer<typeof ComponentSchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
+
+/** Normalize component path (string | string[]) to string[]. */
+export function componentPaths(comp: Component): string[] {
+  return Array.isArray(comp.path) ? comp.path : [comp.path];
+}
 
 // ── Touches ──
 

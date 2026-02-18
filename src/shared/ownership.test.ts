@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 
 import { findOwningComponent } from "./ownership.js";
-import type { Manifest } from "./types.js";
+import { componentPaths, type Manifest } from "./types.js";
 
 const manifest: Manifest = {
   varp: "0.1.0",
@@ -11,6 +11,16 @@ const manifest: Manifest = {
     src: { path: "/project/src", docs: [] },
   },
 };
+
+describe("componentPaths", () => {
+  test("normalizes string to single-element array", () => {
+    expect(componentPaths({ path: "/a/b", docs: [] })).toEqual(["/a/b"]);
+  });
+
+  test("passes through string array unchanged", () => {
+    expect(componentPaths({ path: ["/a/b", "/c/d"], docs: [] })).toEqual(["/a/b", "/c/d"]);
+  });
+});
 
 describe("findOwningComponent", () => {
   test("matches file to its component", () => {
@@ -31,5 +41,24 @@ describe("findOwningComponent", () => {
   test("returns null for files outside all components", () => {
     expect(findOwningComponent("/other/path/file.ts", manifest)).toBeNull();
     expect(findOwningComponent("/project/package.json", manifest)).toBeNull();
+  });
+
+  test("matches files across multi-path component", () => {
+    const multiManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        auth: {
+          path: ["/project/src/controllers/auth", "/project/src/services/auth"],
+          docs: [],
+        },
+        shared: { path: "/project/src/shared", docs: [] },
+      },
+    };
+
+    expect(findOwningComponent("/project/src/controllers/auth/login.ts", multiManifest)).toBe(
+      "auth",
+    );
+    expect(findOwningComponent("/project/src/services/auth/jwt.ts", multiManifest)).toBe("auth");
+    expect(findOwningComponent("/project/src/shared/util.ts", multiManifest)).toBe("shared");
   });
 });

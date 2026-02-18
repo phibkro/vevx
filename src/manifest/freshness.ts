@@ -1,7 +1,7 @@
 import { statSync, readdirSync } from "node:fs";
 import { join, relative, basename } from "node:path";
 
-import type { Manifest, FreshnessReport } from "#shared/types.js";
+import { componentPaths, type Manifest, type FreshnessReport } from "#shared/types.js";
 
 import { discoverDocs } from "./discovery.js";
 
@@ -89,11 +89,21 @@ export function checkFreshness(manifest: Manifest): FreshnessReport {
   for (const [name, component] of Object.entries(manifest.components)) {
     const allDocs = discoverDocs(component);
     const docPathSet = new Set(allDocs);
-    const sourceMtime = getLatestMtime(component.path, docPathSet);
+    const paths = componentPaths(component);
+
+    // Aggregate source mtime across all paths — take the latest
+    let sourceMtime: Date | null = null;
+    for (const p of paths) {
+      const mtime = getLatestMtime(p, docPathSet);
+      if (mtime && (!sourceMtime || mtime > sourceMtime)) {
+        sourceMtime = mtime;
+      }
+    }
+
     const docTimestamps: DocTimestamp[] = allDocs.map((p) => ({ path: p, mtime: getFileMtime(p) }));
 
     components[name] = {
-      docs: computeStaleness(sourceMtime, docTimestamps, component.path),
+      docs: computeStaleness(sourceMtime, docTimestamps, paths[0]),
       source_last_modified: sourceMtime?.toISOString() ?? "N/A",
     };
   }

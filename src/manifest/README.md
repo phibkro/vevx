@@ -26,6 +26,21 @@ web:
     - ./docs/shared/migration-guide.md  # only needed for docs outside component path
 ```
 
+### Multi-Path Components
+
+Components can span multiple directories. Use an array of paths when a domain concept is organized by architectural layer rather than by feature:
+
+```yaml
+auth:
+  path:
+    - ./src/controllers/auth
+    - ./src/services/auth
+    - ./src/repositories/auth
+  deps: [shared]
+```
+
+All manifest operations (ownership lookup, doc discovery, import scanning, test discovery, freshness checking) work across all paths of a multi-path component. A single string path is equivalent to a one-element array.
+
 ## Format
 
 The manifest has three concepts:
@@ -40,7 +55,7 @@ There is no `name` field, no `components:` wrapper. The YAML is flat: `varp` is 
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `path` | string | yes | Directory path for source files. Relative paths resolved from manifest directory. |
+| `path` | string \| string[] | yes | Directory path(s) for source files. A single string or array of strings. Relative paths resolved from manifest directory. |
 | `deps` | string[] | no | Component names this component depends on. Structural dependencies — "this component consumes that component's interface." |
 | `docs` | string[] | no | Additional doc paths beyond auto-discovered ones (defaults to `[]`). Only needed for docs outside the component's path. Relative paths resolved from manifest directory. |
 | `tags` | string[] | no | Freeform labels for filtering and grouping (e.g. `[security, api-boundary]`). |
@@ -61,16 +76,18 @@ This replaces the old `load_on` tag system. Name your public-facing docs `README
 
 ## Auto-Discovery
 
-Two locations are auto-discovered without needing to be listed in `docs`:
+Two locations are auto-discovered per component path without needing to be listed in `docs`:
 
 | Path | Visibility | Description |
 |------|-----------|-------------|
-| `{component.path}/README.md` | Public | Component interface doc, loaded for reads and writes |
-| `{component.path}/docs/*.md` | Private | Internal docs, loaded for writes only |
+| `{path}/README.md` | Public | Component interface doc, loaded for reads and writes |
+| `{path}/docs/*.md` | Private | Internal docs, loaded for writes only |
 
 This means a component with `path: ./src/auth` automatically gets:
 - `./src/auth/README.md` as a public doc (if it exists)
 - `./src/auth/docs/*.md` files as private docs (if the directory exists)
+
+For multi-path components, auto-discovery runs for each path. A component with `path: [./src/controllers/auth, ./src/services/auth]` discovers READMEs and `docs/` directories under both paths.
 
 The `docs:` field is only needed for documentation files that live outside the component's path tree.
 

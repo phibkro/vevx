@@ -1,7 +1,7 @@
 import { readdirSync, existsSync } from "node:fs";
 import { resolve, relative } from "node:path";
 
-import type { Manifest, ScopedTestResult } from "#shared/types.js";
+import { componentPaths, type Manifest, type ScopedTestResult } from "#shared/types.js";
 
 /**
  * Recursively find all *.test.ts files under a directory.
@@ -53,8 +53,10 @@ export function findScopedTests(
     if (comp.test) {
       customCommands.push(comp.test);
     } else {
-      for (const file of findTestFiles(comp.path)) {
-        testFileSet.add(file);
+      for (const p of componentPaths(comp)) {
+        for (const file of findTestFiles(p)) {
+          testFileSet.add(file);
+        }
       }
     }
   }

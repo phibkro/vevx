@@ -73,6 +73,23 @@ describe("parseManifest", () => {
     expect((manifest as any).name).toBeUndefined();
   });
 
+  test("parses multi-path component", () => {
+    const manifest = parseManifest(resolve(FIXTURE_DIR, "multi-path.yaml"));
+
+    // Multi-path component should have resolved paths array
+    const auth = manifest.components.auth;
+    expect(Array.isArray(auth.path)).toBe(true);
+    const paths = auth.path as string[];
+    expect(paths).toHaveLength(3);
+    expect(paths[0]).toBe(resolve(FIXTURE_DIR, "src/controllers/auth"));
+    expect(paths[1]).toBe(resolve(FIXTURE_DIR, "src/services/auth"));
+    expect(paths[2]).toBe(resolve(FIXTURE_DIR, "src/repositories/auth"));
+
+    // Single-path component should remain a string
+    expect(typeof manifest.components.single.path).toBe("string");
+    expect(manifest.components.single.path).toBe(resolve(FIXTURE_DIR, "src/single"));
+  });
+
   test("resolves doc paths to absolute paths", () => {
     const manifest = parseManifest(resolve(PROJECT_ROOT, "varp.yaml"));
 

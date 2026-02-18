@@ -2,7 +2,12 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 
 import { findOwningComponent, buildComponentPaths } from "#shared/ownership.js";
-import type { Manifest, ImportScanResult, ImportDep } from "#shared/types.js";
+import {
+  componentPaths,
+  type Manifest,
+  type ImportScanResult,
+  type ImportDep,
+} from "#shared/types.js";
 
 // ── Pure types ──
 
@@ -376,29 +381,31 @@ export function scanImports(manifest: Manifest, manifestDir?: string): ImportSca
   const files: SourceFile[] = [];
 
   for (const [compName, comp] of Object.entries(manifest.components)) {
-    try {
-      const entries = readdirSync(comp.path, { withFileTypes: true, recursive: true });
-      for (const entry of entries) {
-        if (!entry.isFile()) continue;
-        if (!isSourceFile(entry.name)) continue;
+    for (const compPath of componentPaths(comp)) {
+      try {
+        const entries = readdirSync(compPath, { withFileTypes: true, recursive: true });
+        for (const entry of entries) {
+          if (!entry.isFile()) continue;
+          if (!isSourceFile(entry.name)) continue;
 
-        const parentPath = (entry as any).parentPath ?? comp.path;
-        const fullPath = join(parentPath, entry.name);
+          const parentPath = (entry as any).parentPath ?? compPath;
+          const fullPath = join(parentPath, entry.name);
 
-        // Skip files inside excluded directories
-        const relFromComp = fullPath.slice(comp.path.length + 1);
-        const parts = relFromComp.split("/");
-        if (parts.some((p) => SKIP_DIRS.has(p))) continue;
+          // Skip files inside excluded directories
+          const relFromComp = fullPath.slice(compPath.length + 1);
+          const parts = relFromComp.split("/");
+          if (parts.some((p) => SKIP_DIRS.has(p))) continue;
 
-        try {
-          const content = readFileSync(fullPath, "utf-8");
-          files.push({ path: fullPath, component: compName, content });
-        } catch {
-          /* skip unreadable files */
+          try {
+            const content = readFileSync(fullPath, "utf-8");
+            files.push({ path: fullPath, component: compName, content });
+          } catch {
+            /* skip unreadable files */
+          }
         }
+      } catch {
+        /* skip components whose path doesn't exist */
       }
-    } catch {
-      /* skip components whose path doesn't exist */
     }
   }
 

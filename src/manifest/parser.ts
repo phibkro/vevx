@@ -3,7 +3,7 @@ import { resolve, dirname, relative, isAbsolute } from "node:path";
 
 const parseYaml = Bun.YAML.parse;
 
-import { ComponentSchema, type Manifest } from "#shared/types.js";
+import { ComponentSchema, componentPaths, type Manifest } from "#shared/types.js";
 
 const manifestCache = new Map<string, { mtimeMs: number; manifest: Manifest }>();
 
@@ -41,12 +41,17 @@ export function parseManifest(manifestPath: string): Manifest {
   for (const [name, value] of Object.entries(rest)) {
     const component = ComponentSchema.parse(value);
 
-    // Resolve component path and validate it stays within project
-    component.path = resolve(baseDir, component.path);
-    const compRel = relative(baseDir, component.path);
-    if (compRel.startsWith("..") || isAbsolute(compRel)) {
-      throw new Error(`Component '${name}' path escapes manifest directory: ${component.path}`);
-    }
+    // Resolve component paths and validate each stays within project
+    const rawPaths = componentPaths(component);
+    const resolvedPaths = rawPaths.map((p) => {
+      const resolved = resolve(baseDir, p);
+      const compRel = relative(baseDir, resolved);
+      if (compRel.startsWith("..") || isAbsolute(compRel)) {
+        throw new Error(`Component '${name}' path escapes manifest directory: ${resolved}`);
+      }
+      return resolved;
+    });
+    component.path = resolvedPaths.length === 1 ? resolvedPaths[0] : resolvedPaths;
 
     // Resolve doc paths and validate they stay within project
     component.docs = component.docs.map((docPath) => {

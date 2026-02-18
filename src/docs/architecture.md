@@ -44,7 +44,9 @@ src/
 
 **Flat YAML format.** The manifest uses a flat format: `varp` holds the version string, and all other top-level keys are component names. No `components:` wrapper, no `name:` field. The parser uses `Bun.YAML.parse` (built-in Zig-native YAML 1.2), extracts `varp`, then treats everything else as a component entry validated by `ComponentSchema`.
 
-**Docs are plain strings.** Component docs are string paths, not objects. The README.md convention replaces `load_on` tags: docs with `basename === 'README.md'` are public (loaded for reads+writes), all others are private (loaded for writes only). Auto-discovery checks `{component.path}/README.md` and `{component.path}/docs/*.md` on disk and includes them if present. The `docs:` field is only for docs outside the component's path tree.
+**Docs are plain strings.** Component docs are string paths, not objects. The README.md convention replaces `load_on` tags: docs with `basename === 'README.md'` are public (loaded for reads+writes), all others are private (loaded for writes only). Auto-discovery checks `{path}/README.md` and `{path}/docs/*.md` on disk for each component path and includes them if present. The `docs:` field is only for docs outside the component's path tree.
+
+**Multi-path components.** A component's `path` can be a single string or an array of strings. This supports layer-organized codebases where a domain concept (e.g. "auth") spans multiple directories (controllers, services, repositories). The `componentPaths()` helper normalizes both forms to `string[]`. All internal code uses this helper — ownership, doc discovery, import scanning, test discovery, and freshness all iterate over all paths.
 
 **Manifest tools accept `manifest_path` parameter.** Each tool reads and parses the manifest internally rather than receiving a pre-parsed manifest. Keeps the MCP interface simple (string path in, JSON out). Manifests are cached by (absolutePath, mtimeMs) so repeated calls skip re-parsing.
 
@@ -164,11 +166,11 @@ Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manif
 
 ## Doc Discovery (`discovery.ts`)
 
-Shared helper used by both resolver and freshness. Given a component, returns all doc paths: explicit (`docs:` field) + auto-discovered. Auto-discovers:
-- `{component.path}/README.md` — public doc
-- `{component.path}/docs/*.md` — private docs
+Shared helper used by both resolver and freshness. Given a component, returns all doc paths: explicit (`docs:` field) + auto-discovered. For each component path, auto-discovers:
+- `{path}/README.md` — public doc
+- `{path}/docs/*.md` — private docs
 
-Deduplicates by exact path match.
+Deduplicates by exact path match. Multi-path components discover docs from each path.
 
 ## Doc Resolution (`resolver.ts`)
 

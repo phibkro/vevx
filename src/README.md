@@ -212,7 +212,7 @@ interface Manifest {
 type Stability = 'stable' | 'active' | 'experimental'
 
 interface Component {
-  path: string
+  path: string | string[]  // single directory or multiple directories
   deps?: string[]
   docs: string[]  // file paths (strings, not objects)
   tags?: string[]
