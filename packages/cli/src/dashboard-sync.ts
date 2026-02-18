@@ -1,5 +1,3 @@
-import { execSync } from "child_process";
-
 import type { AuditReport } from "@varp/audit";
 
 import { getApiKey } from "./auth";
@@ -15,22 +13,17 @@ interface DashboardResponse {
  */
 function getGitInfo(): { repo?: string; commit?: string; branch?: string } {
   try {
-    const repo = execSync("git config --get remote.origin.url", {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "ignore"],
-    }).trim();
+    const opts = { stdout: "pipe" as const, stderr: "ignore" as const };
 
-    const commit = execSync("git rev-parse HEAD", {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "ignore"],
-    }).trim();
+    const repo = Bun.spawnSync(["git", "config", "--get", "remote.origin.url"], opts);
+    const commit = Bun.spawnSync(["git", "rev-parse", "HEAD"], opts);
+    const branch = Bun.spawnSync(["git", "rev-parse", "--abbrev-ref", "HEAD"], opts);
 
-    const branch = execSync("git rev-parse --abbrev-ref HEAD", {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "ignore"],
-    }).trim();
-
-    return { repo, commit, branch };
+    return {
+      repo: repo.success ? repo.stdout.toString("utf-8").trim() : undefined,
+      commit: commit.success ? commit.stdout.toString("utf-8").trim() : undefined,
+      branch: branch.success ? branch.stdout.toString("utf-8").trim() : undefined,
+    };
   } catch {
     // Not a git repository or git not available
     return {};

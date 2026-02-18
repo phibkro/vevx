@@ -1,5 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 
+// These tests mutate process.env — must run sequentially
+const serialTest = test.serial;
+
 // Note: We only test getApiKey() with environment variables here.
 // Testing file-based config requires either:
 // 1. Mocking the entire fs module (complex in Bun)
@@ -43,7 +46,7 @@ describe("auth module", () => {
     // We only test env var behavior here since file-based config requires
     // either complex fs mocking or integration tests
 
-    test("returns null when no API key is configured", async () => {
+    serialTest("returns null when no API key is configured", async () => {
       // Dynamic import to ensure clean module state
       const { getApiKey } = await import("../auth.ts");
       const result = getApiKey();
@@ -53,7 +56,7 @@ describe("auth module", () => {
       expect(result === null || result?.apiKey).toBeTruthy();
     });
 
-    test("returns API key from environment variable", async () => {
+    serialTest("returns API key from environment variable", async () => {
       process.env.CODE_AUDITOR_API_KEY = "ca_test_env_key_1234567890abcdef";
 
       const { getApiKey } = await import("../auth.ts");
@@ -64,7 +67,7 @@ describe("auth module", () => {
       expect(result?.apiUrl).toBe("https://code-auditor.com");
     });
 
-    test("returns custom API URL from environment variable", async () => {
+    serialTest("returns custom API URL from environment variable", async () => {
       process.env.CODE_AUDITOR_API_KEY = "ca_test_key";
       process.env.CODE_AUDITOR_API_URL = "https://custom-url.com";
 
@@ -75,7 +78,7 @@ describe("auth module", () => {
       expect(result?.apiUrl).toBe("https://custom-url.com");
     });
 
-    test("uses default URL when CODE_AUDITOR_API_URL not set", async () => {
+    serialTest("uses default URL when CODE_AUDITOR_API_URL not set", async () => {
       process.env.CODE_AUDITOR_API_KEY = "ca_test_key";
       // CODE_AUDITOR_API_URL not set
 
@@ -86,7 +89,7 @@ describe("auth module", () => {
       expect(result?.apiUrl).toBe("https://code-auditor.com");
     });
 
-    test("environment variable takes precedence over config file", async () => {
+    serialTest("environment variable takes precedence over config file", async () => {
       // This test verifies priority behavior by setting env var
       // Even if a config file exists, env var should win
       process.env.CODE_AUDITOR_API_KEY = "ca_env_priority_key";

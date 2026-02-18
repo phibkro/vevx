@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "bun build ./src/cli.ts --outdir ./dist --target bun",
-    "test": "bun test",
+    "test": "bun test --concurrent --reporter=junit --reporter-outfile=test-results.xml",
     "lint": "oxlint --type-aware --ignore-pattern 'src/github/'",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",

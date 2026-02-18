@@ -1,4 +1,3 @@
-import { execSync } from "child_process";
 import { resolve, relative } from "path";
 
 import type { FileContent } from "../agents/types";
@@ -14,12 +13,16 @@ export function getChangedFiles(targetPath: string, ref: string = "HEAD"): strin
   const cwd = resolve(targetPath);
 
   try {
-    const output = execSync(`git diff --name-only ${ref}`, {
+    const proc = Bun.spawnSync(["git", "diff", "--name-only", ref], {
       cwd,
-      encoding: "utf-8",
+      stdout: "pipe",
+      stderr: "ignore",
       timeout: 10_000,
-    }).trim();
+    });
 
+    if (!proc.success) return [];
+
+    const output = proc.stdout.toString("utf-8").trim();
     if (!output) return [];
 
     return output.split("\n").filter(Boolean);

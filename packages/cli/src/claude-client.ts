@@ -1,5 +1,3 @@
-import { spawn } from "child_process";
-
 import type { ModelCaller, ModelCallerResult } from "@varp/audit";
 
 /** Env vars needed by the claude CLI. Everything else is excluded. */
@@ -26,47 +24,27 @@ function filteredEnv(): Record<string, string> {
   return env;
 }
 
-function spawnClaude(args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("claude", args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: filteredEnv(),
-    });
-
-    const chunks: Buffer[] = [];
-    const errChunks: Buffer[] = [];
-
-    proc.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
-    proc.stderr.on("data", (chunk: Buffer) => errChunks.push(chunk));
-
-    proc.on("close", (code) => {
-      const stdout = Buffer.concat(chunks).toString("utf-8").trim();
-
-      if (code !== 0) {
-        reject(new Error(`Claude CLI exited with code ${code}`));
-        return;
-      }
-
-      if (!stdout) {
-        reject(new Error("No output from Claude CLI"));
-        return;
-      }
-
-      resolve(stdout);
-    });
-
-    proc.on("error", (err) => {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        reject(
-          new Error(
-            "claude CLI not found. Install it with: npm install -g @anthropic-ai/claude-code",
-          ),
-        );
-      } else {
-        reject(new Error("Failed to spawn Claude CLI"));
-      }
-    });
+async function spawnClaude(args: string[]): Promise<string> {
+  const proc = Bun.spawn(["claude", ...args], {
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+    env: filteredEnv(),
   });
+
+  const stdout = await proc.stdout.text();
+  const exitCode = await proc.exited;
+
+  if (exitCode !== 0) {
+    throw new Error(`Claude CLI exited with code ${exitCode}`);
+  }
+
+  const trimmed = stdout.trim();
+  if (!trimmed) {
+    throw new Error("No output from Claude CLI");
+  }
+
+  return trimmed;
 }
 
 function parseJsonEnvelope(raw: string): ModelCallerResult {

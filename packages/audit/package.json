@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun --sourcemap=external --external @varp/core && tsc --emitDeclarationOnly",
-    "test": "bun test",
+    "test": "bun test --concurrent --reporter=junit --reporter-outfile=test-results.xml",
     "lint": "oxlint --type-aware --tsconfig tsconfig.check.json",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",
