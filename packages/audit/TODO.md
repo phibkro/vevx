@@ -15,6 +15,7 @@
 - CLI wiring — `varp audit --ruleset <name> <path>` with all flags (model, concurrency, format, diff, suppress, progress)
 - Manifest type unification — uses `@varp/core/lib` types (`Manifest`, `Component`, `componentPaths`) instead of local duplicates
 - Token budgeting — `--budget <tokens>` flag, skips low-priority tasks when estimated token budget exceeded
+- Drift tracking — `diffReports()` diffs current vs baseline `ComplianceReport` (new/resolved/changed findings, trend)
 
 ## Next
 
@@ -26,4 +27,4 @@
 
 - Anthropic SDK caller — alternative to Claude CLI for API key auth
 - Custom organizational rulesets (beyond OWASP)
-- Audit-over-time — diff findings against previous runs for compliance drift tracking
+- CLI `--baseline` flag — wire drift tracking into `varp audit` (library-side done, needs CLI integration)

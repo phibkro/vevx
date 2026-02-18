@@ -38,4 +38,4 @@ Compliance audit:   files + ruleset → planner → 3-wave executor → complian
 3. `executeAuditPlan()` — execute waves via `ModelCaller`, with optional token budget enforcement (`--budget`)
 4. `printComplianceReport()` / `generateComplianceMarkdown()` / `generateComplianceJson()` — render results
 
-Features: suppressions (`// audit-suppress`), incremental audits (`--diff`), token budgeting (`--budget`), structured output via JSON schema. See `planner/README.md` for details.
+Features: suppressions (`// audit-suppress`), incremental audits (`--diff`), token budgeting (`--budget`), drift tracking (`diffReports()`), structured output via JSON schema. See `planner/README.md` for details.
