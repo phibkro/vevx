@@ -1,4 +1,4 @@
-import { parseManifest, checkFreshness } from "@varp/core/bun";
+import { parseManifest, checkFreshness } from "@varp/core/lib";
 import { resolve } from "path";
 
 export interface FreshnessArgs {

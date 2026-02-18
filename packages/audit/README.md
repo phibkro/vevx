@@ -2,7 +2,7 @@
 
 Multi-agent code audit engine. Two modes: generic quality review (weighted agents) and ruleset-based compliance auditing (3-wave planner).
 
-Depends on `@varp/core/lib` for manifest types (`Manifest`, `Component`, `componentPaths`). Backend-agnostic — consumers inject a `ModelCaller` implementation.
+Depends on `@varp/core/lib` for manifest types and functions. Backend-agnostic — consumers inject a `ModelCaller` implementation.
 
 ## Architecture
 

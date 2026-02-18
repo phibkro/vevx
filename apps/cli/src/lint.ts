@@ -1,4 +1,4 @@
-import { parseManifest, runLint } from "@varp/core/bun";
+import { parseManifest, runLint } from "@varp/core/lib";
 import { resolve } from "path";
 
 export interface LintArgs {

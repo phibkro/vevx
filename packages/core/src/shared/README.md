@@ -29,4 +29,4 @@ import { type Manifest } from "#shared/types.js";
 import { findOwningComponent } from "#shared/ownership.js";
 ```
 
-External consumers (e.g. `@varp/audit`) import via the `@varp/core/lib` entry point, which re-exports shared types and functions using relative paths (avoiding the `#shared` alias). Types come from a hand-maintained `lib.d.ts` at the package root.
+External consumers (e.g. `@varp/audit`, `@varp/cli`) import via the `@varp/core/lib` entry point, which re-exports shared types and functions using relative paths (avoiding the `#shared` alias). Types come from a hand-maintained `lib.d.ts` at the package root.

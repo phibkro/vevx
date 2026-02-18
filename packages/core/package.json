@@ -8,14 +8,10 @@
     "./lib": {
       "types": "./lib.d.ts",
       "default": "./build/lib.js"
-    },
-    "./bun": {
-      "types": "./bun.d.ts",
-      "default": "./build/bun.js"
     }
   },
   "scripts": {
-    "build": "bun build src/index.ts src/lib.ts src/bun.ts --outdir build --target node --format esm --sourcemap=external --external @modelcontextprotocol/sdk --external fast-xml-parser --external zod",
+    "build": "bun build src/index.ts src/lib.ts --outdir build --target node --format esm --sourcemap=external --external @modelcontextprotocol/sdk --external fast-xml-parser --external zod",
     "typecheck": "tsc",
     "test": "bun test",
     "lint": "oxlint",

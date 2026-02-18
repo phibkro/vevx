@@ -9,8 +9,7 @@ Components: `shared` (types, ownership), `server` (MCP wiring), `manifest/`, `pl
 ```
 src/
   index.ts                    MCP server — tool definitions + server startup (server)
-  lib.ts                      Bun-free entry point — types + pure functions (@varp/core/lib)
-  bun.ts                      Bun-specific entry point — lib.ts + Bun-dependent functions (@varp/core/bun)
+  lib.ts                      Library entry point — all types + functions (@varp/core/lib)
   tool-registry.ts            ToolDef type + registerTools() helper (JSON + error wrapping) (server)
   shared/
     types.ts                  Zod schemas -> TypeScript types (single source of truth)

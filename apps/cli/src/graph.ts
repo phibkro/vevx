@@ -1,4 +1,4 @@
-import { parseManifest, renderGraph } from "@varp/core/bun";
+import { parseManifest, renderGraph } from "@varp/core/lib";
 import { resolve } from "path";
 
 export interface GraphArgs {

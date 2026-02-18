@@ -4,7 +4,7 @@ import {
   validatePlan,
   detectHazards,
   scanImports,
-} from "@varp/core/bun";
+} from "@varp/core/lib";
 import { resolve, dirname } from "path";
 
 export interface ValidateArgs {

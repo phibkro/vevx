@@ -4,33 +4,22 @@ Varp's MCP server. Exposes manifest operations, scheduling logic, plan validatio
 
 Consumed by: orchestrator (Claude Code session), skills, hooks, `@varp/audit`, `@varp/cli`.
 
-## Library Entry Points
+## Library Entry Point
 
-Two entry points for external consumers. Both use hand-maintained `.d.ts` files to avoid leaking Zod internals.
+Single entry point for external consumers. Uses a hand-maintained `lib.d.ts` to avoid leaking Zod internals.
 
-### `@varp/core/lib` — Bun-free
+### `@varp/core/lib`
 
-Pure functions and types. Safe to import from any TypeScript consumer (tsc, Node, Bun).
+All types and functions (pure + Bun-dependent).
 
 ```ts
 import { componentPaths, findOwningComponent, invalidationCascade } from "@varp/core/lib";
-import type { Manifest, Component, Stability } from "@varp/core/lib";
+import { parseManifest, runLint, checkFreshness, renderGraph } from "@varp/core/lib";
+import { parsePlanFile, validatePlan, detectHazards, scanImports } from "@varp/core/lib";
+import type { Manifest, Component, Stability, LintReport, FreshnessReport } from "@varp/core/lib";
 ```
 
-Exports: `componentPaths`, `findOwningComponent`, `buildComponentPaths`, `invalidationCascade`, `validateDependencyGraph`, and associated types. Update `lib.d.ts` when exported signatures change.
-
-### `@varp/core/bun` — Bun runtime required
-
-Re-exports everything from `lib` plus Bun-dependent functions that use `Bun.YAML` or file I/O.
-
-```ts
-import { parseManifest, runLint, checkFreshness, renderGraph } from "@varp/core/bun";
-import { parsePlanFile, validatePlan, detectHazards, scanImports } from "@varp/core/bun";
-```
-
-Additional exports: `parseManifest`, `runLint`, `checkFreshness`, `renderGraph`, `scanImports`, `parsePlanFile`, `validatePlan`, `detectHazards`, and associated types (`LintReport`, `FreshnessReport`, `Plan`, `ValidationResult`, `Hazard`, `ImportDep`, `ImportScanResult`). Update `bun.d.ts` when exported signatures change.
-
-The split exists because `parseManifest()` calls `Bun.YAML.parse`. Putting it in `lib` would break non-Bun consumers like `@varp/audit` (builds with `tsc`).
+Update `lib.d.ts` when exported signatures change.
 
 ## MCP Tools
 

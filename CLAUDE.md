@@ -38,10 +38,8 @@ packages/
   core/                   Varp MCP server (@varp/core)
     src/                  shared, server, manifest, plan, scheduler, enforcement
       shared/             Shared types + utilities (types.ts, ownership.ts)
-      lib.ts              Bun-free entry point for non-Bun consumers (@varp/core/lib)
-      bun.ts              Bun-specific entry point — lib.ts + Bun-dependent functions (@varp/core/bun)
+      lib.ts              Library entry point for external consumers (@varp/core/lib)
     lib.d.ts              Hand-maintained declarations for @varp/core/lib
-    bun.d.ts              Hand-maintained declarations for @varp/core/bun
       manifest/           Manifest parsing, doc resolution, freshness, graph, imports, touches, lint, scoped-tests
       plan/               Plan XML parsing, validation, diff
       scheduler/          Hazard detection, wave computation, critical path
@@ -58,12 +56,9 @@ apps/
 docs/                     Design docs, getting started, reference URLs
 ```
 
-Import alias `#shared/*` maps to `packages/core/src/shared/*`. Two library entry points for external consumers, both with hand-maintained `.d.ts` files:
+Import alias `#shared/*` maps to `packages/core/src/shared/*`. One library entry point for external consumers with a hand-maintained `.d.ts` file:
 
-- **`@varp/core/lib`** — Bun-free. Pure functions and types only (no `parseManifest`, no file I/O). Used by `@varp/audit` for shared types (audit builds with `tsc` but requires Bun runtime for `Bun.YAML` and `Bun.Glob`).
-- **`@varp/core/bun`** — Requires Bun runtime. Re-exports everything from `lib` plus Bun-dependent functions (`parseManifest`, `runLint`, `checkFreshness`, `renderGraph`, `scanImports`, `parsePlanFile`, `validatePlan`, `detectHazards`). Used by `@varp/cli`.
-
-The split exists because `parseManifest()` calls `Bun.YAML.parse` internally. Putting it in `lib` would break non-Bun consumers.
+- **`@varp/core/lib`** — All types and functions (pure + Bun-dependent). Used by `@varp/audit` and `@varp/cli`. Has a hand-maintained `lib.d.ts` — update it when exported signatures change.
 
 **Details**: See `packages/core/docs/architecture.md` for algorithms and data flow. See `packages/core/README.md` for tool API surface. See `packages/core/src/manifest/README.md` and `packages/core/src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
 
