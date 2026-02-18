@@ -1,22 +1,9 @@
 import { describe, it, expect, mock } from "bun:test";
 
 import { agents } from "../agents/index";
-import type { FileContent } from "../agents/types";
 import type { AgentResult } from "../agents/types";
 import type { ProgressEvent } from "../orchestrator";
 import { calculateOverallScore } from "../orchestrator";
-
-/**
- * Mock file content for testing
- */
-const mockFiles: FileContent[] = [
-  {
-    path: "/test/test.ts",
-    relativePath: "test.ts",
-    content: 'console.log("test")',
-    language: "typescript",
-  },
-];
 
 describe("Orchestrator Progress Tracking", () => {
   describe("ProgressEvent types", () => {

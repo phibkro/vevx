@@ -28,7 +28,7 @@ export async function watchMode(path: string, onRun: () => Promise<void>): Promi
 
   const watcher = chokidar.watch(path, {
     ignored: [
-      /(^|[\/\\])\../, // Ignore dotfiles
+      /(^|[/\\])\../, // Ignore dotfiles
       /node_modules/,
       /dist/,
       /build/,
@@ -49,15 +49,15 @@ export async function watchMode(path: string, onRun: () => Promise<void>): Promi
     console.log(`\n👀 Watching for changes... (Ctrl+C to exit)\n`);
   }, 500); // 500ms debounce
 
-  watcher.on("change", (filePath) => {
+  watcher.on("change", () => {
     debouncedRun();
   });
 
-  watcher.on("add", (filePath) => {
+  watcher.on("add", () => {
     debouncedRun();
   });
 
-  watcher.on("unlink", (filePath) => {
+  watcher.on("unlink", () => {
     debouncedRun();
   });
 

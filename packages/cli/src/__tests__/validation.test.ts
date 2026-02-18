@@ -1,5 +1,3 @@
-import { existsSync } from "fs";
-
 import { validateInput } from "../validation";
 
 describe("Input Validation", () => {

@@ -19,22 +19,6 @@ function formatAgentStatus(score: number): string {
 }
 
 /**
- * Format severity indicator
- */
-function formatSeverity(severity: string): string {
-  switch (severity) {
-    case "critical":
-      return "🔴";
-    case "warning":
-      return "🟡";
-    case "info":
-      return "🔵";
-    default:
-      return "⚪";
-  }
-}
-
-/**
  * Format a finding for PR comment
  */
 function formatFinding(finding: any, agentName: string, index: number): string {
@@ -150,7 +134,6 @@ export function formatPRComment(report: AuditReport, isPublic: boolean): string 
     if (result.findings.length > 0) {
       comment += `**Findings (${result.findings.length}):**\n\n`;
       result.findings.forEach((finding, index) => {
-        const icon = formatSeverity(finding.severity);
         comment += formatFinding(finding, result.agent, index);
       });
       comment += "\n";

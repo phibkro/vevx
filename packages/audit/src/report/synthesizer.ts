@@ -77,7 +77,7 @@ export function synthesizeReport(target: string, agentResults: AgentResult[]): A
   scoredFindings.sort((a, b) => b.priority - a.priority);
 
   const topRecommendations = scoredFindings.slice(0, 5).map((item) => {
-    const { finding, agentName } = item;
+    const { finding } = item;
     const severityLabel = finding.severity.toUpperCase();
     const location = finding.line ? `${finding.file}:${finding.line}` : finding.file;
 

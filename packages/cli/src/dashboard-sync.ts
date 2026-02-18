@@ -1,11 +1,6 @@
 import { getApiKey } from "./auth";
 import type { AuditReport } from "./report/synthesizer";
 
-interface DashboardConfig {
-  apiKey: string;
-  apiUrl: string;
-}
-
 interface DashboardResponse {
   auditId: string;
   teamId: string;
@@ -35,7 +30,7 @@ function getGitInfo(): { repo?: string; commit?: string; branch?: string } {
     }).trim();
 
     return { repo, commit, branch };
-  } catch (error) {
+  } catch {
     // Not a git repository or git not available
     return {};
   }

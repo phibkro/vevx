@@ -142,7 +142,6 @@ function resolveRuleset(name: string): string {
 function createAuditProgress(quiet: boolean) {
   if (quiet) return undefined;
 
-  let currentWave = 0;
   let tasksInWave = 0;
   let completedInWave = 0;
 
@@ -154,7 +153,6 @@ function createAuditProgress(quiet: boolean) {
         );
         break;
       case "wave-start":
-        currentWave = event.wave;
         tasksInWave = event.taskCount;
         completedInWave = 0;
         if (event.wave <= 2) {

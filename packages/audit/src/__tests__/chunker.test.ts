@@ -154,7 +154,7 @@ describe("File Chunking", () => {
       });
     });
 
-    fileAppearances.forEach((count, fileName) => {
+    fileAppearances.forEach((count, _fileName) => {
       expect(count).toBe(1); // Each file appears exactly once
     });
   });

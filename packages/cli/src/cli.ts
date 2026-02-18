@@ -36,7 +36,7 @@ import { runGraphCommand } from "./graph";
 import { runLintCommand } from "./lint";
 import { createProgressReporter } from "./progress";
 import { runValidateCommand } from "./validate";
-import { validateInput, ValidationError } from "./validation";
+import { validateInput } from "./validation";
 import { watchMode } from "./watch";
 
 // Get version from package.json

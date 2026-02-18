@@ -5,7 +5,6 @@ import { resolve, join } from "path";
 import {
   findManifest,
   parseManifest,
-  loadManifestComponents,
   matchRulesByTags,
   assignFilesToComponents,
 } from "../planner/manifest-adapter";

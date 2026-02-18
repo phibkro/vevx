@@ -57,7 +57,7 @@ Finding format:
   "title": "Image missing alt text",
   "description": "Screen readers cannot describe this image to visually impaired users. WCAG 1.1.1 (Level A) violation.",
   "line": 1,
-  "suggestion": "Add descriptive alt attribute: <img src=\"/product.jpg\" alt=\"Blue ceramic vase with floral pattern\" />"
+  "suggestion": "Add descriptive alt attribute: <img src='/product.jpg' alt='Blue ceramic vase with floral pattern' />"
 }
 
 ### Example 2: Critical - Form Input Without Label
@@ -78,7 +78,7 @@ Finding format:
   "title": "Form input missing label",
   "description": "Screen readers cannot identify the input purpose. Users with disabilities won't know what to enter. WCAG 1.3.1 (Level A) violation.",
   "line": 1,
-  "suggestion": "Add label: <label htmlFor=\"email\">Email</label><input type=\"email\" id=\"email\" />"
+  "suggestion": "Add label: <label htmlFor='email'>Email</label><input type='email' id='email' />"
 }
 
 ### Example 3: Warning - Non-Semantic Button

@@ -159,8 +159,6 @@ function createUserPrompt(files: FileContent[]): string {
 }
 
 function parseResponse(raw: string): AgentResult {
-  const startTime = Date.now();
-
   try {
     // Try to extract JSON from response
     const jsonMatch = raw.match(/\{[\s\S]*\}/);

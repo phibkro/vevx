@@ -53,7 +53,7 @@ function parseGitignore(basePath: string): string[] {
         patterns.push(trimmed);
       }
     });
-  } catch (error) {
+  } catch {
     // .gitignore is optional
   }
 
@@ -104,7 +104,6 @@ function detectLanguage(filePath: string): string | null {
  */
 function isBinaryFile(filePath: string, sampleSize: number = 512): boolean {
   try {
-    const buffer = Buffer.alloc(sampleSize);
     const fd = Bun.file(filePath);
 
     // Read a small sample

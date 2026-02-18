@@ -99,16 +99,12 @@ export function generateMarkdown(report: AuditReport): string {
 
       // Extract severity and title
       let emoji = "⚪";
-      let severity = "";
       if (firstLine.includes("[CRITICAL]")) {
         emoji = "🔴";
-        severity = "CRITICAL";
       } else if (firstLine.includes("[WARNING]")) {
         emoji = "🟡";
-        severity = "WARNING";
       } else if (firstLine.includes("[INFO]")) {
         emoji = "🔵";
-        severity = "INFO";
       }
 
       const title = firstLine.replace(/^\[.*?\]\s*/, "");

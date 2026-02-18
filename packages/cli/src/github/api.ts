@@ -210,7 +210,7 @@ export async function isPublicRepo(
   try {
     const { data } = await octokit.rest.repos.get({ owner, repo });
     return !data.private;
-  } catch (error) {
+  } catch {
     core.warning(`Failed to check if repo is public, assuming private`);
     return false;
   }

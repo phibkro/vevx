@@ -1,4 +1,4 @@
-import type { ComplianceReport, CorroboratedFinding, CoverageEntry } from "./findings";
+import type { ComplianceReport, CorroboratedFinding } from "./findings";
 
 // ── ANSI colors ──
 
