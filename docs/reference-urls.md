@@ -12,6 +12,7 @@ Authoritative sources for volatile specifications. Search these before working w
 | Plugin reference | https://code.claude.com/docs/en/plugins-reference |
 | Settings.json | https://code.claude.com/docs/en/settings |
 | Subagents | https://code.claude.com/docs/en/sub-agents |
+| Monitoring & OTel | https://code.claude.com/docs/en/monitoring-usage |
 | Agent Skills standard | https://agentskills.io/specification |
 
 ## MCP (Model Context Protocol)

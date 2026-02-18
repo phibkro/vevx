@@ -4,11 +4,22 @@ Lifecycle hooks for varp-managed sessions.
 
 | Hook | Event | Purpose |
 |------|-------|---------|
-| `session-start.sh` | SessionStart | Inject project state summary into session context |
+| `session-start.sh` | SessionStart | Inject project state summary and cost tracking status into session context |
 | `freshness-track.sh` | PostToolUse (Write/Edit) | Report which component a modified file belongs to |
 | `auto-format.sh` | PostToolUse (Write/Edit) | Run oxfmt + oxlint --fix on modified `.ts` files |
 | `subagent-context.sh` | SubagentStart | Inject project conventions into subagent context |
 | *(prompt hook)* | Stop | Run `varp_lint` to check for stale docs, broken links, missing deps |
+
+## session-start.sh
+
+Parses `varp.yaml` to display project version, component list, stale docs, broken links, and active plans. Also reports cost tracking status — detects both the statusline cost file (`/tmp/claude/varp-cost.json`) and OpenTelemetry configuration (`CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_METRICS_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`).
+
+Output example:
+```
+Varp project: v0.3
+Components: shared, server, manifest, plan, scheduler, enforcement (6)
+Cost tracking: statusline ✓ | otel ✓ (otlp → localhost:4317)
+```
 
 ## freshness-track.sh
 

@@ -67,6 +67,8 @@ If `cost_usd` is not available for a task, show "—" in the Cost column.
 - Restart count
 - Capability violation count
 
+**External data (OTel):** When `CLAUDE_CODE_ENABLE_TELEMETRY=1` is active, OTel dashboards provide per-model cost breakdowns (`claude_code.cost.usage`), token usage by type (`claude_code.token.usage`), and cache hit rates that go beyond what in-session statusline captures. Reference these in the report when available.
+
 **Signals to highlight:**
 - Tasks with disproportionately high token counts may indicate scope issues
 - Tasks with >0 retries indicate potential planning issues

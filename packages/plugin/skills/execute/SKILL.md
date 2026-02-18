@@ -195,6 +195,10 @@ Mark the task complete in log.xml and check progress:
 - If this was the final task/wave, run all postcondition checks and report results
 - If all postconditions pass, archive the plan: move its directory from `plans/<name>/` to `plans/archive/<name>/`
 
+### OTel Correlation
+
+When `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set, Claude Code exports per-request metrics and events with a `session.id` attribute. Combined with the `log.xml` `<session started="...">` timestamp, this enables filtering external OTel dashboards (Grafana, Datadog, etc.) to the exact execution window — useful for per-model cost breakdowns and cache analysis beyond what in-session statusline captures.
+
 ### Step 12: Status Report [on plan completion]
 
 When the final task/wave completes and all postconditions pass (plan is archived), generate a project status snapshot:

@@ -76,7 +76,7 @@ Design doc specified per-task token/time budgets enforced at runtime. Dropped en
 
 Per-task and per-plan cost tracking via statusline snapshots. The execute skill reads `/tmp/claude/varp-cost.json` (written by a statusline command configured in `.claude/settings.json`) before and after each task dispatch, recording `cost_usd` deltas on task metrics and plan-level totals on the `<cost>` element. Falls back silently when the cost file isn't available.
 
-Data source priority: OpenTelemetry (`CLAUDE_CODE_ENABLE_TELEMETRY=1`) provides the richest per-request data when an exporter is configured. The statusline approach is the in-session fallback. See the [Claude Code monitoring docs](https://docs.anthropic.com/en/docs/claude-code/monitoring) for OTel setup.
+Data source priority: OpenTelemetry (`CLAUDE_CODE_ENABLE_TELEMETRY=1`) provides the richest per-request data when an exporter is configured. The statusline approach is the in-session fallback. The session-start hook detects both sources and displays their status. See the [Claude Code monitoring docs](https://code.claude.com/docs/en/monitoring-usage) for OTel setup.
 
 ## What's Deferred
 

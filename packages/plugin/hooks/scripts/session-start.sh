@@ -171,3 +171,28 @@ if [ -d "$plans_dir" ]; then
     done
   fi
 fi
+
+# Cost tracking status
+statusline_status="✗"
+otel_status="✗"
+otel_detail=""
+
+# Check statusline cost file
+if [ -f "/tmp/claude/varp-cost.json" ]; then
+  statusline_status="✓"
+fi
+
+# Check OTel configuration
+if [ "${CLAUDE_CODE_ENABLE_TELEMETRY:-0}" = "1" ]; then
+  otel_status="✓"
+  # Determine exporter details
+  exporter="${OTEL_METRICS_EXPORTER:-otlp}"
+  endpoint="${OTEL_EXPORTER_OTLP_ENDPOINT:-}"
+  if [ -n "$endpoint" ]; then
+    otel_detail=" (${exporter} → ${endpoint})"
+  else
+    otel_detail=" (${exporter})"
+  fi
+fi
+
+echo "Cost tracking: statusline ${statusline_status} | otel ${otel_status}${otel_detail}"
