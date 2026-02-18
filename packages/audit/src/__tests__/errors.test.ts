@@ -1,4 +1,3 @@
-import { describe, it, expect } from 'vitest'
 import { RateLimitError, AuthenticationError, ValidationError, AgentError } from '../errors'
 
 describe('Error Classes', () => {

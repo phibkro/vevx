@@ -30,11 +30,5 @@
     "@modelcontextprotocol/sdk": "^1.26.0",
     "fast-xml-parser": "^4.5.0",
     "zod": "^3.24.0"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.2.0",
-    "oxfmt": "^0.33.0",
-    "oxlint": "^1.48.0",
-    "typescript": "^5.7.0"
   }
 }

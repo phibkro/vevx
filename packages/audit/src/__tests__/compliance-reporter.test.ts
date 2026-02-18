@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, spyOn } from 'bun:test';
 import type { ComplianceReport } from '../planner/findings';
 import {
   printComplianceReport,
@@ -81,7 +81,7 @@ describe('printComplianceReport', () => {
 
   beforeEach(() => {
     output = [];
-    vi.spyOn(console, 'log').mockImplementation((...args: any[]) => {
+    spyOn(console, 'log').mockImplementation((...args: any[]) => {
       output.push(args.join(' '));
     });
   });

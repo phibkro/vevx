@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import type { FileContent } from '../agents/types';
 import type { Ruleset, AuditPlan } from '../planner/types';
 import type { AuditProgressEvent } from '../planner/executor';
@@ -6,7 +6,7 @@ import { executeAuditPlan } from '../planner/executor';
 
 import type { ModelCaller } from '../planner/types';
 
-const mockCallClaude = vi.fn<ModelCaller>();
+const mockCallClaude = mock<ModelCaller>(() => '' as any);
 
 // ── Test data ──
 

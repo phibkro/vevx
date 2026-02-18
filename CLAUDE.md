@@ -60,7 +60,7 @@ docs/                     Design docs, getting started, reference URLs
 
 Import alias `#shared/*` maps to `packages/core/src/shared/*`. Two library entry points for external consumers, both with hand-maintained `.d.ts` files:
 
-- **`@varp/core/lib`** — Bun-free. Pure functions and types only (no `parseManifest`, no file I/O). Used by `@varp/audit` (builds with `tsc`).
+- **`@varp/core/lib`** — Bun-free. Pure functions and types only (no `parseManifest`, no file I/O). Used by `@varp/audit` for shared types (audit builds with `tsc` but requires Bun runtime for `Bun.YAML` and `Bun.Glob`).
 - **`@varp/core/bun`** — Requires Bun runtime. Re-exports everything from `lib` plus Bun-dependent functions (`parseManifest`, `runLint`, `checkFreshness`, `renderGraph`, `scanImports`, `parsePlanFile`, `validatePlan`, `detectHazards`). Used by `@varp/cli`.
 
 The split exists because `parseManifest()` calls `Bun.YAML.parse` internally. Putting it in `lib` would break non-Bun consumers.

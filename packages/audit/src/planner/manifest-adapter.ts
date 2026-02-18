@@ -1,6 +1,5 @@
 import { readFileSync, existsSync, statSync } from 'fs';
 import { resolve, dirname, relative, join } from 'path';
-import YAML from 'yaml';
 import { componentPaths } from '@varp/core/lib';
 import type { Manifest, Component } from '@varp/core/lib';
 import type { AuditComponent } from './types';
@@ -40,13 +39,13 @@ export function findManifest(targetPath: string): string | null {
  */
 export function parseManifest(manifestPath: string): Manifest {
   const raw = readFileSync(resolve(manifestPath), 'utf-8');
-  const parsed = YAML.parse(raw);
+  const parsed = Bun.YAML.parse(raw) as Record<string, unknown> | null;
 
   if (typeof parsed !== 'object' || parsed === null || !('varp' in parsed)) {
     throw new Error('Invalid manifest: missing \'varp\' key');
   }
 
-  const { varp, ...rest } = parsed as Record<string, unknown>;
+  const { varp, ...rest } = parsed;
 
   if (typeof varp !== 'string') {
     throw new Error('Invalid manifest: \'varp\' must be a string');

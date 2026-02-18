@@ -1,6 +1,5 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve, join } from 'path';
-import YAML from 'yaml';
 import type { CorroboratedFinding } from './findings';
 
 // ── Glob matching ──
@@ -90,11 +89,11 @@ export function parseSuppressConfig(targetPath: string): SuppressionRule[] {
   if (!existsSync(configPath)) return [];
 
   const raw = readFileSync(configPath, 'utf-8');
-  const parsed = YAML.parse(raw);
+  const parsed = Bun.YAML.parse(raw) as Record<string, unknown> | null;
 
   if (!parsed || !Array.isArray(parsed.suppressions)) return [];
 
-  return parsed.suppressions
+  return (parsed.suppressions as unknown[])
     .filter((s: unknown): s is Record<string, unknown> =>
       typeof s === 'object' && s !== null && 'rule' in s
     )

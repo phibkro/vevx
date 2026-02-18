@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, spyOn } from 'bun:test'
 import { createProgressReporter } from '../progress'
 
 describe('Progress Reporter', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    // bun:test spies are auto-restored per test
   })
 
   it('shows startup message when started', () => {
-    const consoleSpy = vi.spyOn(console, 'log')
+    const consoleSpy = spyOn(console, 'log')
     const reporter = createProgressReporter()
 
     reporter.onProgress({ type: 'started', agentCount: 5 })
@@ -29,7 +29,7 @@ describe('Progress Reporter', () => {
   })
 
   it('shows completion for each agent with score and duration', () => {
-    const consoleSpy = vi.spyOn(console, 'log')
+    const consoleSpy = spyOn(console, 'log')
     const reporter = createProgressReporter()
 
     // Start then complete
@@ -72,7 +72,7 @@ describe('Progress Reporter', () => {
   })
 
   it('shows total duration when all agents complete', () => {
-    const consoleSpy = vi.spyOn(console, 'log')
+    const consoleSpy = spyOn(console, 'log')
     const reporter = createProgressReporter()
 
     reporter.onProgress({ type: 'completed', totalDuration: 5.2 })

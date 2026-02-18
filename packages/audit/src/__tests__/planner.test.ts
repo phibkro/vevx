@@ -1,4 +1,3 @@
-import { describe, it, expect } from 'vitest';
 import { generatePlan, groupIntoComponents } from '../planner/planner';
 import type { FileContent } from '../agents/types';
 import type { Ruleset } from '../planner/types';

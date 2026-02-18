@@ -6,19 +6,13 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage",
+    "test": "bun test",
+    "lint": "oxlint",
+    "format": "oxfmt --write 'src/**/*.ts'",
+    "format:check": "oxfmt --check 'src/**/*.ts'",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@varp/core": "workspace:*",
-    "glob": "^10.3.10",
-    "yaml": "^2.7.0"
-  },
-  "devDependencies": {
-    "@types/node": "^25.2.3",
-    "@vitest/coverage-v8": "^4.0.18",
-    "typescript": "^5.4.5",
-    "vitest": "^4.0.18"
+    "@varp/core": "workspace:*"
   }
 }

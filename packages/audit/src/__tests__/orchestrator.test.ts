@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, mock } from 'bun:test';
 import type { FileContent } from '../agents/types'
 import type { AgentResult } from '../agents/types'
 import type { ProgressEvent } from '../orchestrator'
@@ -18,9 +18,6 @@ const mockFiles: FileContent[] = [
 ]
 
 describe('Orchestrator Progress Tracking', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
 
   describe('ProgressEvent types', () => {
     it('started event contains agent count', () => {
@@ -71,7 +68,7 @@ describe('Orchestrator Progress Tracking', () => {
   describe('Progress callback execution order', () => {
     it('callback receives events in correct order', () => {
       const events: ProgressEvent[] = []
-      const onProgress = vi.fn((event: ProgressEvent) => {
+      const onProgress = mock((event: ProgressEvent) => {
         events.push(event)
       })
 
