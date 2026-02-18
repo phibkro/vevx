@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "bun build src/index.ts --outdir dist --target bun --sourcemap=external --external @varp/core && tsc --emitDeclarationOnly",
     "test": "bun test",
     "lint": "oxlint",
     "format": "oxfmt --write 'src/**/*.ts'",
