@@ -1,0 +1,24 @@
+{
+  "name": "@code-auditor/core",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "glob": "^10.3.10"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "@vitest/coverage-v8": "^4.0.18",
+    "typescript": "^5.4.5",
+    "vitest": "^4.0.18"
+  }
+}
