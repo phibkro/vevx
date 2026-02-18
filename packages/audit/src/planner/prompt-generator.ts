@@ -314,16 +314,17 @@ export function parseAuditResponse(
 
     return { ...baseResult, findings };
   } catch (error) {
-    // Parsing failed — return error finding
+    // Parsing failed — return sanitized error finding (raw response not included)
+    console.warn(`Audit response parse error for task ${task.id}:`, error);
     return {
       ...baseResult,
       findings: [{
         ruleId: 'PARSE-ERROR',
         severity: 'informational',
         title: 'Failed to parse audit agent response',
-        description: `Response parsing error: ${error instanceof Error ? error.message : String(error)}`,
+        description: 'Response was not valid JSON. Rerun this task for results.',
         locations: [],
-        evidence: raw.slice(0, 500),
+        evidence: '',
         remediation: 'Rerun this audit task',
         confidence: 0,
       }],

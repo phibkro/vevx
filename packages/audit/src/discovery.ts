@@ -189,7 +189,9 @@ export async function discoverFiles(targetPath: string): Promise<FileContent[]> 
           size: stat.size,
         });
       } catch (error) {
-        console.warn(`Warning: Could not read file ${fullPath}: ${error}`);
+        const relPath = relative(process.cwd(), fullPath);
+        const code = (error as NodeJS.ErrnoException).code ?? "UNKNOWN";
+        console.warn(`Warning: Could not read file ${relPath} (${code})`);
       }
     }
 

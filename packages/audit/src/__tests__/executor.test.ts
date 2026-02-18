@@ -5,7 +5,9 @@ import type { AuditProgressEvent } from '../planner/executor';
 import { executeAuditPlan } from '../planner/executor';
 
 // Mock the client module
-const mockCallClaude = vi.fn();
+const { mockCallClaude } = vi.hoisted(() => ({
+  mockCallClaude: vi.fn(),
+}));
 vi.mock('../client', () => ({
   callClaude: mockCallClaude,
 }));

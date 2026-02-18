@@ -30,6 +30,21 @@ export async function callClaude(
   return spawnClaude(args);
 }
 
+/** Env vars needed by the claude CLI. Everything else is excluded. */
+const ALLOWED_ENV_KEYS = [
+  'HOME', 'USER', 'PATH', 'SHELL', 'TERM', 'LANG', 'LC_ALL',
+  'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME',
+  'NODE_ENV', 'NO_COLOR',
+];
+
+function filteredEnv(): Record<string, string> {
+  const env: Record<string, string> = { CLAUDECODE: '' };
+  for (const key of ALLOWED_ENV_KEYS) {
+    if (process.env[key]) env[key] = process.env[key]!;
+  }
+  return env;
+}
+
 /**
  * Spawn claude CLI and collect output.
  */
@@ -37,10 +52,7 @@ function spawnClaude(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn('claude', args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        CLAUDECODE: '', // Allow nesting
-      },
+      env: filteredEnv(),
     });
 
     const chunks: Buffer[] = [];
@@ -51,16 +63,14 @@ function spawnClaude(args: string[]): Promise<string> {
 
     proc.on('close', (code) => {
       const stdout = Buffer.concat(chunks).toString('utf-8').trim();
-      const stderr = Buffer.concat(errChunks).toString('utf-8').trim();
 
       if (code !== 0) {
-        const msg = stderr || stdout || `claude exited with code ${code}`;
-        reject(new Error(msg));
+        reject(new Error(`Claude CLI exited with code ${code}`));
         return;
       }
 
       if (!stdout) {
-        reject(new Error('No output from claude'));
+        reject(new Error('No output from Claude CLI'));
         return;
       }
 
@@ -73,7 +83,7 @@ function spawnClaude(args: string[]): Promise<string> {
           'claude CLI not found. Install it with: npm install -g @anthropic-ai/claude-code'
         ));
       } else {
-        reject(err);
+        reject(new Error('Failed to spawn Claude CLI'));
       }
     });
   });

@@ -298,7 +298,7 @@ function parseResponse(raw: string): AgentResult {
         {
           severity: "warning",
           title: "Agent response parsing failed",
-          description: `Could not parse structured response: ${error}. Raw response: ${raw.substring(0, 200)}...`,
+          description: `Could not parse structured response from ${AGENT_NAME} agent.`,
           file: "unknown",
         },
       ],

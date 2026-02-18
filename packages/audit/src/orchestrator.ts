@@ -49,11 +49,10 @@ async function runAgent(
 
     return result;
   } catch (error) {
-    // If agent fails, return error result
+    // If agent fails, return error result with sanitized message
     const durationMs = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : String(error);
 
-    console.error(`Agent ${agent.name} failed: ${errorMessage}`);
+    console.error(`Agent ${agent.name} failed:`, error);
 
     return {
       agent: agent.name,
@@ -62,11 +61,11 @@ async function runAgent(
         {
           severity: "critical",
           title: `Agent ${agent.name} failed`,
-          description: `Analysis failed with error: ${errorMessage}`,
+          description: "Analysis could not be completed. See server logs for details.",
           file: "unknown",
         },
       ],
-      summary: `Agent failed to complete analysis: ${errorMessage}`,
+      summary: "Agent failed to complete analysis.",
       durationMs,
     };
   }
@@ -120,20 +119,20 @@ export async function runAudit(
     if (result.status === "fulfilled") {
       return result.value;
     } else {
-      // Promise was rejected
-      console.error(`Agent ${agent.name} promise rejected: ${result.reason}`);
+      // Promise was rejected — log full detail, return sanitized message
+      console.error(`Agent ${agent.name} promise rejected:`, result.reason);
       return {
         agent: agent.name,
         score: 0,
         findings: [
           {
             severity: "critical",
-            title: `Agent ${agent.name} promise rejected`,
-            description: `Promise was rejected: ${result.reason}`,
+            title: `Agent ${agent.name} failed`,
+            description: "Agent task was rejected. See server logs for details.",
             file: "unknown",
           },
         ],
-        summary: `Agent failed: ${result.reason}`,
+        summary: "Agent failed to complete analysis.",
         durationMs: 0,
       };
     }
