@@ -12,10 +12,10 @@
   },
   "scripts": {
     "build": "bun build src/index.ts src/lib.ts --outdir build --target node --format esm --sourcemap=external --external @modelcontextprotocol/sdk --external fast-xml-parser --external zod",
-    "typecheck": "tsc",
+    "typecheck": "oxlint --type-aware --type-check",
     "test": "bun test",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
+    "lint": "oxlint --type-aware",
+    "lint:fix": "oxlint --type-aware --fix",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",
     "lint:shell": "shellcheck ../plugin/hooks/scripts/*.sh",

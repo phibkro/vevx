@@ -7,7 +7,7 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun --sourcemap=external --external @varp/core && tsc --emitDeclarationOnly",
     "test": "bun test",
-    "lint": "oxlint",
+    "lint": "oxlint --type-aware",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",
     "check": "bun run format:check && bun run lint && bun run build",

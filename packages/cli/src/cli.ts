@@ -234,7 +234,7 @@ async function runAuditFlow(validatedPath: string, config: Config, args: CliArgs
   const agentResults = await runAudit(
     files,
     { caller: callClaude, model: config.model, maxTokens: 4096 },
-    reporter?.onProgress,
+    reporter?.onProgress.bind(reporter),
   );
   const durationMs = Date.now() - startTime;
 
@@ -406,4 +406,4 @@ async function main(): Promise<void> {
 }
 
 // Run CLI
-main();
+void main();

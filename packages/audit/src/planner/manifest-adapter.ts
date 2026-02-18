@@ -61,14 +61,14 @@ export function parseManifest(manifestPath: string): Manifest {
     const raw = value as Record<string, unknown>;
 
     const path = raw.path;
-    if (!path) continue;
+    if (!path || (typeof path !== "string" && !Array.isArray(path))) continue;
 
     // Resolve paths relative to manifest directory
     let resolvedPath: string | string[];
     if (Array.isArray(path)) {
       resolvedPath = path.map((p) => resolve(baseDir, String(p)));
     } else {
-      resolvedPath = resolve(baseDir, String(path));
+      resolvedPath = resolve(baseDir, path);
     }
 
     components[name] = {

@@ -1,6 +1,5 @@
-import type { FileContent } from "./types.js";
-
 import { createAgent } from "./factory.js";
+import type { FileContent } from "./types.js";
 
 const SYSTEM_PROMPT = `You are a dependency security specialist analyzing package.json for vulnerable and outdated dependencies.
 

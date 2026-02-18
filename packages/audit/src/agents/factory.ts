@@ -43,7 +43,7 @@ export function parseAgentResponse(
         durationMs: 0, // Will be set by orchestrator
       };
     } catch (error) {
-      console.warn(`Failed to parse JSON from ${agentName} agent: ${error}`);
+      console.warn(`Failed to parse JSON from ${agentName} agent: ${String(error)}`);
 
       return {
         agent: agentName,

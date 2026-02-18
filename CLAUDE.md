@@ -26,7 +26,7 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 - **Validation**: Zod (schemas are single source of truth for types)
 - **XML**: fast-xml-parser (plan.xml parsing)
 - **YAML**: Bun.YAML (built-in Zig-native YAML 1.2 parser)
-- **Lint**: oxlint (TypeScript plugin, correctness rules)
+- **Lint**: oxlint with type-aware rules via tsgolint (TypeScript plugin, correctness + type-checked rules)
 - **Format**: oxfmt (100-char width, double quotes, trailing commas)
 
 ## Architecture
@@ -68,5 +68,5 @@ Import alias `#shared/*` maps to `packages/core/src/shared/*`. One library entry
 - **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Tests**: Co-located with source (`*.test.ts`). Integration tests use `InMemoryTransport` + `Client`.
-- **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (core only).
+- **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (core only). oxlint runs with `--type-aware` in all packages; core also uses `--type-check` to replace `tsc --noEmit`.
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).

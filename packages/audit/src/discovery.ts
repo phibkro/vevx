@@ -102,15 +102,13 @@ function detectLanguage(filePath: string): string | null {
 /**
  * Check if file is likely binary
  */
-function isBinaryFile(filePath: string, sampleSize: number = 512): boolean {
+async function isBinaryFile(filePath: string, sampleSize: number = 512): Promise<boolean> {
   try {
     const fd = Bun.file(filePath);
-
-    // Read a small sample
-    const sample = fd.slice(0, sampleSize);
+    const sample = await fd.slice(0, sampleSize).text();
 
     // Simple heuristic: if file contains null bytes, it's likely binary
-    return sample.toString().includes("\0");
+    return sample.includes("\0");
   } catch {
     return false;
   }
@@ -135,7 +133,7 @@ export async function discoverFiles(targetPath: string): Promise<FileContent[]> 
         );
       }
 
-      if (isBinaryFile(absolutePath)) {
+      if (await isBinaryFile(absolutePath)) {
         throw new Error(`File appears to be binary: ${absolutePath}`);
       }
 
@@ -170,7 +168,7 @@ export async function discoverFiles(targetPath: string): Promise<FileContent[]> 
       }
 
       // Skip binary files
-      if (isBinaryFile(fullPath)) {
+      if (await isBinaryFile(fullPath)) {
         continue;
       }
 

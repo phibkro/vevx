@@ -565,7 +565,9 @@ describe("MCP server integration", () => {
     // DATABASE_URL may or may not be set in test env, just check structure
     expect(Array.isArray(data.set)).toBe(true);
     expect(Array.isArray(data.missing)).toBe(true);
-    expect([...data.set, ...data.missing].sort()).toEqual(["DATABASE_URL"]);
+    expect([...data.set, ...data.missing].sort((a, b) => a.localeCompare(b))).toEqual([
+      "DATABASE_URL",
+    ]);
   });
 
   test("varp_check_env returns empty for components without env", async () => {
