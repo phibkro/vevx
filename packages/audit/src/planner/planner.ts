@@ -171,14 +171,16 @@ export function generatePlan(
     const manifestComp = useManifest && manifest ? manifest.components[component.name] : undefined;
     const componentTags = manifestComp?.tags ?? [];
 
-    const relevantRules = ruleset.rules.filter(rule => {
-      if (useManifest && componentTags.length > 0) {
-        // Tag-based matching when manifest provides tags
-        return matchRulesByTags(componentTags, rule);
-      }
-      // Fallback to filename heuristic
-      return component.files.some(filePath => fileMatchesRule(filePath, rule));
-    });
+    // Try tag-based matching first, fall through to heuristics if no tags match any rules
+    let relevantRules = (useManifest && componentTags.length > 0)
+      ? ruleset.rules.filter(rule => matchRulesByTags(componentTags, rule))
+      : [];
+
+    if (relevantRules.length === 0) {
+      relevantRules = ruleset.rules.filter(rule =>
+        component.files.some(filePath => fileMatchesRule(filePath, rule))
+      );
+    }
 
     if (relevantRules.length === 0) continue;
 

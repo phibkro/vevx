@@ -1,0 +1,107 @@
+name: Compliance Audit
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      path:
+        description: 'Path to audit'
+        default: '.'
+      ruleset:
+        description: 'Ruleset to use'
+        default: 'owasp-top-10'
+      diff:
+        description: 'Git ref for incremental audit (leave empty for full audit)'
+        default: ''
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for --diff
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Run audit
+        id: audit
+        continue-on-error: true
+        env:
+          AUDIT_PATH: ${{ github.event.inputs.path || '.' }}
+          AUDIT_RULESET: ${{ github.event.inputs.ruleset || 'owasp-top-10' }}
+          AUDIT_DIFF: ${{ github.event.inputs.diff }}
+        run: |
+          ARGS="$AUDIT_PATH --ruleset $AUDIT_RULESET --format markdown --output audit-report.md --quiet"
+
+          # Use --diff for PRs (compare against base branch)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ARGS="$ARGS --diff origin/${{ github.base_ref }}"
+          elif [ -n "$AUDIT_DIFF" ]; then
+            ARGS="$ARGS --diff $AUDIT_DIFF"
+          fi
+
+          bun apps/cli/dist/cli.js audit $ARGS
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && hashFiles('audit-report.md') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('audit-report.md', 'utf8');
+
+            // Find existing audit comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const marker = '<!-- varp-audit-report -->';
+            const existing = comments.find(c => c.body.includes(marker));
+
+            const body = `${marker}\n${report}`;
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Upload report artifact
+        if: hashFiles('audit-report.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: audit-report.md
+
+      - name: Fail on critical findings
+        if: steps.audit.outcome == 'failure'
+        run: |
+          echo "::error::Compliance audit found critical findings. See the report for details."
+          exit 1
