@@ -86,6 +86,64 @@ describe("checkFreshness", () => {
     });
   });
 
+  describe("test file exclusion", () => {
+    const TEST_EXCL_TMP = join(PROJECT_ROOT, "test-fixtures", "test-excl-tmp");
+
+    beforeAll(() => {
+      // Create structure:
+      //   comp/source.ts        — mtime: Jan 1 2026
+      //   comp/source.test.ts   — mtime: Mar 1 2026 (newer, but should be ignored)
+      //   comp/README.md        — mtime: Feb 1 2026
+      mkdirSync(join(TEST_EXCL_TMP, "comp"), { recursive: true });
+      writeFileSync(join(TEST_EXCL_TMP, "comp/source.ts"), "export const x = 1;");
+      writeFileSync(join(TEST_EXCL_TMP, "comp/source.test.ts"), "test('x', () => {});");
+      writeFileSync(join(TEST_EXCL_TMP, "comp/README.md"), "# Docs");
+      const sourceTime = new Date("2026-01-01T00:00:00Z");
+      utimesSync(join(TEST_EXCL_TMP, "comp/source.ts"), sourceTime, sourceTime);
+      const testTime = new Date("2026-03-01T00:00:00Z");
+      utimesSync(join(TEST_EXCL_TMP, "comp/source.test.ts"), testTime, testTime);
+      const docTime = new Date("2026-02-01T00:00:00Z");
+      utimesSync(join(TEST_EXCL_TMP, "comp/README.md"), docTime, docTime);
+    });
+
+    afterAll(() => {
+      try {
+        rmSync(TEST_EXCL_TMP, { recursive: true });
+      } catch {}
+    });
+
+    test("test file mtime does not inflate source_last_modified", () => {
+      const manifest = {
+        varp: "0.1.0",
+        components: {
+          comp: { path: join(TEST_EXCL_TMP, "comp"), docs: [] },
+        },
+      };
+
+      const report = checkFreshness(manifest);
+      // source_last_modified should reflect source.ts (Jan 1), not source.test.ts (Mar 1)
+      const sourceMtime = new Date(report.components.comp.source_last_modified);
+      expect(sourceMtime.getTime()).toBe(new Date("2026-01-01T00:00:00Z").getTime());
+      // README (Feb 1) > source (Jan 1), so not stale
+      expect(report.components.comp.docs["README"].stale).toBe(false);
+    });
+
+    test("test file changes do not trigger warm staleness", () => {
+      const manifest = {
+        varp: "0.1.0",
+        components: {
+          comp: { path: join(TEST_EXCL_TMP, "comp"), docs: [] },
+        },
+      };
+
+      // Baseline between source.ts (Jan 1) and source.test.ts (Mar 1)
+      const since = new Date("2026-02-15T00:00:00Z");
+      const result = checkWarmStaleness(manifest, ["comp"], since);
+      expect(result.safe_to_resume).toBe(true);
+      expect(result.stale_components).toEqual([]);
+    });
+  });
+
   describe("staleness threshold", () => {
     test("doc within 5s of source is not stale", () => {
       const source = new Date("2026-02-17T12:00:05.000Z");

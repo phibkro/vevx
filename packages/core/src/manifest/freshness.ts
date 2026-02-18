@@ -12,6 +12,9 @@ import { discoverDocs } from "./discovery.js";
 
 // ── I/O helpers ──
 
+/** Matches test files: *.test.ts, *.spec.ts, *.test.js, *.spec.js, etc. */
+const TEST_FILE_RE = /\.(test|spec)\.[jt]sx?$/;
+
 export function getLatestMtime(dirPath: string, excludePaths?: Set<string>): Date | null {
   try {
     const entries = readdirSync(dirPath, {
@@ -21,6 +24,7 @@ export function getLatestMtime(dirPath: string, excludePaths?: Set<string>): Dat
     let latest: Date | null = null;
     for (const entry of entries) {
       if (entry.isFile()) {
+        if (TEST_FILE_RE.test(entry.name)) continue;
         const fullPath = join((entry as any).parentPath ?? dirPath, entry.name);
         if (excludePaths?.has(fullPath)) continue;
         try {
