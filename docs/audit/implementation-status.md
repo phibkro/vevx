@@ -54,7 +54,7 @@ Two audit modes, a CLI, and one ruleset.
 | `--quiet` | Suppress progress output | Complete |
 | `--diff [ref]` | Incremental audit | Complete (default ref: HEAD) |
 | `--budget <tokens>` | Max token spend | Complete — skips low-priority tasks when exhausted (kept despite ADR-001 dropping budgets from core) |
-| `--baseline <path>` | Drift comparison | Not implemented (library-side done, needs CLI wiring) |
+| `--baseline <path>` | Drift comparison | Complete — loads baseline JSON, runs `diffReports()`, renders in chosen format |
 | `--quick` / `--thorough` | Coverage bias | Not implemented |
 | `--scope <path>` | Audit subset | Not implemented (positional path arg serves same purpose) |
 
@@ -82,7 +82,6 @@ Two audit modes, a CLI, and one ruleset.
 | Auto-manifest generation for unknown codebases | Not implemented | Requires manifest or falls back to heuristics |
 | HIPAA/PCI-DSS/GDPR rulesets | Not implemented | OWASP Top 10 only |
 | Custom organizational rulesets | Not implemented | Framework supports it; no examples/docs |
-| `--baseline` CLI flag | Not implemented | Library-side drift tracking done; needs CLI wiring |
 
 ### Build System
 

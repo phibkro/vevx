@@ -9,6 +9,10 @@ import {
   printComplianceReport,
   generateComplianceMarkdown,
   generateComplianceJson,
+  diffReports,
+  printDriftReport,
+  generateDriftMarkdown,
+  generateDriftJson,
 } from '@varp/audit';
 import { discoverFiles } from '@varp/audit/src/discovery';
 import { getChangedFiles, filterToChanged } from '@varp/audit/src/planner/diff-filter';
@@ -31,6 +35,8 @@ export interface AuditArgs {
   diff?: string;
   /** Max estimated tokens to spend. Low-priority tasks skipped when exceeded. */
   budget?: number;
+  /** Path to a baseline compliance report JSON for drift comparison. */
+  baseline?: string;
 }
 
 export function parseAuditArgs(argv: string[]): AuditArgs {
@@ -44,10 +50,13 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
   let quiet = false;
   let diff: string | undefined;
   let budget: number | undefined;
+  let baseline: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--budget' && argv[i + 1]) {
+    if (arg === '--baseline' && argv[i + 1]) {
+      baseline = argv[++i];
+    } else if (arg === '--budget' && argv[i + 1]) {
       budget = parseInt(argv[++i], 10);
       if (isNaN(budget) || budget <= 0) {
         throw new Error(`Invalid budget: must be a positive integer`);
@@ -86,7 +95,7 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
     throw new Error('Path argument is required.\nUsage: varp audit <path> [--ruleset <name>] [--format text|json|markdown]');
   }
 
-  return { path, ruleset, model, concurrency, format, output, quiet, diff, budget };
+  return { path, ruleset, model, concurrency, format, output, quiet, diff, budget, baseline };
 }
 
 // ── Ruleset resolution ──
@@ -242,6 +251,24 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
     console.log(generateComplianceMarkdown(report));
   } else {
     printComplianceReport(report);
+  }
+
+  // Drift comparison
+  if (args.baseline) {
+    const baselinePath = resolve(args.baseline);
+    if (!existsSync(baselinePath)) {
+      throw new Error(`Baseline report not found: ${baselinePath}`);
+    }
+    const baselineReport = JSON.parse(readFileSync(baselinePath, 'utf-8'));
+    const drift = diffReports(baselineReport, report);
+
+    if (fmt === 'json') {
+      console.log(generateDriftJson(drift));
+    } else if (fmt === 'markdown') {
+      console.log(generateDriftMarkdown(drift));
+    } else {
+      console.log(printDriftReport(drift));
+    }
   }
 
   // Save to file

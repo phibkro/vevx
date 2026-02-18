@@ -18,8 +18,6 @@
 - Drift tracking — `diffReports()` diffs current vs baseline `ComplianceReport` (new/resolved/changed findings, trend)
 
 ## Next
-
-- CLI `--baseline` flag — wire drift tracking into `varp audit` (library-side done, needs CLI integration)
 - Wave scheduling → varp scheduler: **not applicable** — audit tasks are read-only, so `detectHazards()` returns zero hazards and `computeWaves()` puts everything in wave 0. The 3-wave structure (component → cross-cutting → synthesis) is a domain ordering, not a data-dependency ordering. Revisit if audit gains auto-fix (write) capabilities.
 
 ## Future
