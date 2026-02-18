@@ -11,7 +11,7 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 | `generatePrompt()` | Builds system/user prompts for an audit task |
 | `parseAuditResponse()` | Extracts findings from LLM responses (structured or text) |
 | `AUDIT_FINDINGS_SCHEMA` | JSON Schema for structured output (constrained decoding) |
-| `executeAuditPlan()` | Runs a plan end-to-end (waves → Claude CLI → report) |
+| `executeAuditPlan()` | Runs a plan end-to-end (waves → ModelCaller → report, with optional budget enforcement) |
 | `printComplianceReport()` | Renders report to terminal with ANSI colors |
 | `generateComplianceMarkdown()` | Renders report as markdown |
 | `generateComplianceJson()` | Renders report as JSON |
@@ -31,7 +31,7 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 2. **Group files** — Uses manifest components when `varp.yaml` exists (tag-based rule matching), falls back to directory-based clustering
 3. **Match rules** — Maps rules to components via manifest tags or filename pattern heuristics
 4. **Plan waves** — Wave 1 (component scans, parallel), Wave 2 (cross-cutting, parallel), Wave 3 (synthesis, in-process)
-5. **Execute** — Runs wave 1 and 2 tasks via Claude Code CLI with bounded concurrency and structured output (constrained decoding via `--json-schema`), then synthesizes in-process (dedup, suppressions, coverage). Real token usage and cost are captured from API responses when available.
+5. **Execute** — Runs wave 1 and 2 tasks via `ModelCaller` with bounded concurrency and structured output (constrained decoding via `--json-schema`), then synthesizes in-process (dedup, suppressions, coverage). Real token usage and cost are captured from API responses when available. When `budget` is set, tracks cumulative estimated tokens and skips low-priority tasks when exhausted (emits `task-skipped` events).
 6. **Suppress** — Applies inline and config-based suppressions to filter known false positives
 7. **Report** — Renders findings to terminal, markdown, or JSON
 

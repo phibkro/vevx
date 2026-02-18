@@ -2,6 +2,8 @@
 
 Multi-agent compliance audit engine. Runs specialized Claude-powered agents against a codebase to produce structured security and quality findings.
 
+Depends on `@varp/core/lib` for manifest types (`Manifest`, `Component`, `componentPaths`).
+
 ## Architecture
 
 ```
@@ -9,7 +11,7 @@ Ruleset (markdown)  →  Planner  →  Audit Plan (waves + tasks)
                                         ↓
 Source files        →  Chunker  →  Executor  →  Agents  →  Report
                                         ↓
-                                   Claude Code CLI (client.ts)
+                                   ModelCaller (injected by consumer)
 ```
 
 ## Key Modules
@@ -17,13 +19,12 @@ Source files        →  Chunker  →  Executor  →  Agents  →  Report
 | Module | Purpose |
 |--------|---------|
 | `orchestrator.ts` | Runs generic agents against file chunks, scores results |
-| `client.ts` | Claude Code CLI wrapper (spawns `claude -p` subprocesses, supports structured output) |
 | `chunker.ts` | Splits source files into token-bounded chunks |
 | `discovery.ts` | Finds source files (Bun runtime) |
 | `discovery-node.ts` | Finds source files (Node.js runtime) |
 | `errors.ts` | Domain error types |
 | `planner/` | Compliance audit planning and execution (see `planner/README.md`) |
-| `planner/manifest-adapter.ts` | Varp manifest integration — uses `varp.yaml` components and tags when available |
+| `planner/manifest-adapter.ts` | Varp manifest integration — uses `@varp/core/lib` types, keeps own YAML parser |
 | `planner/suppressions.ts` | False positive suppression via inline comments and `.audit-suppress.yaml` |
 | `planner/diff-filter.ts` | Incremental audits — `--diff` flag filters to changed files with invalidation cascade |
 | `agents/` | Specialized review agents (see `agents/README.md`) |

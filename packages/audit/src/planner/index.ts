@@ -7,7 +7,7 @@ export {
   matchRulesByTags,
   assignFilesToComponents,
 } from './manifest-adapter';
-export type { Manifest, ManifestComponent } from './manifest-adapter';
+export type { Manifest, Component } from './manifest-adapter';
 export {
   compareSeverity,
   findingsOverlap,

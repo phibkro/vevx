@@ -29,6 +29,8 @@ export interface AuditArgs {
   quiet?: boolean;
   /** Git ref for incremental audit. When set, only audit changed files. */
   diff?: string;
+  /** Max estimated tokens to spend. Low-priority tasks skipped when exceeded. */
+  budget?: number;
 }
 
 export function parseAuditArgs(argv: string[]): AuditArgs {
@@ -41,10 +43,16 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
   let output: string | undefined;
   let quiet = false;
   let diff: string | undefined;
+  let budget: number | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--diff') {
+    if (arg === '--budget' && argv[i + 1]) {
+      budget = parseInt(argv[++i], 10);
+      if (isNaN(budget) || budget <= 0) {
+        throw new Error(`Invalid budget: must be a positive integer`);
+      }
+    } else if (arg === '--diff') {
       // --diff with optional ref (default: HEAD)
       const next = argv[i + 1];
       if (next && !next.startsWith('-')) {
@@ -78,7 +86,7 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
     throw new Error('Path argument is required.\nUsage: varp audit <path> [--ruleset <name>] [--format text|json|markdown]');
   }
 
-  return { path, ruleset, model, concurrency, format, output, quiet, diff };
+  return { path, ruleset, model, concurrency, format, output, quiet, diff, budget };
 }
 
 // ── Ruleset resolution ──
@@ -150,6 +158,9 @@ function createAuditProgress(quiet: boolean) {
         completedInWave++;
         console.error(`  [${completedInWave}/${tasksInWave}] FAILED: ${event.task.description} — ${event.error.message}`);
         break;
+      case 'task-skipped':
+        console.log(`  SKIPPED: ${event.task.description} (${event.reason})`);
+        break;
       case 'complete':
         console.log();
         break;
@@ -220,6 +231,7 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
     onProgress: createAuditProgress(args.quiet ?? false),
     targetPath: validatedPath,
     diff: diffMeta,
+    budget: args.budget,
   });
 
   // Output

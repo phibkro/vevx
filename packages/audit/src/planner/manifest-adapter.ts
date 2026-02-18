@@ -1,24 +1,12 @@
 import { readFileSync, existsSync, statSync } from 'fs';
 import { resolve, dirname, relative, join } from 'path';
 import YAML from 'yaml';
+import { componentPaths } from '@varp/core/lib';
+import type { Manifest, Component } from '@varp/core/lib';
 import type { AuditComponent } from './types';
 import type { Rule } from './types';
 
-// ── Manifest types (subset of @varp/core Component) ──
-
-export interface ManifestComponent {
-  path: string | string[];
-  deps?: string[];
-  tags?: string[];
-  docs?: string[];
-  test?: string;
-  stability?: string;
-}
-
-export interface Manifest {
-  varp: string;
-  components: Record<string, ManifestComponent>;
-}
+export type { Manifest, Component };
 
 // ── Manifest discovery ──
 
@@ -65,7 +53,7 @@ export function parseManifest(manifestPath: string): Manifest {
   }
 
   const baseDir = dirname(resolve(manifestPath));
-  const components: Record<string, ManifestComponent> = {};
+  const components: Record<string, Component> = {};
 
   for (const [name, value] of Object.entries(rest)) {
     if (typeof value !== 'object' || value === null) continue;
@@ -86,18 +74,13 @@ export function parseManifest(manifestPath: string): Manifest {
       path: resolvedPath,
       deps: Array.isArray(raw.deps) ? raw.deps.map(String) : undefined,
       tags: Array.isArray(raw.tags) ? raw.tags.map(String) : undefined,
-      docs: Array.isArray(raw.docs) ? raw.docs.map(String) : undefined,
+      docs: Array.isArray(raw.docs) ? raw.docs.map(String) : [],
       test: typeof raw.test === 'string' ? raw.test : undefined,
-      stability: typeof raw.stability === 'string' ? raw.stability : undefined,
+      stability: typeof raw.stability === 'string' ? raw.stability as Component['stability'] : undefined,
     };
   }
 
   return { varp, components };
-}
-
-/** Normalize component path to array. */
-function componentPaths(comp: ManifestComponent): string[] {
-  return Array.isArray(comp.path) ? comp.path : [comp.path];
 }
 
 // ── Component loading ──

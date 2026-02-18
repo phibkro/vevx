@@ -11,6 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@varp/core": "workspace:*",
     "glob": "^10.3.10",
     "yaml": "^2.7.0"
   },

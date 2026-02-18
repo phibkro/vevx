@@ -17,6 +17,7 @@ export type AuditProgressEvent =
   | { type: 'task-start'; task: AuditTask }
   | { type: 'task-complete'; task: AuditTask; result: AuditTaskResult }
   | { type: 'task-error'; task: AuditTask; error: Error }
+  | { type: 'task-skipped'; task: AuditTask; reason: 'budget-exceeded' }
   | { type: 'wave-complete'; wave: 1 | 2 | 3; results: AuditTaskResult[] }
   | { type: 'complete'; report: ComplianceReport };
 
@@ -45,6 +46,9 @@ export interface ExecutorOptions {
 
   /** Diff metadata for incremental audits */
   diff?: { ref: string; changedFiles: number };
+
+  /** Max estimated tokens to spend. Low-priority tasks skipped when exhausted. */
+  budget?: number;
 }
 
 const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
@@ -132,6 +136,7 @@ function computeCoverage(
   plan: AuditPlan,
   results: AuditTaskResult[],
   failedTaskIds: Set<string>,
+  skippedTaskIds: Set<string>,
 ): CoverageEntry[] {
   const entries: CoverageEntry[] = [];
   const completedTaskIds = new Set(results.map(r => r.taskId));
@@ -148,6 +153,13 @@ function computeCoverage(
           ruleId,
           checked: false,
           reason: 'agent failed',
+        });
+      } else if (skippedTaskIds.has(task.id)) {
+        entries.push({
+          component: task.component,
+          ruleId,
+          checked: false,
+          reason: 'budget exceeded',
         });
       } else {
         entries.push({
@@ -189,7 +201,10 @@ export async function executeAuditPlan(
   const startedAt = new Date().toISOString();
   const allResults: AuditTaskResult[] = [];
   const failedTaskIds = new Set<string>();
+  const skippedTaskIds = new Set<string>();
   let tasksFailed = 0;
+  let tasksSkipped = 0;
+  let cumulativeEstimatedTokens = 0;
 
   onProgress?.({ type: 'plan-ready', plan });
 
@@ -202,12 +217,34 @@ export async function executeAuditPlan(
       .filter((f): f is FileContent => f !== undefined);
   }
 
+  /**
+   * Filter tasks by budget. Tasks are already sorted by priority (lowest number = highest priority).
+   * Skip tasks whose cumulative estimated tokens exceed the budget.
+   */
+  function applyBudget(tasks: AuditTask[]): AuditTask[] {
+    if (!options.budget) return tasks;
+
+    const eligible: AuditTask[] = [];
+    for (const task of tasks) {
+      if (cumulativeEstimatedTokens + task.estimatedTokens > options.budget) {
+        tasksSkipped++;
+        skippedTaskIds.add(task.id);
+        onProgress?.({ type: 'task-skipped', task, reason: 'budget-exceeded' });
+        continue;
+      }
+      cumulativeEstimatedTokens += task.estimatedTokens;
+      eligible.push(task);
+    }
+    return eligible;
+  }
+
   // ── Wave 1: Component scans ──
   if (plan.waves.wave1.length > 0) {
-    onProgress?.({ type: 'wave-start', wave: 1, taskCount: plan.waves.wave1.length });
+    const wave1Tasks = applyBudget(plan.waves.wave1);
+    onProgress?.({ type: 'wave-start', wave: 1, taskCount: wave1Tasks.length });
 
     const wave1Results = await runWithConcurrency(
-      plan.waves.wave1,
+      wave1Tasks,
       (task) => {
         onProgress?.({ type: 'task-start', task });
         return executeTask(task, resolveFiles(task), ruleset, caller, callOptions);
@@ -227,10 +264,11 @@ export async function executeAuditPlan(
 
   // ── Wave 2: Cross-cutting analysis ──
   if (plan.waves.wave2.length > 0) {
-    onProgress?.({ type: 'wave-start', wave: 2, taskCount: plan.waves.wave2.length });
+    const wave2Tasks = applyBudget(plan.waves.wave2);
+    onProgress?.({ type: 'wave-start', wave: 2, taskCount: wave2Tasks.length });
 
     const wave2Results = await runWithConcurrency(
-      plan.waves.wave2,
+      wave2Tasks,
       (task) => {
         onProgress?.({ type: 'task-start', task });
         return executeTask(task, resolveFiles(task), ruleset, caller, callOptions);
@@ -266,7 +304,7 @@ export async function executeAuditPlan(
   }
 
   const summary = summarizeFindings(activeFindings);
-  const coverageEntries = computeCoverage(plan, allResults, failedTaskIds);
+  const coverageEntries = computeCoverage(plan, allResults, failedTaskIds, skippedTaskIds);
 
   const totalComponents = plan.components.length;
   const checkedComponents = new Set(
@@ -304,6 +342,7 @@ export async function executeAuditPlan(
       tasksFailed,
       totalTokensUsed: allResults.reduce((sum, r) => sum + r.tokensUsed, 0),
       models: [...new Set(allResults.map(r => r.model))],
+      ...(tasksSkipped > 0 ? { tasksSkipped } : {}),
       ...(suppressedCount > 0 ? { suppressedCount } : {}),
     },
   };

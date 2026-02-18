@@ -2,7 +2,18 @@
 
 Varp's MCP server. Exposes manifest operations, scheduling logic, plan validation, capability enforcement, and doc freshness tracking as MCP tools that the orchestrator (Claude Code) calls during its work cycle.
 
-Consumed by: orchestrator (Claude Code session), skills, hooks.
+Consumed by: orchestrator (Claude Code session), skills, hooks, `@varp/audit`.
+
+## Library Entry Point (`@varp/core/lib`)
+
+For programmatic consumers that need types and pure functions without the MCP server:
+
+```ts
+import { componentPaths, findOwningComponent, invalidationCascade } from "@varp/core/lib";
+import type { Manifest, Component, Stability } from "@varp/core/lib";
+```
+
+Exports: `componentPaths`, `findOwningComponent`, `buildComponentPaths`, `invalidationCascade`, `validateDependencyGraph`, and associated types. Does NOT export `parseManifest` (uses Bun-specific YAML parser).
 
 ## MCP Tools
 

@@ -29,6 +29,7 @@
       "name": "@varp/audit",
       "version": "0.1.0",
       "dependencies": {
+        "@varp/core": "workspace:*",
         "glob": "^10.3.10",
         "yaml": "^2.7.0",
       },

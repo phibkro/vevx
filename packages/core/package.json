@@ -3,8 +3,15 @@
   "version": "0.1.0",
   "type": "module",
   "main": "build/index.js",
+  "exports": {
+    ".": "./build/index.js",
+    "./lib": {
+      "types": "./lib.d.ts",
+      "default": "./build/lib.js"
+    }
+  },
   "scripts": {
-    "build": "bun build src/index.ts --outdir build --target node --format esm --sourcemap=external --packages external",
+    "build": "bun build src/index.ts src/lib.ts --outdir build --target node --format esm --sourcemap=external --packages external",
     "typecheck": "tsc",
     "test": "bun test",
     "lint": "oxlint",

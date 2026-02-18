@@ -34,6 +34,8 @@ packages/
   core/                   Varp MCP server (@varp/core)
     src/                  shared, server, manifest, plan, scheduler, enforcement
       shared/             Shared types + utilities (types.ts, ownership.ts)
+      lib.ts              Library entry point for programmatic consumers (@varp/core/lib)
+    lib.d.ts              Hand-maintained declarations for @varp/core/lib
       manifest/           Manifest parsing, doc resolution, freshness, graph, imports, touches, lint, scoped-tests
       plan/               Plan XML parsing, validation, diff
       scheduler/          Hazard detection, wave computation, critical path
@@ -50,7 +52,7 @@ apps/
 docs/                     Design docs, getting started, reference URLs
 ```
 
-Import alias `#shared/*` maps to `packages/core/src/shared/*`.
+Import alias `#shared/*` maps to `packages/core/src/shared/*`. External consumers import via `@varp/core/lib` (re-exports shared types with relative paths, hand-maintained `lib.d.ts` for TypeScript).
 
 **Details**: See `packages/core/docs/architecture.md` for algorithms and data flow. See `packages/core/README.md` for tool API surface. See `packages/core/src/manifest/README.md` and `packages/core/src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
 

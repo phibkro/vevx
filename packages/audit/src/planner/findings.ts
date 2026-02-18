@@ -173,6 +173,8 @@ export interface ComplianceReport {
     tasksFailed: number;
     totalTokensUsed: number;
     models: string[];
+    /** Number of tasks skipped due to budget constraints */
+    tasksSkipped?: number;
     /** Number of findings suppressed by config or inline comments */
     suppressedCount?: number;
   };
