@@ -8,8 +8,8 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 |---------|---------|
 | `turbo build` | Build all packages |
 | `turbo test` | Run all tests |
-| `cd packages/core && bun run check` | Format + lint + shellcheck + build (core CI gate) |
-| `cd packages/core && bun run typecheck` | Type-check core via tsc --noEmit |
+| `turbo check` | Format + lint + build (all packages) |
+| `turbo typecheck` | Type-check all packages via tsc |
 | `bun test packages/core/src/index.test.ts` | MCP integration tests only |
 | `bun test packages/core/src/scheduler/` | Scheduler tests only |
 | `bun run packages/cli/dist/cli.js lint` | Lint manifest for issues |
@@ -68,5 +68,5 @@ Import alias `#shared/*` maps to `packages/core/src/shared/*`. One library entry
 - **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Tests**: Co-located with source (`*.test.ts`). Integration tests use `InMemoryTransport` + `Client`.
-- **Lint/Format**: Run `bun run check` in `packages/core/` before committing. oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality.
+- **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (core only).
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).

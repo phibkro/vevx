@@ -177,10 +177,9 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 ```bash
 bun install              # install all workspace deps
 turbo build              # build all packages
-turbo test               # 483 tests across all packages
-cd packages/core
-  bun run check          # format + lint + shellcheck + build
-  bun run typecheck      # tsc --noEmit
+turbo test               # all tests across all packages
+turbo check              # format + lint + build (all packages)
+turbo typecheck          # tsc --noEmit (all packages)
 ```
 
 **Stack:** Bun, Turborepo, TypeScript (ES2022, ESM only), Zod, MCP SDK, fast-xml-parser.
