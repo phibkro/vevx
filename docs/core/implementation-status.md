@@ -8,7 +8,7 @@ Current state of Varp relative to the design documents. Updated February 2026.
 |-------|---------|
 | MCP tools | Manifest, Scheduler, Plan, Enforcement, Analysis |
 | Skills | init, plan, execute, review, status |
-| Hooks | SessionStart, SubagentStart (PostToolUse), PostToolUse (freshness) |
+| Hooks | SessionStart, SubagentStart, PostToolUse (freshness + auto-format), Stop (lint advisory) |
 | Tests | Co-located `*.test.ts` files, run with `bun test` |
 
 ### MCP Tools by Category
@@ -27,7 +27,7 @@ Current state of Varp relative to the design documents. Updated February 2026.
 
 | Skill | Status | Notes |
 |-------|--------|-------|
-| `/varp:init` | Complete | Scaffolds `varp.yaml`. Supports Nx, Turborepo, moon graph import. |
+| `/varp:init` | Complete | Scaffolds `varp.yaml`. Supports Nx, Turborepo, moon graph import. Scans root `docs/` for component matches. |
 | `/varp:plan` | Complete | Planner protocol (8 steps, budget step removed per ADR-001). Suggests Turbo/Nx test runners. |
 | `/varp:execute` | Complete | Orchestrator protocol (11 steps). Advisory monorepo scope checks. |
 | `/varp:review` | Complete | Medium loop: diff plan vs log.xml. |
@@ -35,11 +35,13 @@ Current state of Varp relative to the design documents. Updated February 2026.
 
 ### Hooks
 
-| Hook | Trigger | Purpose |
-|------|---------|---------|
-| SessionStart | Session start | Load manifest, display project state |
-| SubagentStart | Subagent dispatch | Inject conventions from `.claude/rules/subagent-conventions.md` |
-| PostToolUse (Write/Edit) | File modification | Flag component docs for freshness review |
+| Hook | Trigger | Type | Purpose |
+|------|---------|------|---------|
+| SessionStart | Session start | command | Load manifest, display project state |
+| SubagentStart | Subagent dispatch | command | Inject conventions from `.claude/rules/subagent-conventions.md` |
+| PostToolUse (Write/Edit) | File modification | command | Flag component docs for freshness review |
+| PostToolUse (Write/Edit) | File modification | command | Auto-format modified files with oxfmt |
+| Stop | Claude finishes turn | prompt | Run `varp_lint` to check for stale docs, broken links, missing deps |
 
 ## Changes from Design Doc
 
@@ -49,7 +51,7 @@ Design doc showed docs as objects with `load_on` tags. Implementation uses plain
 
 ### Auto-Discovery
 
-Not in original design. Components auto-discover `{path}/README.md` and `{path}/docs/*.md` without explicit `docs:` entries. The `docs:` field is only needed for docs outside the component's path tree.
+Not in original design. Components auto-discover `{path}/README.md` and `{path}/docs/*.md` without explicit `docs:` entries. The `docs:` field is only needed for docs outside the component's path tree. Src-collapse: when a component path ends in `src/`, discovery also checks the parent; when it has a `src/` child, discovery checks inside it. This makes `src/` transparent — docs can live at the package root.
 
 ### Monorepo Tool Integration
 
@@ -98,4 +100,4 @@ Design doc specified per-task token/time budgets enforced at runtime. Dropped en
 
 ## Architecture
 
-See [Design Principles](design-principles.md) for foundations, [Architecture](design-architecture.md) for the full design, and [Internal Architecture](../../packages/core/src/docs/architecture.md) for module-level implementation details.
+See [Design Principles](design-principles.md) for foundations, [Architecture](design-architecture.md) for the full design, and [Internal Architecture](../../packages/core/docs/architecture.md) for module-level implementation details.

@@ -154,7 +154,7 @@ Named **mutexes** are implemented as an optional `<mutexes>` element on plan tas
 
 ## 10. Implementation Path
 
-All build steps (1-8) are complete. See the [architecture doc](../../packages/core/src/docs/architecture.md) for current module structure and algorithms.
+All build steps (1-8) are complete. See the [architecture doc](../../packages/core/docs/architecture.md) for current module structure and algorithms.
 
 ### 10.1 Technical Choices
 

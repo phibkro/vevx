@@ -52,7 +52,7 @@ docs/                     Design docs, getting started, reference URLs
 
 Import alias `#shared/*` maps to `packages/core/src/shared/*`.
 
-**Details**: See `packages/core/src/docs/architecture.md` for algorithms and data flow. See `packages/core/src/README.md` for tool API surface. See `packages/core/src/manifest/README.md` and `packages/core/src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
+**Details**: See `packages/core/docs/architecture.md` for algorithms and data flow. See `packages/core/README.md` for tool API surface. See `packages/core/src/manifest/README.md` and `packages/core/src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
 
 ## Key Conventions
 
