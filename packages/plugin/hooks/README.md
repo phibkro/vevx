@@ -8,6 +8,7 @@ Lifecycle hooks for varp-managed sessions.
 | `freshness-track.sh` | PostToolUse (Write/Edit) | Report which component a modified file belongs to |
 | `auto-format.sh` | PostToolUse (Write/Edit) | Run oxfmt + oxlint --fix on modified `.ts` files |
 | `subagent-context.sh` | SubagentStart | Inject project conventions into subagent context |
+| *(prompt hook)* | Stop | Run `varp_lint` to check for stale docs, broken links, missing deps |
 
 ## freshness-track.sh
 

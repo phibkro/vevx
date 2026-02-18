@@ -48,7 +48,7 @@ src/
 
 **Flat YAML format.** The manifest uses a flat format: `varp` holds the version string, and all other top-level keys are component names. No `components:` wrapper, no `name:` field. The parser uses `Bun.YAML.parse` (built-in Zig-native YAML 1.2), extracts `varp`, then treats everything else as a component entry validated by `ComponentSchema`.
 
-**Docs are plain strings.** Component docs are string paths, not objects. The README.md convention replaces `load_on` tags: docs with `basename === 'README.md'` are public (loaded for reads+writes), all others are private (loaded for writes only). Auto-discovery checks `{path}/README.md` and `{path}/docs/*.md` on disk for each component path and includes them if present. The `docs:` field is only for docs outside the component's path tree.
+**Docs are plain strings.** Component docs are string paths, not objects. The README.md convention replaces `load_on` tags: docs with `basename === 'README.md'` are public (loaded for reads+writes), all others are private (loaded for writes only). Auto-discovery checks `{root}/README.md` and `{root}/docs/*.md` on disk for each discovery root (component path + src-collapsed parent/child). The `docs:` field is only for docs outside the component's path tree.
 
 **Multi-path components.** A component's `path` can be a single string or an array of strings. This supports layer-organized codebases where a domain concept (e.g. "auth") spans multiple directories (controllers, services, repositories). The `componentPaths()` helper normalizes both forms to `string[]`. All internal code uses this helper — ownership, doc discovery, import scanning, test discovery, and freshness all iterate over all paths.
 
@@ -171,9 +171,11 @@ Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manif
 
 ## Doc Discovery (`discovery.ts`)
 
-Shared helper used by both resolver and freshness. Given a component, returns all doc paths: explicit (`docs:` field) + auto-discovered. For each component path, auto-discovers:
-- `{path}/README.md` — public doc
-- `{path}/docs/*.md` — private docs
+Shared helper used by both resolver and freshness. Given a component, returns all doc paths: explicit (`docs:` field) + auto-discovered. For each component path, builds a set of discovery roots and scans each for docs:
+- `{root}/README.md` — public doc
+- `{root}/docs/*.md` — private docs
+
+**Src-collapse:** The `src/` directory is transparent. When a component path ends in `src/`, the parent directory is also a discovery root. When a component path has a `src/` child directory, that child is also a discovery root. This means docs can live at the package root (e.g., `packages/core/README.md`) regardless of whether the component path points to `src/` or the parent.
 
 Deduplicates by exact path match. Multi-path components discover docs from each path.
 
