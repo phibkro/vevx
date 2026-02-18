@@ -6,6 +6,7 @@ Lifecycle hooks for varp-managed sessions.
 |------|-------|---------|
 | `session-start.sh` | SessionStart | Inject project state summary into session context |
 | `freshness-track.sh` | PostToolUse (Write/Edit) | Report which component a modified file belongs to |
+| `auto-format.sh` | PostToolUse (Write/Edit) | Run oxfmt + oxlint --fix on modified `.ts` files |
 | `subagent-context.sh` | SubagentStart | Inject project conventions into subagent context |
 
 ## freshness-track.sh
@@ -18,6 +19,10 @@ Varp: modified component "manifest"
 ```
 
 Exits silently when the file is outside any component or is a markdown file.
+
+## auto-format.sh
+
+Runs `oxfmt --write` and `oxlint --fix` on TypeScript files after Write/Edit. Extracts the file path from the JSON context on stdin, filters for `.ts` extension, and checks file existence before formatting. Errors from formatters are silently swallowed (`|| true`) — formatting is best-effort, not blocking.
 
 ## Conventions
 

@@ -218,7 +218,7 @@ Use `varp_validate_plan` to check a plan against the manifest. Validation catche
 - **`contracts`** — added, removed, or modified conditions/invariants, matched by `id` across preconditions, invariants, and postconditions
 - **`tasks`** — added, removed, or modified tasks, matched by `id` with field-level detail (description, action, values, touches, budget)
 
-The pure `diffPlans()` function accepts two `Plan` objects and performs no I/O. Matching is by ID — reordered entries with the same IDs don't produce changes, only content differences are surfaced.
+The pure `diffPlans()` function accepts two `Plan` objects and performs no I/O. Matching is by ID — reordered entries with the same IDs don't produce diffs, only content differences are surfaced.
 
 ## File Location
 

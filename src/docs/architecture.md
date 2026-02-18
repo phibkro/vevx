@@ -153,7 +153,7 @@ failed task --> deriveRestartStrategy() --> RestartStrategy
 
 ## MCP Server Wiring (`index.ts`)
 
-All 18 tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
+Tools are defined as `ToolDef` objects in `index.ts` — each with name, description, input schema, and handler. Handlers return plain objects; `tool-registry.ts` provides `registerTools()` which wraps each with:
 1. JSON serialization (`JSON.stringify(result, null, 2)`)
 2. Error handling (catch → `{ isError: true }`)
 3. MCP response formatting (`{ content: [{ type: "text", text }] }`)
@@ -186,4 +186,4 @@ Uses `(entry as any).parentPath` to handle Bun/Node compatibility for `Dirent.pa
 
 ## Testing
 
-206 tests across 21 files, run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.
+Run via `bun test`. Test fixtures in `test-fixtures/` include multi-component manifests and invalid YAML for error path coverage. All modules have unit tests that exercise happy paths and error conditions.

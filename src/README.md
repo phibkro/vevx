@@ -321,6 +321,7 @@ interface ImportScanResult {
   extra_deps: { from: string; to: string }[]  // in manifest deps but not inferred
   total_files_scanned: number
   total_imports_scanned: number
+  components_with_source: string[]  // components that had source files to scan
 }
 
 interface ImportDep {
