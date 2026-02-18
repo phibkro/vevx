@@ -14,7 +14,6 @@ import { discoverFiles } from '@varp/audit/src/discovery';
 import type { FileContent } from '@varp/audit';
 import type { AuditProgressEvent } from '@varp/audit';
 
-import { validateInput } from './validation';
 
 // ── Arg parsing ──
 
@@ -78,7 +77,7 @@ function resolveRuleset(name: string): string {
   }
 
   // 2. Check built-in rulesets
-  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../packages/audit/rulesets');
+  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../packages/audit/rulesets');
   const builtinPath = resolve(builtinDir, `${name}.md`);
   if (existsSync(builtinPath)) {
     return readFileSync(builtinPath, 'utf-8');
@@ -150,8 +149,11 @@ function createAuditProgress(quiet: boolean) {
 export async function runAuditCommand(argv: string[]): Promise<void> {
   const args = parseAuditArgs(argv);
 
-  // Validate path
-  const validatedPath = validateInput(args.path);
+  // Validate path (no API key check — Claude Code handles auth)
+  const validatedPath = resolve(args.path);
+  if (!existsSync(validatedPath)) {
+    throw new Error(`Path does not exist: ${validatedPath}`);
+  }
 
   // Resolve and parse ruleset
   if (!args.quiet) {

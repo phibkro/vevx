@@ -1,8 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { RateLimitError, AuthenticationError, ValidationError } from "./errors";
-
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 1000; // 1 second
+import { spawn } from 'child_process';
 
 export interface ApiCallOptions {
   model: string;
@@ -10,147 +6,101 @@ export interface ApiCallOptions {
 }
 
 /**
- * Initialize Anthropic client with API key from environment
- */
-function createClient(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-
-  if (!apiKey) {
-    throw new ValidationError(
-      "ANTHROPIC_API_KEY",
-      "Environment variable is not set. Please set it with: export ANTHROPIC_API_KEY='your-api-key'"
-    );
-  }
-
-  return new Anthropic({
-    apiKey,
-  });
-}
-
-/**
- * Sleep for specified milliseconds
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Call Claude API with retry logic and rate limiting
+ * Call Claude via the Claude Code CLI.
+ *
+ * Uses `claude -p` (print mode) with `--system-prompt` and `--tools ""`
+ * (no tools — pure text analysis). Auth is handled by Claude Code's own
+ * session/token, so no ANTHROPIC_API_KEY needed.
  */
 export async function callClaude(
   systemPrompt: string,
   userPrompt: string,
   options: ApiCallOptions
 ): Promise<string> {
-  const client = createClient();
-  let lastError: Error | null = null;
+  const args = [
+    '-p',
+    '--system-prompt', systemPrompt,
+    '--model', options.model,
+    '--tools', '',
+    '--output-format', 'text',
+    '--no-session-persistence',
+    userPrompt,
+  ];
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      const response = await client.messages.create({
-        model: options.model,
-        max_tokens: options.maxTokens || 4096,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: userPrompt,
-          },
-        ],
-      });
-
-      // Extract text from response
-      const textContent = response.content.find((block) => block.type === "text");
-      if (!textContent || textContent.type !== "text") {
-        throw new Error("No text content in API response");
-      }
-
-      return textContent.text;
-    } catch (error) {
-      lastError = error as Error;
-
-      // Check if it's an API error
-      if (error instanceof Anthropic.APIError) {
-        // Handle 401 authentication errors
-        if (error.status === 401) {
-          throw new AuthenticationError();
-        }
-
-        // Handle 429 rate limit errors with retry logic
-        if (error.status === 429) {
-          if (attempt < MAX_RETRIES - 1) {
-            const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-            console.warn(
-              `Rate limit hit (429). Retrying in ${retryDelay / 1000}s... (attempt ${attempt + 1}/${MAX_RETRIES})`
-            );
-            await sleep(retryDelay);
-            continue;
-          } else {
-            // After max retries, throw RateLimitError
-            const finalRetryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-            throw new RateLimitError(Math.ceil(finalRetryDelay / 1000));
-          }
-        }
-
-        // Generic API error
-        throw new Error(
-          `Anthropic API error (${error.status}): ${error.message}\n` +
-          `Check the API status: https://status.anthropic.com/`
-        );
-      }
-
-      // For network errors, provide helpful message
-      if (lastError.message.includes("fetch") || lastError.message.includes("network")) {
-        throw new Error(
-          `Network error: Cannot reach Anthropic API\n\n` +
-          `Please check:\n` +
-          `  1. Your internet connection\n` +
-          `  2. Firewall or proxy settings\n` +
-          `  3. API status: https://status.anthropic.com/`
-        );
-      }
-
-      // For other errors, retry with exponential backoff
-      if (attempt < MAX_RETRIES - 1) {
-        const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-        console.warn(
-          `API call failed: ${lastError.message}. Retrying in ${retryDelay / 1000}s... (attempt ${attempt + 1}/${MAX_RETRIES})`
-        );
-        await sleep(retryDelay);
-      }
-    }
-  }
-
-  // All retries exhausted
-  throw new Error(
-    `API call failed after ${MAX_RETRIES} attempts. Last error: ${lastError?.message || "Unknown error"}`
-  );
+  return spawnClaude(args);
 }
 
 /**
- * Simple test function to verify API connectivity
- * Can be run with: bun run src/client.ts
+ * Spawn claude CLI and collect output.
  */
-export async function testConnection(model: string = "claude-sonnet-4-5-20250929"): Promise<void> {
-  console.log("Testing Anthropic API connection...");
+function spawnClaude(args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('claude', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        CLAUDECODE: '', // Allow nesting
+      },
+    });
+
+    const chunks: Buffer[] = [];
+    const errChunks: Buffer[] = [];
+
+    proc.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+    proc.stderr.on('data', (chunk: Buffer) => errChunks.push(chunk));
+
+    proc.on('close', (code) => {
+      const stdout = Buffer.concat(chunks).toString('utf-8').trim();
+      const stderr = Buffer.concat(errChunks).toString('utf-8').trim();
+
+      if (code !== 0) {
+        const msg = stderr || stdout || `claude exited with code ${code}`;
+        reject(new Error(msg));
+        return;
+      }
+
+      if (!stdout) {
+        reject(new Error('No output from claude'));
+        return;
+      }
+
+      resolve(stdout);
+    });
+
+    proc.on('error', (err) => {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        reject(new Error(
+          'claude CLI not found. Install it with: npm install -g @anthropic-ai/claude-code'
+        ));
+      } else {
+        reject(err);
+      }
+    });
+  });
+}
+
+/**
+ * Simple test function to verify Claude Code CLI connectivity.
+ */
+export async function testConnection(model: string = 'claude-sonnet-4-5-20250929'): Promise<void> {
+  console.log('Testing Claude Code CLI connection...');
 
   try {
     const response = await callClaude(
-      "You are a helpful assistant. Respond concisely.",
-      "Say 'API connection successful' and nothing else.",
+      'You are a helpful assistant. Respond concisely.',
+      "Say 'Connection successful' and nothing else.",
       { model, maxTokens: 100 }
     );
 
-    console.log("✓ Success!");
-    console.log("Response:", response);
+    console.log('✓ Success!');
+    console.log('Response:', response);
   } catch (error) {
-    console.error("✗ Test failed:");
+    console.error('✗ Test failed:');
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
 
-// Allow running this file directly for testing
 if (import.meta.main) {
   testConnection();
 }
