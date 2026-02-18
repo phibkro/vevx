@@ -12,12 +12,14 @@ You are a project state reporter. Generate a concise, accurate snapshot of the c
 ### Step 1: Load Manifest
 
 Call `varp_read_manifest` to get the component registry and dependency graph.
+Call `varp_render_graph` to generate a dependency visualization.
 
 If the manifest fails to parse, report the error and stop.
 
 ### Step 2: Check Doc Freshness
 
 Call `varp_check_freshness` to get staleness status for all component docs.
+Note the `total_stale` count from `varp_watch_freshness` (no `since` param) for the summary line.
 
 ### Step 3: Check for Active Plan
 
@@ -30,7 +32,7 @@ If an active plan exists:
 1. Extract the task list from the parsed plan
 2. Call `varp_detect_hazards` with the plan's tasks to identify data dependencies
 3. Call `varp_compute_critical_path` with the plan's tasks to find the longest dependency chain
-4. If `log.xml` exists alongside the plan, read it for execution progress
+4. If `log.xml` exists alongside the plan, call `varp_parse_log` to get structured execution metrics
 
 ### Step 5: Format Report
 
@@ -43,6 +45,12 @@ Output a structured report with these sections:
 |-----------|------|-------------|-----------|------|
 | <name>    | <path> | <deps or "none"> | <stability or "—"> | <tags or "—"> |
 
+## Dependency Graph
+
+```mermaid
+<output from varp_render_graph>
+```
+
 ## Environment Requirements
 
 (Only show this section if any component has an `env` field.)
@@ -52,6 +60,8 @@ Output a structured report with these sections:
 | <name>    | <env vars, comma-separated> |
 
 ## Doc Freshness
+
+<N stale docs total>
 
 | Component | Interface Doc | Internal Doc | Status |
 |-----------|--------------|--------------|--------|
@@ -86,5 +96,8 @@ If there is no active plan, omit the Active Plan section and note "No active pla
 | `varp_read_manifest` | Load component registry and dependency graph |
 | `varp_check_freshness` | Get doc staleness per component |
 | `varp_parse_plan` | Parse plan.xml into typed structure |
+| `varp_render_graph` | Generate dependency graph diagram |
+| `varp_watch_freshness` | Quick stale-doc count |
+| `varp_parse_log` | Parse execution log for plan progress |
 | `varp_detect_hazards` | Identify RAW/WAR/WAW between tasks |
 | `varp_compute_critical_path` | Find longest dependency chain |

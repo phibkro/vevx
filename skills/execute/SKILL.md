@@ -230,7 +230,8 @@ Write execution metrics to `log.xml` alongside the plan.
 
 ```xml
 <log>
-  <session started="ISO-8601" mode="single-scope|sequential|parallel">
+  <session started="ISO-8601" mode="single-scope|sequential|parallel" />
+  <tasks>
     <task id="1" status="COMPLETE">
       <metrics tokens="24500" minutes="8.2" tools="15" />
       <files_modified>
@@ -244,14 +245,16 @@ Write execution metrics to `log.xml` alongside the plan.
         <observation>Rate limiting uses sliding window algorithm with Redis</observation>
       </observations>
     </task>
-
-    <invariant_checks wave="1">
-      <check description="All tests pass" result="pass" />
-      <check description="TypeScript compiles" result="pass" />
-    </invariant_checks>
-
+  </tasks>
+  <invariant_checks>
+    <wave id="1">
+      <check result="pass">All tests pass</check>
+      <check result="pass">TypeScript compiles</check>
+    </wave>
+  </invariant_checks>
+  <waves>
     <wave id="1" status="complete" />
-  </session>
+  </waves>
 </log>
 ```
 

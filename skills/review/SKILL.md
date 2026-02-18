@@ -15,7 +15,7 @@ Priority: accuracy of assessment > actionability of recommendations > completene
 
 1. Find the active plan in `~/.claude/projects/<project>/memory/plans/`
 2. Call `varp_parse_plan` on the plan's `plan.xml`
-3. Read the `log.xml` alongside the plan for execution history
+3. Call `varp_parse_log` on the `log.xml` alongside the plan for structured execution data
 4. Call `varp_read_manifest` to load the current component registry
 
 If no plan or log exists, report this and stop.
@@ -44,6 +44,7 @@ Compare the plan's intended outcomes against what actually happened.
 - Which component docs were refreshed during execution
 - Which components were transitively affected by invalidation cascades
 - Call `varp_check_freshness` to verify current doc state
+- Call `varp_watch_freshness` with the log's `session.started` timestamp as `since` to see exactly which docs changed during execution
 
 ### Step 3: Execution Metrics
 
@@ -129,6 +130,9 @@ Output the report in this structure:
 1. **<decision>**: <context and recommendation>
 2. **<decision>**: <context and recommendation>
 
+### Dependency Graph
+<call varp_render_graph and include Mermaid output>
+
 ### Recommended Action
 <single clear recommendation for what to do next>
 ```
@@ -163,5 +167,8 @@ Append to the report:
 | `varp_parse_plan` | Load plan structure and contracts |
 | `varp_check_freshness` | Verify current doc freshness state |
 | `varp_lint` | Check for issues introduced during execution |
+| `varp_parse_log` | Parse log.xml into structured execution data |
+| `varp_render_graph` | Visualize dependency graph in report |
+| `varp_watch_freshness` | Identify docs that changed during execution |
 | `varp_detect_hazards` | Re-analyze hazards if replanning is considered |
 | `varp_compute_waves` | Re-derive waves if tasks are added or removed |

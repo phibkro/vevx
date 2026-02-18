@@ -220,6 +220,42 @@ Use `varp_validate_plan` to check a plan against the manifest. Validation catche
 
 The pure `diffPlans()` function accepts two `Plan` objects and performs no I/O. Matching is by ID — reordered entries with the same IDs don't produce diffs, only content differences are surfaced.
 
+## Execution Log (`log.xml`)
+
+The `/varp:execute` skill writes execution metrics to `log.xml` alongside the plan. The `varp_parse_log` tool parses this into a typed `ExecutionLog` structure.
+
+### Format
+
+```xml
+<log>
+  <session started="ISO-8601" mode="single-scope|sequential|parallel" />
+  <tasks>
+    <task id="1" status="COMPLETE|PARTIAL|BLOCKED|NEEDS_REPLAN">
+      <metrics tokens="25000" minutes="8" tools="42" />
+      <files_modified>
+        <file>src/auth/login.ts</file>
+      </files_modified>
+      <postconditions>
+        <check id="post-1" result="pass|fail" />
+      </postconditions>
+      <observations>
+        <observation>Free-text observation from subagent</observation>
+      </observations>
+    </task>
+  </tasks>
+  <invariant_checks>
+    <wave id="1">
+      <check result="pass|fail">Description of invariant check</check>
+    </wave>
+  </invariant_checks>
+  <waves>
+    <wave id="1" status="complete|incomplete" />
+  </waves>
+</log>
+```
+
+Key structure: `<session>` is self-closing metadata. `<tasks>`, `<invariant_checks>`, and `<waves>` are sibling containers under `<log>`. Invariant check descriptions are text content (not attributes). Wave-level checks are nested under their wave element.
+
 ## File Location
 
 Plans live in project memory: `~/.claude/projects/<project>/memory/plans/<feature-name>/plan.xml`. Completed plans are archived to `memory/plans/archive/`.
