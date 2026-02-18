@@ -1,4 +1,9 @@
-import type { FileContent } from "@code-auditor/types";
+export interface FileContent {
+  path: string;
+  relativePath: string;
+  content: string;
+  language: string;
+}
 
 export type Severity = "critical" | "warning" | "info";
 

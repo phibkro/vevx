@@ -21,7 +21,6 @@
     "ora": "^9.3.0"
   },
   "devDependencies": {
-    "@code-auditor/config": "workspace:*",
     "@types/bun": "latest",
     "typescript": "^5.4.5"
   }

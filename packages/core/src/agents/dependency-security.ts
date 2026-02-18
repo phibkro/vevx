@@ -1,4 +1,4 @@
-import type { FileContent } from "@code-auditor/types";
+import type { FileContent } from "./types";
 import type { AgentDefinition, AgentResult, Finding } from "./types";
 
 const AGENT_NAME = "dependency-security";

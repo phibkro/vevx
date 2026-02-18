@@ -7,7 +7,7 @@ import { edgeCasesAgent } from '../edge-cases'
 import { accessibilityAgent } from '../accessibility'
 import { documentationAgent } from '../documentation'
 import { agents } from '../index'
-import type { FileContent } from '@code-auditor/types'
+import type { FileContent } from '../types'
 
 describe('Agent Response Parsing', () => {
   const validResponse = (agentName: string, score: number) => JSON.stringify({

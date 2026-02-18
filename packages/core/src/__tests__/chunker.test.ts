@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createChunks, estimateTokens, formatChunkSummary } from '../chunker'
-import type { FileContent } from '@code-auditor/types'
+import type { FileContent } from '../agents/types'
 
 describe('Token Estimation', () => {
   it('estimates tokens using ~4 chars per token', () => {

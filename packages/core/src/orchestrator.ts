@@ -1,4 +1,4 @@
-import type { FileContent } from "@code-auditor/types";
+import type { FileContent } from "./agents/types";
 import type { AgentResult } from "./agents/types";
 import { agents } from "./agents/index";
 import { callClaude } from "./client";

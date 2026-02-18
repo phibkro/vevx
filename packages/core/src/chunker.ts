@@ -1,4 +1,4 @@
-import type { FileContent } from "@code-auditor/types";
+import type { FileContent } from "./agents/types";
 
 export interface Chunk {
   files: FileContent[];

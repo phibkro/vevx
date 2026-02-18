@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { FileContent } from '@code-auditor/types'
+import type { FileContent } from '../agents/types'
 import type { AgentResult } from '../agents/types'
 import type { ProgressEvent } from '../orchestrator'
 import { calculateOverallScore } from '../orchestrator'
