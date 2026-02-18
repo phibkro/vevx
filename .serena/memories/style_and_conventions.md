@@ -8,10 +8,10 @@
 - Conventional Commits for git messages
 
 ## Testing
-- Co-located `*.test.ts` files next to source
-- Run with `bun test`
+- Core: co-located `*.test.ts` files, run with `bun test` in packages/core/
+- Audit: vitest in packages/audit/, co-located in src/__tests__/
 - MCP integration tests use `InMemoryTransport.createLinkedPair()` + `Client`
-- `createServer()` exported from `index.ts` for testability
+- `createServer()` exported from `packages/core/src/index.ts` for testability
 
 ## MCP Tools
 - Accept `manifest_path` parameter (default `./varp.yaml`)
@@ -25,6 +25,7 @@
 - Must pass shellcheck
 
 ## Task Completion Checklist
-1. `bun test` — all tests pass
-2. `bun run check` — format, lint, shellcheck, build all pass
-3. Commit with Conventional Commits format
+1. `bun test` in packages/core/ — all 296 tests pass
+2. `bun run check` in packages/core/ — format, lint, shellcheck, build all pass
+3. `npx vitest run` in packages/audit/ — all 187 tests pass
+4. Commit with Conventional Commits format

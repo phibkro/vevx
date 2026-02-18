@@ -1,15 +1,26 @@
 # Suggested Commands
 
-## Development
+## Monorepo (from root)
 | Command | Purpose |
 |---------|---------|
-| `bun test` | Run all tests |
-| `bun test src/manifest/imports.test.ts` | Run specific test file |
-| `bun run check` | CI gate: format check + lint + shellcheck + build |
+| `turbo build` | Build all packages |
+| `turbo test` | Run all tests |
+
+## @varp/core (from packages/core/)
+| Command | Purpose |
+|---------|---------|
+| `bun test` | Run core tests (296 tests) |
+| `bun run check` | CI gate: format + lint + shellcheck + build |
 | `bun run build` | Bundle to build/ via bun build |
-| `bun run typecheck` | Type-check via tsc --noEmit (not in CI gate) |
+| `bun run typecheck` | Type-check via tsc --noEmit |
 | `bun run lint` | Run oxlint |
 | `bun run format` | Auto-format with oxfmt |
+
+## @varp/audit (from packages/audit/)
+| Command | Purpose |
+|---------|---------|
+| `npx vitest run` | Run audit tests (187 tests) |
+| `tsc` | Build to dist/ |
 
 ## System Utils (macOS/Darwin)
 | Command | Purpose |
