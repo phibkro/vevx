@@ -2,6 +2,8 @@ import { readFileSync, existsSync, writeFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
+import type { FileContent } from "@varp/audit";
+import type { AuditProgressEvent } from "@varp/audit";
 import {
   parseRuleset,
   generatePlan,
@@ -14,11 +16,10 @@ import {
   generateDriftMarkdown,
   generateDriftJson,
 } from "@varp/audit";
-import type { FileContent } from "@varp/audit";
-import type { AuditProgressEvent } from "@varp/audit";
 import { discoverFiles } from "@varp/audit/src/discovery";
 import { getChangedFiles, filterToChanged } from "@varp/audit/src/planner/diff-filter";
 
+import { parseEnum, consumeOptionalFlag } from "./args.js";
 import { callClaude } from "./claude-client";
 
 // ── Arg parsing ──
@@ -62,13 +63,9 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
         throw new Error(`Invalid budget: must be a positive integer`);
       }
     } else if (arg === "--diff") {
-      // --diff with optional ref (default: HEAD)
-      const next = argv[i + 1];
-      if (next && !next.startsWith("-")) {
-        diff = argv[++i];
-      } else {
-        diff = "HEAD";
-      }
+      const [val, newI] = consumeOptionalFlag(argv, i, "HEAD");
+      diff = val;
+      i = newI;
     } else if (arg === "--ruleset" && argv[i + 1]) {
       ruleset = argv[++i];
     } else if (arg === "--model" && argv[i + 1]) {
@@ -76,12 +73,7 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
     } else if (arg === "--concurrency" && argv[i + 1]) {
       concurrency = parseInt(argv[++i], 10);
     } else if (arg === "--format" && argv[i + 1]) {
-      const f = argv[++i];
-      if (f === "text" || f === "json" || f === "markdown") {
-        format = f;
-      } else {
-        throw new Error(`Invalid format: ${f}. Must be text, json, or markdown`);
-      }
+      format = parseEnum(argv[++i], ["text", "json", "markdown"] as const, "format");
     } else if (arg === "--output" && argv[i + 1]) {
       output = argv[++i];
     } else if (arg === "--quiet") {

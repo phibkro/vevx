@@ -2,13 +2,15 @@ import { resolve } from "path";
 
 import { parseManifest, runLint } from "@varp/core/lib";
 
+import { DEFAULT_MANIFEST, parseEnum } from "./args.js";
+
 export interface LintArgs {
   manifest: string;
   format: "text" | "json";
 }
 
 export function parseLintArgs(argv: string[]): LintArgs {
-  let manifest = "./varp.yaml";
+  let manifest = DEFAULT_MANIFEST;
   let format: "text" | "json" = "text";
 
   for (let i = 0; i < argv.length; i++) {
@@ -16,12 +18,7 @@ export function parseLintArgs(argv: string[]): LintArgs {
     if (arg === "--manifest" && argv[i + 1]) {
       manifest = argv[++i];
     } else if (arg === "--format" && argv[i + 1]) {
-      const f = argv[++i];
-      if (f === "text" || f === "json") {
-        format = f;
-      } else {
-        throw new Error(`Invalid format: ${f}. Must be text or json`);
-      }
+      format = parseEnum(argv[++i], ["text", "json"] as const, "format");
     }
   }
 

@@ -1,3 +1,5 @@
+import { execSync } from "child_process";
+
 import { getApiKey } from "./auth";
 import type { AuditReport } from "./report/synthesizer";
 
@@ -12,8 +14,6 @@ interface DashboardResponse {
  */
 function getGitInfo(): { repo?: string; commit?: string; branch?: string } {
   try {
-    const { execSync } = require("child_process");
-
     const repo = execSync("git config --get remote.origin.url", {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "ignore"],

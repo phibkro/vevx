@@ -8,6 +8,8 @@ import {
   scanImports,
 } from "@varp/core/lib";
 
+import { DEFAULT_MANIFEST, parseEnum } from "./args.js";
+
 export interface ValidateArgs {
   planPath: string;
   manifest: string;
@@ -16,7 +18,7 @@ export interface ValidateArgs {
 
 export function parseValidateArgs(argv: string[]): ValidateArgs {
   let planPath: string | undefined;
-  let manifest = "./varp.yaml";
+  let manifest = DEFAULT_MANIFEST;
   let format: "text" | "json" = "text";
 
   for (let i = 0; i < argv.length; i++) {
@@ -24,12 +26,7 @@ export function parseValidateArgs(argv: string[]): ValidateArgs {
     if (arg === "--manifest" && argv[i + 1]) {
       manifest = argv[++i];
     } else if (arg === "--format" && argv[i + 1]) {
-      const f = argv[++i];
-      if (f === "text" || f === "json") {
-        format = f;
-      } else {
-        throw new Error(`Invalid format: ${f}. Must be text or json`);
-      }
+      format = parseEnum(argv[++i], ["text", "json"] as const, "format");
     } else if (!arg.startsWith("-") && !planPath) {
       planPath = arg;
     }

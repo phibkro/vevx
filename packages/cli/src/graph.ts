@@ -2,13 +2,15 @@ import { resolve } from "path";
 
 import { parseManifest, renderGraph } from "@varp/core/lib";
 
+import { DEFAULT_MANIFEST, parseEnum } from "./args.js";
+
 export interface GraphArgs {
   manifest: string;
   direction: "TD" | "LR";
 }
 
 export function parseGraphArgs(argv: string[]): GraphArgs {
-  let manifest = "./varp.yaml";
+  let manifest = DEFAULT_MANIFEST;
   let direction: "TD" | "LR" = "TD";
 
   for (let i = 0; i < argv.length; i++) {
@@ -16,12 +18,7 @@ export function parseGraphArgs(argv: string[]): GraphArgs {
     if (arg === "--manifest" && argv[i + 1]) {
       manifest = argv[++i];
     } else if (arg === "--direction" && argv[i + 1]) {
-      const d = argv[++i].toUpperCase();
-      if (d === "TD" || d === "LR") {
-        direction = d;
-      } else {
-        throw new Error(`Invalid direction: ${d}. Must be TD or LR`);
-      }
+      direction = parseEnum(argv[++i].toUpperCase(), ["TD", "LR"] as const, "direction");
     }
   }
 
