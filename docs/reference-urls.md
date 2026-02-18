@@ -33,3 +33,6 @@ Authoritative sources for volatile specifications. Search these before working w
 | Zod docs | https://zod.dev |
 | fast-xml-parser | https://github.com/NaturalIntelligence/fast-xml-parser |
 | yaml (npm) | https://eemeli.org/yaml |
+| oxlint type-aware | https://oxc.rs/docs/guide/usage/linter/type-aware.html |
+| tsgolint (type-aware engine) | https://github.com/oxc-project/tsgolint |
+| oxlint config | https://oxc.rs/docs/guide/usage/linter/config |

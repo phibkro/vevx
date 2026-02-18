@@ -9,7 +9,7 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 - Types: Define Zod schema first, infer via `z.infer<>`. Never define standalone interfaces.
 - Tests: Co-located `*.test.ts` files. Run with `bun test`.
 - Build: `turbo build` (all packages) or `bun run build` in `packages/core/`.
-- Lint/Format: `turbo check` (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style.
+- Lint/Format: `turbo check` (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style. oxlint runs with `--type-aware` (type-checked rules via tsgolint).
 - MCP tools: Accept `manifest_path` param, parse internally, return JSON as text content.
 - Hooks: No runtime deps (no jq/python). grep/sed/awk + bash parameter expansion. Exit 0 when `varp.yaml` missing. Must pass shellcheck.
 - Skills/hooks/MCP specs change frequently — check `docs/reference-urls.md` for current docs before modifying.

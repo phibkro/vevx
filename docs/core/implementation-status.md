@@ -121,6 +121,10 @@ Design doc (§3.4) describes the MCP server delivered via the plugin's `plugin.j
 | Named mutexes on tasks | Exclusive resource locks beyond component graph | Implemented |
 | OTel status detection | Session-start hook detects `CLAUDE_CODE_ENABLE_TELEMETRY` and exporter config | Implemented |
 
+### Type-Aware Linting
+
+oxlint runs with `--type-aware` across all packages (via `oxlint-tsgolint`). Core replaces `tsc --noEmit` with `oxlint --type-aware --type-check` for type checking — faster and catches additional issues like floating promises, unsafe template expressions, and unbound methods. Audit and CLI use `--type-aware` for lint rules but keep `tsc` for declaration emit and type-checking respectively.
+
 ## Architecture
 
 See [Design Principles](design-principles.md) for foundations, [Architecture](design-architecture.md) for the full design, and [Internal Architecture](../../packages/core/docs/architecture.md) for module-level implementation details.
