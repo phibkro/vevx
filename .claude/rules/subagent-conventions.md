@@ -7,7 +7,7 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 **Key rules**:
 - Modules: ESM only. Use `import`/`export`, never `require()` or `module.exports`. Use `.js` extensions in import specifiers.
 - Types: Define Zod schema first, infer via `z.infer<>`. Never define standalone interfaces.
-- Tests: Co-located `*.test.ts` files. Run concurrently (`--concurrent`). Use `withTempDir` for filesystem tests, `test.serial` for `process.env`. See `.claude/rules/testing.md` for patterns.
+- Tests: Co-located `*.test.ts` files. Run concurrently (`--concurrent`). Use `bun-testing` skill for patterns.
 - Subprocesses: Use `Bun.spawn`/`Bun.spawnSync`, never `child_process`.
 - Build: `turbo build` (all packages) or `bun run build` in `packages/core/`.
 - Lint/Format: `turbo check` (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style. oxlint runs with `--type-aware` (type-checked rules via tsgolint).
