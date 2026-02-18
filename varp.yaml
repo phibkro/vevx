@@ -36,13 +36,13 @@ enforcement:
   stability: active
 
 skills:
-  path: ./skills
+  path: ./packages/plugin/skills
   deps: [manifest]
   tags: [prompt]
   stability: active
 
 hooks:
-  path: ./hooks
+  path: ./packages/plugin/hooks
   deps: [manifest]
   tags: [lifecycle]
   stability: active

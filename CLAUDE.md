@@ -43,8 +43,10 @@ packages/
     rulesets/             Audit rulesets (OWASP, etc.)
 apps/
   cli/                    Varp CLI (@varp/cli)
-skills/                   5 prompt-based skills (init, status, plan, execute, review)
-hooks/                    3 lifecycle hooks (session-start, subagent-context, freshness-track)
+  plugin/                  Claude Code plugin distribution (@varp/plugin)
+    .claude-plugin/       Plugin manifest (plugin.json, marketplace.json)
+    skills/               5 prompt-based skills (init, status, plan, execute, review)
+    hooks/                3 lifecycle hooks (session-start, subagent-context, freshness-track)
 docs/                     Design docs, getting started, reference URLs
 ```
 

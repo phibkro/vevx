@@ -5,8 +5,8 @@
   "mcpServers": {
     "varp": {
       "command": "bun",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/packages/core/build/index.js"],
-      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+      "args": ["${CLAUDE_PLUGIN_ROOT}/../core/build/index.js"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}/../.."
     }
   }
 }
