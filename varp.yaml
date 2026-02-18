@@ -46,3 +46,26 @@ hooks:
   deps: [manifest]
   tags: [lifecycle]
   stability: active
+
+audit-core:
+  path: ./packages/audit/src
+  tags: [audit]
+  stability: experimental
+
+audit-planner:
+  path: ./packages/audit/src/planner
+  deps: [audit-core]
+  tags: [audit]
+  stability: experimental
+
+audit-agents:
+  path: ./packages/audit/src/agents
+  deps: [audit-core]
+  tags: [audit]
+  stability: experimental
+
+audit-cli:
+  path: ./apps/audit-cli/src
+  deps: [audit-core]
+  tags: [audit, cli]
+  stability: experimental

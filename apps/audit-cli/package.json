@@ -1,0 +1,22 @@
+{
+  "name": "@varp/audit-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "varp-audit": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "bun build ./src/cli.ts --outdir ./dist --target bun",
+    "test": "bun test",
+    "dev": "bun run src/cli.ts"
+  },
+  "dependencies": {
+    "@varp/audit": "workspace:*",
+    "chokidar": "^5.0.0",
+    "ora": "^9.3.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.4.5"
+  }
+}

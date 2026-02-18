@@ -1,10 +1,5 @@
 #!/usr/bin/env bun
 
-import { parseArgs } from "util";
-import { writeFileSync, readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-import { loadConfig, validateConfig, type Config, type OutputFormat, type VerbosityLevel } from "./config";
 import {
   createChunks,
   formatChunkSummary,
@@ -12,18 +7,30 @@ import {
   synthesizeReport,
   printReport,
   generateMarkdown,
-} from "@code-auditor/core";
-import { discoverFiles } from "@code-auditor/core/src/discovery";
+} from "@varp/audit";
+import { discoverFiles } from "@varp/audit/src/discovery";
+import { writeFileSync, readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+import { parseArgs } from "util";
+
+import { login, logout } from "./auth";
+import { generateCompletions } from "./completions";
+import {
+  loadConfig,
+  validateConfig,
+  type Config,
+  type OutputFormat,
+  type VerbosityLevel,
+} from "./config";
+import { syncToDashboard } from "./dashboard-sync";
+import { formatError } from "./errors";
+import { formatHtml } from "./formatters/html";
 import { formatJson } from "./formatters/json";
 import { formatMarkdown } from "./formatters/markdown";
-import { formatHtml } from "./formatters/html";
-import { syncToDashboard } from "./dashboard-sync";
-import { login, logout } from "./auth";
 import { createProgressReporter } from "./progress";
-import { formatError } from "./errors";
 import { validateInput, ValidationError } from "./validation";
 import { watchMode } from "./watch";
-import { generateCompletions } from "./completions";
 
 // Get version from package.json
 function getVersion(): string {
@@ -166,7 +173,10 @@ function parseCliArgs(): CliArgs {
       help: values.help as boolean | undefined,
     };
   } catch (error) {
-    console.error("Error parsing arguments:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "Error parsing arguments:",
+      error instanceof Error ? error.message : String(error),
+    );
     console.log(HELP_TEXT);
     process.exit(1);
   }
@@ -225,7 +235,9 @@ async function runAuditFlow(validatedPath: string, config: Config, args: CliArgs
       // Minimal output
       console.log(`\nScore: ${report.overallScore.toFixed(1)}/10`);
       if (report.criticalCount > 0) {
-        console.log(`${report.criticalCount} critical issue${report.criticalCount === 1 ? "" : "s"}`);
+        console.log(
+          `${report.criticalCount} critical issue${report.criticalCount === 1 ? "" : "s"}`,
+        );
       }
     } else {
       printReport(report);
@@ -236,7 +248,9 @@ async function runAuditFlow(validatedPath: string, config: Config, args: CliArgs
   if (config.verbosity === "debug") {
     console.log(`\n[DEBUG] Total duration: ${(durationMs / 1000).toFixed(2)}s`);
     console.log(`[DEBUG] Files analyzed: ${files.length}`);
-    console.log(`[DEBUG] Average per agent: ${(durationMs / agentResults.length / 1000).toFixed(2)}s`);
+    console.log(
+      `[DEBUG] Average per agent: ${(durationMs / agentResults.length / 1000).toFixed(2)}s`,
+    );
   }
 
   // Save to file if requested
