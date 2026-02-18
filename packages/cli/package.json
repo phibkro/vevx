@@ -8,6 +8,7 @@
   "scripts": {
     "build": "bun build ./src/cli.ts --outdir ./dist --target bun",
     "test": "bun test --concurrent --reporter=junit --reporter-outfile=test-results.xml",
+    "test:coverage": "bun test --concurrent --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage",
     "lint": "oxlint --type-aware --ignore-pattern 'src/github/'",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",

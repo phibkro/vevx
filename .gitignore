@@ -5,3 +5,4 @@ dist/
 .DS_Store
 .turbo/
 test-results.xml
+coverage/
