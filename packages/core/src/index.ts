@@ -37,17 +37,11 @@ const touchesSchema = z.object({
   writes: z.array(z.string()).optional(),
 });
 
-const budgetSchema = z.object({
-  tokens: z.number().positive(),
-  minutes: z.number().positive(),
-});
-
 const taskRefSchema = z.object({ id: z.string(), touches: touchesSchema });
 
 const schedulableTaskSchema = z.object({
   id: z.string(),
   touches: touchesSchema,
-  budget: budgetSchema,
 });
 
 const hazardTasksInput = {
@@ -118,15 +112,14 @@ const tools: ToolDef[] = [
   // Plan
   {
     name: "varp_parse_plan",
-    description:
-      "Parse plan.xml and return typed plan with metadata, contracts, task graph, and budgets.",
+    description: "Parse plan.xml and return typed plan with metadata, contracts, and task graph.",
     inputSchema: { path: z.string().describe("Path to plan.xml") },
     handler: async ({ path }) => parsePlanFile(path),
   },
   {
     name: "varp_validate_plan",
     description:
-      "Check plan consistency against manifest: touches reference known components, unique task IDs, valid budgets.",
+      "Check plan consistency against manifest: touches reference known components, unique task IDs.",
     inputSchema: {
       plan_path: z.string().describe("Path to plan.xml"),
       manifest_path: manifestPath,

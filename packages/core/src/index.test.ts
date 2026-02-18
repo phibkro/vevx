@@ -44,14 +44,12 @@ const TEST_PLAN_XML = `<plan>
       <action>implement</action>
       <values>correctness, simplicity</values>
       <touches writes="auth" reads="api" />
-      <budget tokens="30000" minutes="10" />
     </task>
     <task id="2">
       <description>Update API layer</description>
       <action>implement</action>
       <values>correctness</values>
       <touches writes="api" reads="auth" />
-      <budget tokens="20000" minutes="8" />
     </task>
   </tasks>
 </plan>`;
@@ -176,7 +174,7 @@ describe("MCP server integration", () => {
 
   // ── Plan Tools ──
 
-  test("varp_parse_plan parses XML with touches and budgets", async () => {
+  test("varp_parse_plan parses XML with touches", async () => {
     const result = await client.callTool({
       name: "varp_parse_plan",
       arguments: { path: TEST_PLAN_PATH },
@@ -186,7 +184,6 @@ describe("MCP server integration", () => {
     expect(data.tasks).toHaveLength(2);
     expect(data.tasks[0].touches.writes).toEqual(["auth"]);
     expect(data.tasks[0].touches.reads).toEqual(["api"]);
-    expect(data.tasks[0].budget).toEqual({ tokens: 30000, minutes: 10 });
     expect(data.contract.invariants[0].critical).toBe(true);
   });
 
@@ -205,27 +202,15 @@ describe("MCP server integration", () => {
   const sampleTasks = [
     {
       id: "1",
-      description: "impl auth",
-      action: "implement",
-      values: ["correctness"],
       touches: { writes: ["auth"] },
-      budget: { tokens: 30000, minutes: 10 },
     },
     {
       id: "2",
-      description: "impl api",
-      action: "implement",
-      values: ["correctness"],
       touches: { writes: ["api"], reads: ["auth"] },
-      budget: { tokens: 20000, minutes: 8 },
     },
     {
       id: "3",
-      description: "impl web",
-      action: "implement",
-      values: ["correctness"],
       touches: { writes: ["web"], reads: ["api"] },
-      budget: { tokens: 25000, minutes: 12 },
     },
   ];
 
@@ -270,8 +255,7 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data.task_ids).toEqual(["1", "2", "3"]);
-    expect(data.total_budget.tokens).toBe(75000);
-    expect(data.total_budget.minutes).toBe(30);
+    expect(data.length).toBe(3);
   });
 
   // ── Enforcement Tools ──
@@ -443,14 +427,12 @@ describe("MCP server integration", () => {
       <action>implement</action>
       <values>correctness, simplicity</values>
       <touches writes="auth" reads="api" />
-      <budget tokens="40000" minutes="15" />
     </task>
     <task id="3">
       <description>New task</description>
       <action>test</action>
       <values>coverage</values>
       <touches reads="auth" />
-      <budget tokens="10000" minutes="5" />
     </task>
   </tasks>
 </plan>`,

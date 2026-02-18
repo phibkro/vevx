@@ -21,7 +21,6 @@ function makePlan(overrides: Partial<Plan> = {}): Plan {
         action: "implement",
         values: ["correctness"],
         touches: { writes: ["auth"], reads: ["api"] },
-        budget: { tokens: 30000, minutes: 10 },
       },
       {
         id: "2",
@@ -29,7 +28,6 @@ function makePlan(overrides: Partial<Plan> = {}): Plan {
         action: "implement",
         values: ["correctness"],
         touches: { writes: ["api"], reads: ["auth"] },
-        budget: { tokens: 20000, minutes: 8 },
       },
     ],
     ...overrides,
@@ -83,7 +81,6 @@ describe("diffPlans", () => {
           action: "test",
           values: ["coverage"],
           touches: { reads: ["auth"] },
-          budget: { tokens: 10000, minutes: 5 },
         },
       ],
     });
@@ -130,17 +127,6 @@ describe("diffPlans", () => {
     const modified = diff.tasks.filter((t) => t.type === "modified");
     expect(modified).toHaveLength(1);
     expect(modified[0].changes!.some((c) => c.field === "touches")).toBe(true);
-  });
-
-  test("detects modified task budget", () => {
-    const planA = makePlan();
-    const planB = makePlan({
-      tasks: [{ ...planA.tasks[0], budget: { tokens: 50000, minutes: 20 } }, planA.tasks[1]],
-    });
-    const diff = diffPlans(planA, planB);
-    const modified = diff.tasks.filter((t) => t.type === "modified");
-    expect(modified).toHaveLength(1);
-    expect(modified[0].changes!.some((c) => c.field === "budget")).toBe(true);
   });
 
   test("detects modified task action and values", () => {

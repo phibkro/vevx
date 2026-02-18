@@ -38,15 +38,6 @@ export const TouchesSchema = z.object({
 
 export type Touches = z.infer<typeof TouchesSchema>;
 
-// ── Budget ──
-
-export const BudgetSchema = z.object({
-  tokens: z.number().positive(),
-  minutes: z.number().positive(),
-});
-
-export type Budget = z.infer<typeof BudgetSchema>;
-
 // ── Resolved Docs ──
 
 export const ResolvedDocSchema = z.object({
@@ -107,7 +98,6 @@ export const TaskSchema = z.object({
   action: z.string(),
   values: z.array(z.string()),
   touches: TouchesSchema,
-  budget: BudgetSchema,
 });
 
 export const PlanMetadataSchema = z.object({
@@ -144,7 +134,7 @@ export const HazardSchema = z.object({
 
 export const CriticalPathSchema = z.object({
   task_ids: z.array(z.string()),
-  total_budget: BudgetSchema,
+  length: z.number(),
 });
 
 export type Wave = z.infer<typeof WaveSchema>;

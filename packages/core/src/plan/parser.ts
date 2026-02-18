@@ -29,13 +29,6 @@ function parseTouches(attrs: Record<string, string>): { writes?: string[]; reads
   return result;
 }
 
-function parseBudget(attrs: Record<string, string>): { tokens: number; minutes: number } {
-  return {
-    tokens: Number(attrs["@_tokens"]),
-    minutes: Number(attrs["@_minutes"]),
-  };
-}
-
 export function parsePlanXml(xmlContent: string): Plan {
   const parsed = xmlParser.parse(xmlContent);
   const plan = parsed.plan;
@@ -64,13 +57,13 @@ export function parsePlanXml(xmlContent: string): Plan {
     })),
   };
 
+  // Note: <budget> elements are accepted but ignored (deprecated per ADR-001)
   const tasks = (plan.tasks?.task ?? []).map((t: any) => ({
     id: String(t["@_id"]),
     description: t.description,
     action: t.action,
     values: parseValues(typeof t.values === "string" ? t.values : String(t.values)),
     touches: parseTouches(t.touches || {}),
-    budget: parseBudget(t.budget || {}),
   }));
 
   return PlanSchema.parse({ metadata, contract, tasks });

@@ -39,16 +39,6 @@ export function validatePlan(
     }
   }
 
-  // Check budget values are positive
-  for (const task of plan.tasks) {
-    if (task.budget.tokens <= 0) {
-      errors.push(`Task ${task.id}: budget tokens must be positive`);
-    }
-    if (task.budget.minutes <= 0) {
-      errors.push(`Task ${task.id}: budget minutes must be positive`);
-    }
-  }
-
   // Check verify commands are non-empty
   for (const cond of [...plan.contract.preconditions, ...plan.contract.postconditions]) {
     if (!cond.verify.trim()) {

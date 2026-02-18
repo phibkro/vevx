@@ -1,8 +1,8 @@
-import type { Task, Hazard, CriticalPath, Budget } from "#shared/types.js";
+import type { Task, Hazard, CriticalPath } from "#shared/types.js";
 
 import { detectHazards } from "./hazards.js";
 
-type SchedulableTask = Pick<Task, "id" | "touches" | "budget">;
+type SchedulableTask = Pick<Task, "id" | "touches">;
 
 /**
  * Compute the longest chain of RAW dependencies via memoized DP.
@@ -10,11 +10,10 @@ type SchedulableTask = Pick<Task, "id" | "touches" | "budget">;
  */
 export function computeCriticalPath(tasks: SchedulableTask[], hazards?: Hazard[]): CriticalPath {
   if (tasks.length === 0) {
-    return { task_ids: [], total_budget: { tokens: 0, minutes: 0 } };
+    return { task_ids: [], length: 0 };
   }
 
   const detectedHazards = hazards ?? detectHazards(tasks);
-  const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
   // Build DAG from RAW hazards: predecessors for each task
   const predecessors = new Map<string, string[]>();
@@ -61,12 +60,5 @@ export function computeCriticalPath(tasks: SchedulableTask[], hazards?: Hazard[]
     }
   }
 
-  const totalBudget: Budget = { tokens: 0, minutes: 0 };
-  for (const id of criticalPath.path) {
-    const task = taskMap.get(id)!;
-    totalBudget.tokens += task.budget.tokens;
-    totalBudget.minutes += task.budget.minutes;
-  }
-
-  return { task_ids: criticalPath.path, total_budget: totalBudget };
+  return { task_ids: criticalPath.path, length: criticalPath.length };
 }

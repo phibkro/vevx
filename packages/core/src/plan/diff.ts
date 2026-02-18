@@ -167,12 +167,6 @@ function diffTasks(planA: Plan, planB: Plan): TaskChange[] {
     if (!touchesEqual(taskA.touches, taskB.touches)) {
       fieldChanges.push({ field: "touches", old_value: taskA.touches, new_value: taskB.touches });
     }
-    if (
-      taskA.budget.tokens !== taskB.budget.tokens ||
-      taskA.budget.minutes !== taskB.budget.minutes
-    ) {
-      fieldChanges.push({ field: "budget", old_value: taskA.budget, new_value: taskB.budget });
-    }
 
     if (fieldChanges.length > 0) {
       changes.push({ id, type: "modified", changes: fieldChanges });

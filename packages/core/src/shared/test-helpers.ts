@@ -3,20 +3,13 @@ import type { Task, Plan } from "./types.js";
 /**
  * Create a Task with sensible defaults. Use in tests to avoid repeating boilerplate.
  */
-export function makeTask(
-  id: string,
-  writes?: string[],
-  reads?: string[],
-  tokens = 10000,
-  minutes = 5,
-): Task {
+export function makeTask(id: string, writes?: string[], reads?: string[]): Task {
   return {
     id,
     description: `Task ${id}`,
     action: "implement",
     values: ["correctness"],
     touches: { writes, reads },
-    budget: { tokens, minutes },
   };
 }
 

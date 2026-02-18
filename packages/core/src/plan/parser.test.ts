@@ -85,11 +85,10 @@ describe("parsePlanXml", () => {
     expect(plan.tasks[0].touches.reads).toEqual(["api"]);
   });
 
-  test("parses budget", () => {
+  test("accepts legacy budget elements without error (backward compat)", () => {
+    // EXAMPLE_PLAN contains <budget> elements — parser should silently ignore them
     const plan = parsePlanXml(EXAMPLE_PLAN);
-
-    expect(plan.tasks[0].budget.tokens).toBe(30000);
-    expect(plan.tasks[0].budget.minutes).toBe(10);
+    expect((plan.tasks[0] as any).budget).toBeUndefined();
   });
 
   test("parses comma-separated values", () => {

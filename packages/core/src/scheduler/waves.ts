@@ -3,7 +3,7 @@ import type { Task, Wave } from "#shared/types.js";
 import { computeCriticalPath } from "./critical-path.js";
 import { detectHazards } from "./hazards.js";
 
-type SchedulableTask = Pick<Task, "id" | "touches" | "budget">;
+type SchedulableTask = Pick<Task, "id" | "touches">;
 
 /**
  * Group tasks into parallel-safe execution waves via topological sort.
