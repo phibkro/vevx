@@ -14,6 +14,7 @@ import { discoverFiles } from '@varp/audit/src/discovery';
 import { getChangedFiles, filterToChanged } from '@varp/audit/src/planner/diff-filter';
 import type { FileContent } from '@varp/audit';
 import type { AuditProgressEvent } from '@varp/audit';
+import { callClaude } from './claude-client';
 
 
 // ── Arg parsing ──
@@ -213,6 +214,7 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
 
   // Execute
   const report = await executeAuditPlan(plan, files, ruleset, {
+    caller: callClaude,
     model: args.model || 'claude-sonnet-4-5-20250929',
     concurrency: args.concurrency,
     onProgress: createAuditProgress(args.quiet ?? false),

@@ -1,9 +1,10 @@
 import type { FileContent } from "./agents/types";
 import type { AgentResult } from "./agents/types";
 import { agents } from "./agents/index";
-import { callClaude } from "./client";
+import type { ModelCaller } from "./planner/types";
 
 export interface OrchestratorOptions {
+  caller: ModelCaller;
   model: string;
   maxTokens?: number;
 }
@@ -32,7 +33,7 @@ async function runAgent(
     const userPrompt = agent.userPromptTemplate(files);
 
     // Call Claude API (no JSON schema for generic agents — they use their own text parsers)
-    const apiResult = await callClaude(
+    const apiResult = await options.caller(
       agent.systemPrompt,
       userPrompt,
       {

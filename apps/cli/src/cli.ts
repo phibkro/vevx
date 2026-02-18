@@ -15,6 +15,7 @@ import { fileURLToPath } from "url";
 import { parseArgs } from "util";
 
 import { runAuditCommand } from "./audit";
+import { callClaude } from "./claude-client";
 import { login, logout } from "./auth";
 import { generateCompletions } from "./completions";
 import {
@@ -223,7 +224,7 @@ async function runAuditFlow(validatedPath: string, config: Config, args: CliArgs
   const reporter = config.verbosity !== "quiet" ? createProgressReporter() : null;
   const agentResults = await runAudit(
     files,
-    { model: config.model, maxTokens: 4096 },
+    { caller: callClaude, model: config.model, maxTokens: 4096 },
     reporter?.onProgress,
   );
   const durationMs = Date.now() - startTime;

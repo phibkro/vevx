@@ -22,6 +22,8 @@ export type {
   AuditComponent,
   AuditTask,
   AuditPlan,
+  ModelCaller,
+  ModelCallerResult,
 } from './types';
 export type {
   AuditSeverity,

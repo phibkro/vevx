@@ -1,11 +1,10 @@
 import type { FileContent } from '../agents/types';
-import type { AuditPlan, AuditTask, Ruleset } from './types';
+import type { AuditPlan, AuditTask, Ruleset, ModelCaller } from './types';
 import type {
   AuditTaskResult,
   ComplianceReport,
   CoverageEntry,
 } from './findings';
-import { callClaude, type ApiCallOptions } from '../client';
 import { generatePrompt, parseAuditResponse, AUDIT_FINDINGS_SCHEMA } from './prompt-generator';
 import { deduplicateFindings, summarizeFindings } from './findings';
 import { parseSuppressConfig, parseInlineSuppressions, applySuppressions } from './suppressions';
@@ -26,6 +25,9 @@ export type ProgressCallback = (event: AuditProgressEvent) => void;
 // ── Executor options ──
 
 export interface ExecutorOptions {
+  /** Backend-agnostic model caller. Consumers inject the implementation. */
+  caller: ModelCaller;
+
   /** Model to use for audit tasks */
   model: string;
 
@@ -59,12 +61,13 @@ async function executeTask(
   task: AuditTask,
   files: FileContent[],
   ruleset: Ruleset,
-  options: ApiCallOptions,
+  caller: ModelCaller,
+  options: { model: string; maxTokens?: number },
 ): Promise<AuditTaskResult> {
   const prompt = generatePrompt(task, files, ruleset);
   const start = Date.now();
 
-  const result = await callClaude(prompt.systemPrompt, prompt.userPrompt, {
+  const result = await caller(prompt.systemPrompt, prompt.userPrompt, {
     ...options,
     jsonSchema: AUDIT_FINDINGS_SCHEMA,
   });
@@ -172,16 +175,17 @@ export async function executeAuditPlan(
   plan: AuditPlan,
   files: FileContent[],
   ruleset: Ruleset,
-  options: ExecutorOptions = { model: DEFAULT_MODEL },
+  options: ExecutorOptions,
 ): Promise<ComplianceReport> {
   const {
+    caller,
     model = DEFAULT_MODEL,
     maxTokens = DEFAULT_MAX_TOKENS,
     concurrency = DEFAULT_CONCURRENCY,
     onProgress,
   } = options;
 
-  const apiOptions: ApiCallOptions = { model, maxTokens };
+  const callOptions = { model, maxTokens };
   const startedAt = new Date().toISOString();
   const allResults: AuditTaskResult[] = [];
   const failedTaskIds = new Set<string>();
@@ -206,7 +210,7 @@ export async function executeAuditPlan(
       plan.waves.wave1,
       (task) => {
         onProgress?.({ type: 'task-start', task });
-        return executeTask(task, resolveFiles(task), ruleset, apiOptions);
+        return executeTask(task, resolveFiles(task), ruleset, caller, callOptions);
       },
       concurrency,
       (task, result) => onProgress?.({ type: 'task-complete', task, result }),
@@ -229,7 +233,7 @@ export async function executeAuditPlan(
       plan.waves.wave2,
       (task) => {
         onProgress?.({ type: 'task-start', task });
-        return executeTask(task, resolveFiles(task), ruleset, apiOptions);
+        return executeTask(task, resolveFiles(task), ruleset, caller, callOptions);
       },
       concurrency,
       (task, result) => onProgress?.({ type: 'task-complete', task, result }),

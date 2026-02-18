@@ -4,13 +4,9 @@ import type { Ruleset, AuditPlan } from '../planner/types';
 import type { AuditProgressEvent } from '../planner/executor';
 import { executeAuditPlan } from '../planner/executor';
 
-// Mock the client module
-const { mockCallClaude } = vi.hoisted(() => ({
-  mockCallClaude: vi.fn(),
-}));
-vi.mock('../client', () => ({
-  callClaude: mockCallClaude,
-}));
+import type { ModelCaller } from '../planner/types';
+
+const mockCallClaude = vi.fn<ModelCaller>();
 
 // ── Test data ──
 
@@ -174,6 +170,7 @@ describe('executeAuditPlan', () => {
       .mockResolvedValueOnce(validResponse([]));                     // cross-3
 
     const report = await executeAuditPlan(makePlan(), FILES, RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
     });
 
@@ -191,6 +188,7 @@ describe('executeAuditPlan', () => {
     mockCallClaude.mockResolvedValue(validResponse([]));
 
     await executeAuditPlan(makePlan(), FILES, RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
     });
 
@@ -211,6 +209,7 @@ describe('executeAuditPlan', () => {
       .mockResolvedValueOnce(validResponse([duplicateFinding])); // cross-cutting also finds it
 
     const report = await executeAuditPlan(makePlan(), FILES, RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
     });
 
@@ -229,6 +228,7 @@ describe('executeAuditPlan', () => {
       .mockResolvedValueOnce(validResponse([]));                    // cross-3 ok
 
     const report = await executeAuditPlan(makePlan(), FILES, RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
     });
 
@@ -249,6 +249,7 @@ describe('executeAuditPlan', () => {
 
     const events: AuditProgressEvent['type'][] = [];
     await executeAuditPlan(makePlan(), FILES, RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
       onProgress: (event) => events.push(event.type),
     });
@@ -274,6 +275,7 @@ describe('executeAuditPlan', () => {
     });
 
     await executeAuditPlan(makePlan(), FILES, RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
       concurrency: 1,
     });
@@ -285,6 +287,7 @@ describe('executeAuditPlan', () => {
     mockCallClaude.mockResolvedValue(validResponse([]));
 
     const report = await executeAuditPlan(makePlan(), FILES, RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
     });
 
@@ -303,6 +306,7 @@ describe('executeAuditPlan', () => {
     };
 
     const report = await executeAuditPlan(emptyPlan, [], RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
     });
 
@@ -315,6 +319,7 @@ describe('executeAuditPlan', () => {
     mockCallClaude.mockResolvedValue(validResponse([]));
 
     const report = await executeAuditPlan(makePlan(), FILES, RULESET, {
+      caller: mockCallClaude,
       model: 'claude-sonnet-4-5-20250929',
     });
 
