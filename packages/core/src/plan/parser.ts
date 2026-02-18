@@ -58,13 +58,19 @@ export function parsePlanXml(xmlContent: string): Plan {
   };
 
   // Note: <budget> elements are accepted but ignored (deprecated per ADR-001)
-  const tasks = (plan.tasks?.task ?? []).map((t: any) => ({
-    id: String(t["@_id"]),
-    description: t.description,
-    action: t.action,
-    values: parseValues(typeof t.values === "string" ? t.values : String(t.values)),
-    touches: parseTouches(t.touches || {}),
-  }));
+  const tasks = (plan.tasks?.task ?? []).map((t: any) => {
+    const task: Record<string, unknown> = {
+      id: String(t["@_id"]),
+      description: t.description,
+      action: t.action,
+      values: parseValues(typeof t.values === "string" ? t.values : String(t.values)),
+      touches: parseTouches(t.touches || {}),
+    };
+    if (t.mutexes) {
+      task.mutexes = parseValues(typeof t.mutexes === "string" ? t.mutexes : String(t.mutexes));
+    }
+    return task;
+  });
 
   return PlanSchema.parse({ metadata, contract, tasks });
 }

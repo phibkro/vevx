@@ -97,6 +97,33 @@ describe("parsePlanXml", () => {
     expect(plan.tasks[0].values).toEqual(["security", "correctness", "backwards-compatibility"]);
   });
 
+  test("parses mutexes element", () => {
+    const xml = `<plan>
+      <metadata><feature>Test</feature><created>2026-01-01</created></metadata>
+      <contract>
+        <postconditions>
+          <condition id="p1"><description>ok</description><verify>echo ok</verify></condition>
+        </postconditions>
+      </contract>
+      <tasks>
+        <task id="1">
+          <description>Task with mutexes</description>
+          <action>implement</action>
+          <values>correctness</values>
+          <touches writes="auth" />
+          <mutexes>db-migration, port-3000</mutexes>
+        </task>
+      </tasks>
+    </plan>`;
+    const plan = parsePlanXml(xml);
+    expect(plan.tasks[0].mutexes).toEqual(["db-migration", "port-3000"]);
+  });
+
+  test("omits mutexes field when not present in XML", () => {
+    const plan = parsePlanXml(EXAMPLE_PLAN);
+    expect(plan.tasks[0].mutexes).toBeUndefined();
+  });
+
   test("parses reads-only touches", () => {
     const plan = parsePlanXml(EXAMPLE_PLAN);
 

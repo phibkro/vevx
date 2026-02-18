@@ -95,11 +95,11 @@ Structurally diffs two parsed plans. Compares metadata, contracts (by ID), and t
 
 #### `varp_compute_waves`
 
-Pure function. Takes tasks with `touches` declarations, detects data hazards (RAW/WAR/WAW), and groups tasks into execution waves where no two concurrent tasks write to the same component.
+Pure function. Takes tasks with `touches` and optional `mutexes` declarations, detects data hazards (RAW/WAR/WAW) and mutex conflicts (MUTEX), and groups tasks into execution waves where no two concurrent tasks write to the same component or hold the same mutex.
 
 Within each wave, tasks are safe to run in parallel. Waves execute sequentially. Tasks on the critical path (longest RAW dependency chain) are ordered first within each wave.
 
-**Parameters:** `{ tasks: { id, touches }[] }`
+**Parameters:** `{ tasks: { id, touches, mutexes? }[] }`
 
 **Returns:** `Wave[]`
 
@@ -194,14 +194,14 @@ Used at orchestrator step 8 — before merge, not after.
 
 #### `varp_derive_restart_strategy`
 
-Given a failed task and the current execution state, derives the appropriate restart strategy from the `touches` dependency graph:
-- **Isolated retry** — failed task's write set is disjoint from all downstream read sets
-- **Cascade restart** — failed task's output is consumed by dispatched/completed downstream tasks
+Given a failed task and the current execution state, derives the appropriate restart strategy from the `touches` and `mutexes` dependency graph:
+- **Isolated retry** — failed task's write set and mutex set are disjoint from all active downstream tasks
+- **Cascade restart** — failed task's output is consumed by dispatched downstream tasks, or they share mutexes
 - **Escalate** — failure indicates a planning problem, not an execution problem
 
-This is a mechanical decision derived from `touches`, not a judgment call.
+This is a mechanical decision derived from `touches` and `mutexes`, not a judgment call.
 
-**Parameters:** `{ failed_task: { id, touches }, all_tasks: { id, touches }[], completed_task_ids: string[], dispatched_task_ids: string[] }`
+**Parameters:** `{ failed_task: { id, touches, mutexes? }, all_tasks: { id, touches, mutexes? }[], completed_task_ids: string[], dispatched_task_ids: string[] }`
 
 **Returns:** `RestartStrategy`
 

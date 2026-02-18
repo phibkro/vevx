@@ -1,6 +1,6 @@
 import type { Task, Hazard } from "#shared/types.js";
 
-type TaskRef = Pick<Task, "id" | "touches">;
+type TaskRef = Pick<Task, "id" | "touches"> & { mutexes?: string[] };
 
 /**
  * Pairwise hazard detection — O(n^2) over tasks, O(k) per pair over shared components.
@@ -69,6 +69,20 @@ export function detectHazards(tasks: TaskRef[]): Hazard[] {
             source_task_id: b.id,
             target_task_id: a.id,
             component: comp,
+          });
+        }
+      }
+
+      // MUTEX: shared mutex names — mutual exclusion constraint
+      const aMutexes = new Set(a.mutexes ?? []);
+      const bMutexes = new Set(b.mutexes ?? []);
+      for (const mutex of aMutexes) {
+        if (bMutexes.has(mutex)) {
+          hazards.push({
+            type: "MUTEX",
+            source_task_id: a.id,
+            target_task_id: b.id,
+            component: mutex,
           });
         }
       }

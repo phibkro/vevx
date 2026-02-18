@@ -1,6 +1,6 @@
 import type { Task, RestartStrategy } from "#shared/types.js";
 
-type TaskRef = Pick<Task, "id" | "touches">;
+type TaskRef = Pick<Task, "id" | "touches"> & { mutexes?: string[] };
 
 /**
  * Given a failed task and execution state, derive the restart strategy:
@@ -15,12 +15,13 @@ export function deriveRestartStrategy(
   dispatchedTaskIds: string[],
 ): RestartStrategy {
   const failedWrites = new Set(failedTask.touches.writes ?? []);
+  const failedMutexes = new Set(failedTask.mutexes ?? []);
 
-  if (failedWrites.size === 0) {
-    // Task with no writes can always be safely retried
+  if (failedWrites.size === 0 && failedMutexes.size === 0) {
+    // Task with no writes and no mutexes can always be safely retried
     return {
       strategy: "isolated_retry",
-      reason: "Task has no write set — retry is safe",
+      reason: "Task has no write set and no mutexes — retry is safe",
       affected_tasks: [],
     };
   }
@@ -34,11 +35,27 @@ export function deriveRestartStrategy(
     if (!activeTaskIds.has(task.id)) continue;
 
     const taskReads = new Set(task.touches.reads ?? []);
+    let affected = false;
     for (const comp of failedWrites) {
       if (taskReads.has(comp)) {
-        affectedTasks.push(task.id);
+        affected = true;
         break;
       }
+    }
+
+    // Check mutex overlap — shared mutexes mean resource contention
+    if (!affected && failedMutexes.size > 0) {
+      const taskMutexes = new Set(task.mutexes ?? []);
+      for (const mutex of failedMutexes) {
+        if (taskMutexes.has(mutex)) {
+          affected = true;
+          break;
+        }
+      }
+    }
+
+    if (affected) {
+      affectedTasks.push(task.id);
     }
   }
 

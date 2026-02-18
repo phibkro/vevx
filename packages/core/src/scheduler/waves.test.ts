@@ -46,6 +46,28 @@ describe("computeWaves", () => {
     expect(waves[2].tasks.map((t) => t.id)).toEqual(["4"]);
   });
 
+  test("MUTEX tasks are placed in separate waves", () => {
+    const tasks = [
+      makeTask("1", ["auth"], undefined, ["db-migration"]),
+      makeTask("2", ["api"], undefined, ["db-migration"]),
+    ];
+    const waves = computeWaves(tasks);
+    expect(waves).toHaveLength(2);
+    // Tasks are in different waves despite no shared component touches
+    expect(waves[0].tasks.map((t) => t.id)).toEqual(["1"]);
+    expect(waves[1].tasks.map((t) => t.id)).toEqual(["2"]);
+  });
+
+  test("tasks with different mutexes can be in the same wave", () => {
+    const tasks = [
+      makeTask("1", ["auth"], undefined, ["db-migration"]),
+      makeTask("2", ["api"], undefined, ["port-3000"]),
+    ];
+    const waves = computeWaves(tasks);
+    expect(waves).toHaveLength(1);
+    expect(waves[0].tasks).toHaveLength(2);
+  });
+
   test("empty tasks", () => {
     expect(computeWaves([])).toEqual([]);
   });

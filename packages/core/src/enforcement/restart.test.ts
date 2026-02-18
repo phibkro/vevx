@@ -35,6 +35,22 @@ describe("deriveRestartStrategy", () => {
     expect(result.strategy).toBe("isolated_retry");
   });
 
+  test("cascade restart — dispatched task shares mutex with failed task", () => {
+    const tasks = [
+      makeTask("1", ["auth"], undefined, ["db-migration"]),
+      makeTask("2", ["api"], undefined, ["db-migration"]),
+    ];
+    const result = deriveRestartStrategy(tasks[0], tasks, [], ["2"]);
+    expect(result.strategy).toBe("cascade_restart");
+    expect(result.affected_tasks).toContain("2");
+  });
+
+  test("isolated retry — task with no writes but no mutexes", () => {
+    const task = makeTask("1", undefined, ["auth"]);
+    const result = deriveRestartStrategy(task, [task], [], []);
+    expect(result.strategy).toBe("isolated_retry");
+  });
+
   test("correctly identifies all three strategies", () => {
     // Setup: task 1 writes auth, task 2 reads auth (dispatched), task 3 reads auth (completed)
     const tasks = [

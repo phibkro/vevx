@@ -94,7 +94,7 @@ Design doc specified per-task token/time budgets enforced at runtime. Dropped en
 | `env` on components | Runtime prerequisites (informational) | Implemented |
 | `stability` on components | `stable` / `active` / `experimental` | Implemented |
 | Three-graph separation | Project/task/action graph decomposition | Documented in architecture |
-| Named mutexes on tasks | Exclusive resource locks beyond component graph | Under consideration |
+| Named mutexes on tasks | Exclusive resource locks beyond component graph | Implemented |
 
 ## Architecture
 

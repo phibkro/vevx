@@ -37,11 +37,14 @@ const touchesSchema = z.object({
   writes: z.array(z.string()).optional(),
 });
 
-const taskRefSchema = z.object({ id: z.string(), touches: touchesSchema });
+const mutexesSchema = z.array(z.string()).optional().describe("Named mutexes for mutual exclusion");
+
+const taskRefSchema = z.object({ id: z.string(), touches: touchesSchema, mutexes: mutexesSchema });
 
 const schedulableTaskSchema = z.object({
   id: z.string(),
   touches: touchesSchema,
+  mutexes: mutexesSchema,
 });
 
 const hazardTasksInput = {
@@ -144,7 +147,7 @@ const tools: ToolDef[] = [
   },
   {
     name: "varp_detect_hazards",
-    description: "Return all data hazards (RAW/WAR/WAW) between tasks.",
+    description: "Return all data hazards (RAW/WAR/WAW) and mutex conflicts (MUTEX) between tasks.",
     inputSchema: hazardTasksInput,
     handler: async ({ tasks }) => detectHazards(tasks),
   },

@@ -43,6 +43,41 @@ describe("detectHazards", () => {
     expect(detectHazards(tasks)).toHaveLength(0);
   });
 
+  test("detects MUTEX hazard for shared mutex names", () => {
+    const tasks = [
+      makeTask("1", ["auth"], undefined, ["db-migration"]),
+      makeTask("2", ["api"], undefined, ["db-migration"]),
+    ];
+    const hazards = detectHazards(tasks);
+    const mutex = hazards.filter((h) => h.type === "MUTEX");
+    expect(mutex).toHaveLength(1);
+    expect(mutex[0].source_task_id).toBe("1");
+    expect(mutex[0].target_task_id).toBe("2");
+    expect(mutex[0].component).toBe("db-migration");
+  });
+
+  test("no MUTEX hazard for different mutex names", () => {
+    const tasks = [
+      makeTask("1", ["auth"], undefined, ["db-migration"]),
+      makeTask("2", ["api"], undefined, ["port-3000"]),
+    ];
+    const hazards = detectHazards(tasks);
+    const mutex = hazards.filter((h) => h.type === "MUTEX");
+    expect(mutex).toHaveLength(0);
+  });
+
+  test("MUTEX hazard reported per shared name", () => {
+    const tasks = [
+      makeTask("1", ["auth"], undefined, ["db-migration", "port-3000"]),
+      makeTask("2", ["api"], undefined, ["db-migration", "port-3000"]),
+    ];
+    const hazards = detectHazards(tasks);
+    const mutex = hazards.filter((h) => h.type === "MUTEX");
+    expect(mutex).toHaveLength(2);
+    const names = mutex.map((h) => h.component).sort();
+    expect(names).toEqual(["db-migration", "port-3000"]);
+  });
+
   test("detects all three hazard types", () => {
     const tasks = [makeTask("1", ["auth"], ["api"]), makeTask("2", ["auth", "api"])];
     const hazards = detectHazards(tasks);

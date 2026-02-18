@@ -81,6 +81,20 @@ export function validatePlan(
     }
   }
 
+  // Report dead mutexes (mutex name only used by one task)
+  const mutexUsage = new Map<string, string[]>();
+  for (const task of plan.tasks) {
+    for (const mutex of task.mutexes ?? []) {
+      if (!mutexUsage.has(mutex)) mutexUsage.set(mutex, []);
+      mutexUsage.get(mutex)!.push(task.id);
+    }
+  }
+  for (const [mutex, taskIds] of mutexUsage) {
+    if (taskIds.length === 1) {
+      warnings.push(`Dead mutex "${mutex}" — only used by task ${taskIds[0]}`);
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,

@@ -3,7 +3,7 @@ import type { Task, Wave } from "#shared/types.js";
 import { computeCriticalPath } from "./critical-path.js";
 import { detectHazards } from "./hazards.js";
 
-type SchedulableTask = Pick<Task, "id" | "touches">;
+type SchedulableTask = Pick<Task, "id" | "touches"> & { mutexes?: string[] };
 
 /**
  * Group tasks into parallel-safe execution waves via topological sort.
@@ -28,9 +28,9 @@ export function computeWaves(tasks: SchedulableTask[]): Wave[] {
     }
   }
 
-  // Also add WAW as ordering constraints (first task goes first)
+  // Also add WAW and MUTEX as ordering constraints (first task goes first)
   for (const h of hazards) {
-    if (h.type === "WAW") {
+    if (h.type === "WAW" || h.type === "MUTEX") {
       deps.get(h.target_task_id)?.add(h.source_task_id);
     }
   }

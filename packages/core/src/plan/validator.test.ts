@@ -97,6 +97,28 @@ describe("validatePlan", () => {
     expect(result.warnings).toHaveLength(0);
   });
 
+  // ── Dead mutex warnings ──
+
+  test("warns on dead mutex (only used by one task)", () => {
+    const plan = makePlan([
+      makeTask("1", ["auth"], undefined, ["db-migration"]),
+      makeTask("2", ["api"]),
+    ]);
+    const result = validatePlan(plan, manifest);
+    expect(
+      result.warnings.some((w) => w.includes("Dead mutex") && w.includes("db-migration")),
+    ).toBe(true);
+  });
+
+  test("no warning when mutex is shared by multiple tasks", () => {
+    const plan = makePlan([
+      makeTask("1", ["auth"], undefined, ["db-migration"]),
+      makeTask("2", ["api"], undefined, ["db-migration"]),
+    ]);
+    const result = validatePlan(plan, manifest);
+    expect(result.warnings.some((w) => w.includes("Dead mutex"))).toBe(false);
+  });
+
   test("empty verify command is an error", () => {
     const plan = makePlan([makeTask("1", ["auth"])], {
       postconditions: [{ id: "post-1", description: "test", verify: "  " }],

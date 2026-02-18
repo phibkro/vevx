@@ -114,6 +114,7 @@ Contains one or more `<task>` elements.
 | `<action>` | element | yes | Action verb: `implement`, `test`, `document`, `refactor`, `migrate`, etc. |
 | `<values>` | element | yes | Comma-separated priority ordering (e.g. `"security, correctness"`) |
 | `<touches>` | element | yes | Component read/write declarations (see below) |
+| `<mutexes>` | element | no | Comma-separated named mutexes for mutual exclusion (see below) |
 
 #### `<touches>`
 
@@ -139,6 +140,25 @@ Component names must match entries in `varp.yaml`. The orchestrator uses these d
 - **Schedule** — derive execution waves and detect data hazards (RAW/WAR/WAW)
 - **Enforce** — verify file changes stay within declared write scope
 - **Recover** — derive restart strategies from dependency overlap on failure
+
+#### `<mutexes>`
+
+Optional element containing comma-separated mutex names. Tasks sharing a mutex name cannot run in the same wave, regardless of their `touches` declarations. Use for exclusive access to resources that aren't components: database migration locks, singleton ports, external API rate limits, etc.
+
+```xml
+<!-- Tasks contending on a shared resource -->
+<task id="1">
+  <touches writes="auth" />
+  <mutexes>db-migration</mutexes>
+</task>
+
+<task id="2">
+  <touches writes="api" />
+  <mutexes>db-migration, port-3000</mutexes>
+</task>
+```
+
+Mutex names are freeform strings (not validated against the manifest). The validator warns on "dead" mutexes — names used by only one task.
 
 ## Verification Commands
 
@@ -175,6 +195,7 @@ Plans do not specify execution order. The orchestrator derives order from `touch
 - **RAW** (read-after-write) — task B reads a component that task A writes. B must wait for A.
 - **WAW** (write-after-write) — tasks A and B both write the same component. Scheduling constraint.
 - **WAR** (write-after-read) — resolved by context snapshotting, not ordering.
+- **MUTEX** — tasks A and B hold the same named mutex. Scheduling constraint (not a data dependency).
 
 Tasks with no hazards between them run in parallel within the same wave.
 
@@ -185,6 +206,7 @@ Use `varp_validate_plan` to check a plan against the manifest. Validation catche
 - Components in `touches` that don't exist in the manifest
 - Duplicate task IDs
 - WAW hazards (reported as warnings, not errors)
+- Dead mutexes (mutex name only used by one task, reported as warnings)
 
 ## Diffing
 

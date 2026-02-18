@@ -98,6 +98,7 @@ export const TaskSchema = z.object({
   action: z.string(),
   values: z.array(z.string()),
   touches: TouchesSchema,
+  mutexes: z.array(z.string()).optional(),
 });
 
 export const PlanMetadataSchema = z.object({
@@ -126,7 +127,7 @@ export const WaveSchema = z.object({
 });
 
 export const HazardSchema = z.object({
-  type: z.enum(["RAW", "WAR", "WAW"]),
+  type: z.enum(["RAW", "WAR", "WAW", "MUTEX"]),
   source_task_id: z.string(),
   target_task_id: z.string(),
   component: z.string(),

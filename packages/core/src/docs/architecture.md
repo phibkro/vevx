@@ -34,7 +34,7 @@ src/
     diff.ts                   Structural plan diff (metadata, contracts, tasks)
     log-parser.ts             Execution log.xml parser (task metrics, postconditions, waves)
   scheduler/
-    hazards.ts                O(n^2) pairwise RAW/WAR/WAW detection
+    hazards.ts                O(n^2) pairwise RAW/WAR/WAW/MUTEX detection
     waves.ts                  Topological sort with wave grouping
     critical-path.ts          Longest RAW chain via DP
   enforcement/
@@ -54,7 +54,7 @@ src/
 
 **Manifest tools accept `manifest_path` parameter.** Each tool reads and parses the manifest internally rather than receiving a pre-parsed manifest. Keeps the MCP interface simple (string path in, JSON out). Manifests are cached by (absolutePath, mtimeMs) so repeated calls skip re-parsing.
 
-**Hazard detection is O(n^2) by design.** Plans rarely exceed 20 tasks. The pairwise comparison in `hazards.ts` checks every component across every task pair. Three hazard types are detected independently per component per pair.
+**Hazard detection is O(n^2) by design.** Plans rarely exceed 20 tasks. The pairwise comparison in `hazards.ts` checks every component across every task pair. Three data hazard types (RAW/WAR/WAW) are detected independently per component per pair. MUTEX hazards are detected by comparing mutex name sets between task pairs.
 
 **Wave computation depends on hazards and critical path.** `waves.ts` imports both `detectHazards` and `computeCriticalPath`. Hazards define the dependency graph; critical path determines sort order within waves. Hazards are computed once in `computeWaves` and passed through to `computeCriticalPath` to avoid redundant O(n^2) detection.
 
@@ -87,13 +87,14 @@ For each task pair (i, j) and each component in their combined touch sets:
 | i writes, j writes | WAW | Output conflict (scheduling constraint) |
 | i reads, j writes, i doesn't write | WAR | Anti-dependency |
 | j reads, i writes, j doesn't write | WAR | (reverse direction) |
+| i mutex ∩ j mutex ≠ ∅ | MUTEX | Mutual exclusion (scheduling constraint) |
 
-WAR is suppressed when the reader also writes the same component — that case is already captured by WAW + RAW.
+WAR is suppressed when the reader also writes the same component — that case is already captured by WAW + RAW. MUTEX hazards are independent of touches — they check mutex name overlap between task pairs.
 
 ### Wave Computation (`waves.ts`)
 
 1. Detect all hazards
-2. Build dependency graph from RAW + WAW edges (target depends on source)
+2. Build dependency graph from RAW + WAW + MUTEX edges (target depends on source)
 3. Recursive longest-path-from-roots assigns wave numbers: `wave(task) = max(wave(dep) for dep in deps) + 1`
 4. Group tasks by wave number
 5. Within each wave, sort critical-path tasks first
@@ -108,13 +109,13 @@ Returns task IDs in chain order plus the chain length.
 
 ### Restart Strategy (`restart.ts`)
 
-Decision tree based on touches overlap:
+Decision tree based on touches and mutex overlap:
 
 ```
-failed task has no writes?
+failed task has no writes and no mutexes?
   -> isolated_retry (always safe)
 
-any active (completed/dispatched) task reads from failed task's writes?
+any active (completed/dispatched) task reads from failed task's writes or shares a mutex?
   no -> isolated_retry
   yes, and any of those tasks are completed?
     -> escalate (completed tasks consumed bad output)
@@ -164,7 +165,7 @@ Tools are defined as `ToolDef` objects in `index.ts` — each with name, descrip
 2. Error handling (catch → `{ isError: true }`)
 3. MCP response formatting (`{ content: [{ type: "text", text }] }`)
 
-Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `touchesSchema`, `taskRefSchema`, `schedulableTaskSchema`) are defined once and reused across tool definitions. Scheduler and enforcement tools accept minimal task objects (`{id, touches}`) rather than full `Task` schemas — reduces tool description token overhead.
+Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `touchesSchema`, `mutexesSchema`, `taskRefSchema`, `schedulableTaskSchema`) are defined once and reused across tool definitions. Scheduler and enforcement tools accept minimal task objects (`{id, touches, mutexes?}`) rather than full `Task` schemas — reduces tool description token overhead.
 
 `varp_compute_waves` accepts inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 
