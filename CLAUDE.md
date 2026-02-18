@@ -9,7 +9,7 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 | `turbo build` | Build all packages |
 | `turbo test` | Run all tests |
 | `turbo check` | Format + lint + build (all packages) |
-| `turbo typecheck` | Type-check all packages via tsc |
+| `turbo typecheck` | Type-check all packages via oxlint --type-check |
 | `bun test packages/core/src/index.test.ts` | MCP integration tests only |
 | `bun test packages/core/src/scheduler/` | Scheduler tests only |
 | `bun run packages/cli/dist/cli.js lint` | Lint manifest for issues |
