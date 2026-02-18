@@ -8,12 +8,14 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 - Modules: ESM only. Use `import`/`export`, never `require()` or `module.exports`. Use `.js` extensions in import specifiers.
 - Types: Define Zod schema first, infer via `z.infer<>`. Never define standalone interfaces.
 - Tests: Co-located `*.test.ts` files. Run with `bun test`.
-- Build: `bun run build` (bun build to `build/`).
-- Lint/Format: `bun run check` (oxfmt + oxlint + shellcheck + build). oxfmt handles formatting — don't manually adjust style.
+- Build: `turbo build` (all packages) or `bun run build` in `packages/core/`.
+- Lint/Format: `bun run check` in `packages/core/` (oxfmt + oxlint + shellcheck + build). oxfmt handles formatting — don't manually adjust style.
 - MCP tools: Accept `manifest_path` param, parse internally, return JSON as text content.
 - Hooks: No runtime deps (no jq/python). grep/sed/awk + bash parameter expansion. Exit 0 when `varp.yaml` missing. Must pass shellcheck.
 - Skills/hooks/MCP specs change frequently — check `docs/reference-urls.md` for current docs before modifying.
 
-**Components** (8): `shared` = `src/shared/` (types, ownership), `server` = `src/` (index, tool-registry — depends on all domain components), `manifest` = `src/manifest/` (parser, resolver, freshness, graph, links, imports, touches, discovery, lint, scoped-tests, env-check), `plan` = `src/plan/` (parser, validator, diff), `scheduler` = `src/scheduler/` (hazards, waves, critical-path), `enforcement` = `src/enforcement/` (capabilities, restart), `skills` = `skills/`, `hooks` = `hooks/`. Domain components import shared types via `#shared/*` alias. Skills/hooks depend on manifest.
+**Core components** (8): `shared` = `packages/core/src/shared/`, `server` = `packages/core/src/`, `manifest` = `packages/core/src/manifest/`, `plan` = `packages/core/src/plan/`, `scheduler` = `packages/core/src/scheduler/`, `enforcement` = `packages/core/src/enforcement/`, `skills` = `skills/`, `hooks` = `hooks/`. Domain components import shared types via `#shared/*` alias. Skills/hooks depend on manifest.
+
+**Audit components** (4, experimental): `audit-core` = `packages/audit/src/`, `audit-planner` = `packages/audit/src/planner/`, `audit-agents` = `packages/audit/src/agents/`, `audit-cli` = `apps/audit-cli/src/`.
 
 If you modify component files, note which components were affected in your response.

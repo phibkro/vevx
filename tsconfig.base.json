@@ -6,12 +6,6 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true,
-    "resolveJsonModule": true,
-    "paths": {
-      "#shared/*": ["./src/shared/*"]
-    }
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "build"]
+    "resolveJsonModule": true
+  }
 }

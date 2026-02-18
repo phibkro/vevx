@@ -1,36 +1,36 @@
 varp: 0.1.0
 
 shared:
-  path: ./src/shared
+  path: ./packages/core/src/shared
   tags: [shared]
   stability: stable
 
 server:
-  path: ./src
+  path: ./packages/core/src
   deps: [shared, manifest, plan, scheduler, enforcement]
   tags: [mcp]
   stability: stable
 
 manifest:
-  path: ./src/manifest
+  path: ./packages/core/src/manifest
   deps: [shared]
   tags: [mcp]
   stability: active
 
 plan:
-  path: ./src/plan
+  path: ./packages/core/src/plan
   deps: [shared]
   tags: [mcp]
   stability: active
 
 scheduler:
-  path: ./src/scheduler
+  path: ./packages/core/src/scheduler
   deps: [shared]
   tags: [mcp]
   stability: active
 
 enforcement:
-  path: ./src/enforcement
+  path: ./packages/core/src/enforcement
   deps: [shared]
   tags: [mcp]
   stability: active

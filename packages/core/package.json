@@ -1,0 +1,29 @@
+{
+  "name": "@varp/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir build --target node --format esm --sourcemap=external --packages external",
+    "typecheck": "tsc",
+    "test": "bun test",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt --write 'src/**/*.ts'",
+    "format:check": "oxfmt --check 'src/**/*.ts'",
+    "lint:shell": "shellcheck ../../hooks/scripts/*.sh",
+    "check": "bun run format:check && bun run lint && bun run lint:shell && bun run build",
+    "start": "bun build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "fast-xml-parser": "^4.5.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "oxfmt": "^0.33.0",
+    "oxlint": "^1.48.0",
+    "typescript": "^5.7.0"
+  }
+}
