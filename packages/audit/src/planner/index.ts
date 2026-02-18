@@ -65,3 +65,14 @@ export {
   filterToChanged,
   expandWithDependents,
 } from './diff-filter';
+export {
+  diffReports,
+  printDriftReport,
+  generateDriftMarkdown,
+  generateDriftJson,
+} from './drift';
+export type {
+  FindingChange,
+  DriftSummary,
+  DriftReport,
+} from './drift';

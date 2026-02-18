@@ -24,6 +24,10 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 | `getChangedFiles()` | Gets changed files from `git diff` |
 | `filterToChanged()` | Filters discovered files to diff set |
 | `expandWithDependents()` | Adds files from dependent components (invalidation cascade) |
+| `diffReports()` | Diffs two `ComplianceReport`s — new, resolved, changed findings + trend |
+| `printDriftReport()` | Renders drift report to terminal with ANSI colors |
+| `generateDriftMarkdown()` | Renders drift report as markdown |
+| `generateDriftJson()` | Renders drift report as JSON |
 
 ## How It Works
 
@@ -34,6 +38,7 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 5. **Execute** — Runs wave 1 and 2 tasks via `ModelCaller` with bounded concurrency and structured output (constrained decoding via `--json-schema`), then synthesizes in-process (dedup, suppressions, coverage). Real token usage and cost are captured from API responses when available. When `budget` is set, tracks cumulative estimated tokens and skips low-priority tasks when exhausted (emits `task-skipped` events).
 6. **Suppress** — Applies inline and config-based suppressions to filter known false positives
 7. **Report** — Renders findings to terminal, markdown, or JSON
+8. **Drift** (optional) — `diffReports(baseline, current)` compares against a previous report using `findingsOverlap()` for finding identity. Produces new/resolved/changed findings with trend (improving/stable/regressing)
 
 ## Types
 
@@ -44,6 +49,7 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 | `AuditPlan` | `ruleset`, `components[]`, `waves[]`, `stats` |
 | `AuditTask` | `id`, `type`, `wave`, `priority`, `component`, `files[]`, `rules[]`, `estimatedTokens` |
 | `ComplianceReport` | `ruleset`, `summary`, `findings[]`, `coverage`, `metadata` |
+| `DriftReport` | `baseline`, `current`, `new[]`, `resolved[]`, `changed[]`, `summary` |
 
 ## Rulesets
 

@@ -8,13 +8,13 @@ Two audit modes, a CLI, and one ruleset.
 
 | Layer | Details |
 |-------|---------|
-| Compliance audit | 3-wave planner, executor, prompt generator, findings schema, reporter |
+| Compliance audit | 3-wave planner, executor, prompt generator, findings schema, reporter, drift tracking |
 | Generic review | 7 weighted agents, parallel orchestrator, report synthesizer |
 | CLI | `varp audit` with ruleset, diff, budget, format, concurrency flags |
 | Suppressions | Inline (`// audit-suppress`) + config file (`.audit-suppress.yaml`) |
 | Incremental | `--diff [ref]` with manifest-aware invalidation cascade |
 | Rulesets | OWASP Top 10 |
-| Tests | 10 test files covering parser, planner, executor, findings, suppressions, diff-filter, manifest-adapter, reporter, orchestrator, chunker |
+| Tests | 11 test files covering parser, planner, executor, findings, drift, suppressions, diff-filter, manifest-adapter, reporter, orchestrator, chunker |
 
 ### Compliance Audit Pipeline
 
@@ -30,6 +30,7 @@ Two audit modes, a CLI, and one ruleset.
 | `planner/diff-filter.ts` | `getChangedFiles()`, `expandWithDependents()` | Complete — git diff + manifest cascade |
 | `planner/manifest-adapter.ts` | `loadManifestComponents()`, `matchRulesByTags()` | Complete — uses `@varp/core/lib` types |
 | `planner/compliance-reporter.ts` | `printComplianceReport()`, `generateComplianceMarkdown()`, `generateComplianceJson()` | Complete — terminal, markdown, JSON |
+| `planner/drift.ts` | `diffReports()`, `printDriftReport()`, `generateDriftMarkdown()`, `generateDriftJson()` | Complete — finding identity via overlap, trend detection |
 
 ### Generic Review Pipeline
 
@@ -52,8 +53,8 @@ Two audit modes, a CLI, and one ruleset.
 | `--output <path>` | Write report to file | Complete |
 | `--quiet` | Suppress progress output | Complete |
 | `--diff [ref]` | Incremental audit | Complete (default ref: HEAD) |
-| `--budget <tokens>` | Max token spend | Complete — skips low-priority tasks when exhausted |
-| `--baseline <path>` | Drift comparison | Not implemented (library-side partially done) |
+| `--budget <tokens>` | Max token spend | Complete — skips low-priority tasks when exhausted (kept despite ADR-001 dropping budgets from core) |
+| `--baseline <path>` | Drift comparison | Not implemented (library-side done, needs CLI wiring) |
 | `--quick` / `--thorough` | Coverage bias | Not implemented |
 | `--scope <path>` | Audit subset | Not implemented (positional path arg serves same purpose) |
 
@@ -81,16 +82,12 @@ Two audit modes, a CLI, and one ruleset.
 | Auto-manifest generation for unknown codebases | Not implemented | Requires manifest or falls back to heuristics |
 | HIPAA/PCI-DSS/GDPR rulesets | Not implemented | OWASP Top 10 only |
 | Custom organizational rulesets | Not implemented | Framework supports it; no examples/docs |
-| Drift tracking (`diffReports()`) | Missing from varp | Was implemented in old standalone repo (`code-review/packages/core/src/planner/drift.ts`) but not migrated |
-| `--baseline` CLI flag | Not implemented | Depends on drift tracking migration |
+| `--baseline` CLI flag | Not implemented | Library-side drift tracking done; needs CLI wiring |
 
-### Stale Documentation
+### Build System
 
-| File | Issue |
-|------|-------|
-| `packages/audit/README.md` | References `discovery-node.ts` — file doesn't exist |
-| `packages/audit/TODO.md` | Lists drift tracking as "Done" — code wasn't migrated to varp |
-| `packages/audit/src/planner/README.md` | Documents `diffReports()`, `printDriftReport()`, `generateDriftMarkdown()`, `generateDriftJson()` — none exist in source |
+Design doc doesn't specify build tooling. Initial implementation used `tsc` (TypeScript compiler). Switched to `bun build` (commit `6a39aba`) to match core's build system and simplify the monorepo — all packages now build with Bun.
+
 
 ## Architecture
 
