@@ -126,7 +126,7 @@ Use `varp_read_manifest` to parse and validate. The response includes `dependenc
 
 - **Import deps** — scans source files for static imports (including tsconfig `paths` aliases like `#shared/*`, follows `extends` chains), flags undeclared dependencies (error) and unused declared dependencies (warning). Warnings are suppressed for components with no source files (e.g. prompt-only or shell-script components).
 - **Link integrity** — scans component docs for markdown links, flags broken links (error) and undeclared link-inferred dependencies (warning)
-- **Doc freshness** — compares doc mtimes against source file mtimes (excluding doc files from the source scan), flags stale docs (warning). A 5-second tolerance threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other.
+- **Doc freshness** — compares doc mtimes against source file mtimes (excluding doc files and test files from the source scan), flags stale docs (warning). A 5-second tolerance threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other.
 - **Stability** — warns when a `stable` component has no explicit `test` command (relies on auto-discovery) and when an `experimental` component is depended on by a `stable` component
 
 Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | `links` | `freshness` | `stability`), `message`, and optional `component` name. The pure `lint()` function accepts pre-computed `ImportScanResult`, `LinkScanResult`, and `FreshnessReport` — no I/O, fully testable with synthetic data. The `runLint()` wrapper performs the scans and delegates to `lint()`.

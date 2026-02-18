@@ -186,7 +186,7 @@ Results are deduplicated by path and returned as a flat array with `{ component,
 
 ## Freshness Detection (`freshness.ts`)
 
-Compares doc file mtime against the latest mtime of any non-doc file in the component's source directory (recursive scan via `readdirSync({ recursive: true })`). Doc files (discovered via `discoverDocs()`) are excluded from the source mtime scan to prevent a race condition where editing a doc to fix staleness would inflate `source_last_modified` and make sibling docs appear stale. A doc is stale when its mtime is more than 5 seconds behind the source mtime — this threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other. Missing files are reported as `"N/A"` timestamps with `stale: true`.
+Compares doc file mtime against the latest mtime of any non-doc file in the component's source directory (recursive scan via `readdirSync({ recursive: true })`). Two categories of files are excluded from the source mtime scan: doc files (discovered via `discoverDocs()`) to prevent a race where editing a doc inflates `source_last_modified`, and test files (`*.test.ts`, `*.spec.ts`, etc. via `TEST_FILE_RE`) because test changes don't affect the interfaces that docs describe. A doc is stale when its mtime is more than 5 seconds behind the source mtime — this threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other. Missing files are reported as `"N/A"` timestamps with `stale: true`.
 
 Uses `(entry as any).parentPath` to handle Bun/Node compatibility for `Dirent.parentPath` (added in Node 20.12).
 

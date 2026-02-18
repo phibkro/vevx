@@ -39,7 +39,7 @@ Given a list of components whose docs changed, walks `deps` to return all transi
 
 #### `varp_check_freshness`
 
-Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Doc files are excluded from the source mtime scan (prevents a race where editing a doc inflates source mtime). A 5-second tolerance threshold eliminates false positives from batch edits. Used by `/status` and by the orchestrator before dispatching tasks.
+Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Doc files and test files (`*.test.ts`, `*.spec.ts`, etc.) are excluded from the source mtime scan — doc edits would inflate source mtime, and test changes don't affect interfaces that docs describe. A 5-second tolerance threshold eliminates false positives from batch edits. Used by `/status` and by the orchestrator before dispatching tasks.
 
 **Parameters:** `{ manifest_path?: string }`
 
