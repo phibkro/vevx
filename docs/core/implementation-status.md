@@ -86,6 +86,14 @@ Per-task and per-plan cost tracking via statusline snapshots. The execute skill 
 
 Data source priority: OpenTelemetry (`CLAUDE_CODE_ENABLE_TELEMETRY=1`) provides the richest per-request data when an exporter is configured. The statusline approach is the in-session fallback. The session-start hook detects both sources and displays their status. See the [Claude Code monitoring docs](https://code.claude.com/docs/en/monitoring-usage) for OTel setup.
 
+### Single Library Entry Point
+
+Design doc (§3.4) described two entry points: `@varp/core/lib` (Bun-free, pure functions) and `@varp/core/bun` (Bun-dependent functions). These were collapsed into a single `@varp/core/lib` entry point that exports everything. The split was unnecessary — all consumers (`@varp/audit`, `@varp/cli`) already require Bun at runtime. One entry point, one hand-maintained `lib.d.ts`.
+
+### MCP Server Delivery
+
+Design doc (§3.4) describes the MCP server delivered via the plugin's `plugin.json`. The MCP server is now configured in `.mcp.json` at the project root, not in the plugin. The plugin cache copies files to `~/.claude/plugins/cache/`, which breaks relative paths to sibling packages (`../core/build/`). Moving the server config to `.mcp.json` uses project-relative paths that always resolve correctly and pick up the latest build without re-registration. The plugin now provides only skills and hooks.
+
 ## What's Deferred
 
 ### From Design Doc
