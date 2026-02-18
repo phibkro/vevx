@@ -2,70 +2,66 @@ varp: 0.1.0
 
 shared:
   path: ./packages/core/src/shared
-  tags: [shared]
   stability: stable
 
 server:
   path: ./packages/core/src
   deps: [shared, manifest, plan, scheduler, enforcement]
-  tags: [mcp]
   stability: stable
+  docs:
+    - ./docs/core/design-architecture.md
+    - ./docs/core/design-principles.md
+    - ./docs/core/design-notes.md
+    - ./docs/core/implementation-status.md
 
 manifest:
   path: ./packages/core/src/manifest
   deps: [shared]
-  tags: [mcp]
-  stability: active
+  stability: stable
 
 plan:
   path: ./packages/core/src/plan
   deps: [shared]
-  tags: [mcp]
-  stability: active
+  stability: stable
 
 scheduler:
   path: ./packages/core/src/scheduler
   deps: [shared]
-  tags: [mcp]
-  stability: active
+  stability: stable
 
 enforcement:
   path: ./packages/core/src/enforcement
   deps: [shared]
-  tags: [mcp]
-  stability: active
+  stability: stable
 
 skills:
   path: ./packages/plugin/skills
   deps: [manifest]
-  tags: [prompt]
-  stability: active
+  stability: stable
 
 hooks:
   path: ./packages/plugin/hooks
   deps: [manifest]
-  tags: [lifecycle]
-  stability: active
+  stability: stable
 
 audit-core:
   path: ./packages/audit/src
-  tags: [audit]
+  deps: [shared]
   stability: experimental
+  docs:
+    - ./docs/audit/design.md
 
 audit-planner:
   path: ./packages/audit/src/planner
-  deps: [audit-core]
-  tags: [audit]
+  deps: [shared]
   stability: experimental
 
 audit-agents:
   path: ./packages/audit/src/agents
-  deps: [audit-core]
-  tags: [audit]
+  deps: [shared]
   stability: experimental
 
 cli:
   path: ./apps/cli/src
   deps: [audit-core]
-  tags: [cli]
   stability: experimental

@@ -33,6 +33,8 @@ varp audit <path> --ruleset <name> [options]
 | `--concurrency` | `3` | Max parallel API calls |
 | `--format` | `text` | Output format (`text`, `json`, `markdown`) |
 | `--output` | — | Write report to file |
+| `--quiet` | — | Suppress progress output |
+| `--diff` | — | Incremental audit — only scan files changed since ref (default: `HEAD`) |
 
 ## Architecture
 

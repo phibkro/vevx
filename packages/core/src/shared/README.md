@@ -9,7 +9,8 @@ Shared types, utilities, and test helpers used across all core domain components
 | Zod schemas + inferred types | `types.ts` | All domain types: manifest, plan, scheduler, enforcement, warm staleness |
 | `buildComponentPaths()` | `ownership.ts` | Builds sorted component path map from manifest |
 | `findOwningComponent()` | `ownership.ts` | Longest-prefix match to find which component owns a file |
-| `createTestManifest()` | `test-helpers.ts` | Factory for test fixture manifests |
+| `makeTask()` | `test-helpers.ts` | Factory for test tasks with touches and optional mutexes |
+| `makePlan()` | `test-helpers.ts` | Factory for test plans |
 
 ## Type Convention
 

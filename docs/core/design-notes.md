@@ -120,7 +120,7 @@ Three levels: `stable` (rarely changes, many dependents), `active` (regular deve
 
 These extensions are additive — all fields are optional with sensible defaults. They enrich the planner and orchestrator's decision-making without changing the scheduling model (`touches` + hazard detection remains the core).
 
-Named **mutexes** (exclusive resource locks on plan tasks, e.g., `mutex: ["db-migration"]`) are a complementary concept for resource contention that can't be inferred from the component graph. Unlike hazard detection which is automatic from `touches`, mutexes are explicit declarations for shared resources (database connections, GPU, CI runners) that cross component boundaries. These belong in the plan schema rather than the manifest, since they're per-task operational constraints, not structural properties.
+Named **mutexes** are implemented as an optional `<mutexes>` element on plan tasks (e.g., `<mutexes>db-migration, port-3000</mutexes>`). Tasks sharing a mutex name are placed in separate waves regardless of their `touches` declarations. MUTEX hazards feed into wave computation (like WAW) but are excluded from critical path (scheduling constraint, not data flow). The validator warns on dead mutexes (names used by only one task). Restart strategy checks mutex overlap alongside write-set overlap.
 
 ## 9. Relationship to Existing Work
 

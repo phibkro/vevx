@@ -201,6 +201,8 @@ Tasks that operate on shared components create the same data hazards as concurre
 
 **WAW (Write After Write) — output dependency.** Tasks A and B both write to the same component. The last writer wins, so order matters. This is either a scheduling constraint or a plan design smell — two tasks writing the same component usually indicates they should be merged or sequenced intentionally.
 
+**MUTEX — mutual exclusion.** Tasks A and B declare the same named mutex (e.g., `db-migration`). They contend on a shared resource that isn't a component. MUTEX is a scheduling constraint like WAW but independent of `touches` — tasks with completely disjoint component access can still conflict on external resources (database locks, singleton ports, API rate limits).
+
 ### 4.3 Git as MVCC
 
 Git worktrees implement multiversion concurrency control naturally:
@@ -225,7 +227,7 @@ The concurrency control strategy is a hybrid informed by the specific cost struc
 
 Therefore: **prevent conflicts at scheduling time (pessimistic), execute freely within worktrees (optimistic).**
 
-The orchestrator analyzes the task graph's `touches` declarations, identifies RAW/WAR/WAW hazards, and groups tasks into execution waves where no two concurrent tasks write to the same component. Within a wave, each task runs in its own worktree without interference. Between waves, the orchestrator merges results, verifies invariants, and dispatches the next wave.
+The orchestrator analyzes the task graph's `touches` and `mutexes` declarations, identifies RAW/WAR/WAW/MUTEX hazards, and groups tasks into execution waves where no two concurrent tasks write to the same component or hold the same mutex. Within a wave, each task runs in its own worktree without interference. Between waves, the orchestrator merges results, verifies invariants, and dispatches the next wave.
 
 **Critical path scheduling.** Not all tasks are equally urgent. Tasks on the critical path — those whose completion unblocks the most downstream work — are prioritized within each wave. The critical path is derivable from the dependency graph: it's the longest chain of RAW dependencies from any root task to any leaf task. The orchestrator computes this at plan load time and uses it to prioritize dispatch order when multiple tasks are eligible.
 

@@ -4,7 +4,7 @@ Five prompt-based skills for the varp orchestration lifecycle.
 
 | Skill | Trigger | Purpose |
 |-------|---------|---------|
-| `/varp:init` | New project onboarding | Scaffold `varp.yaml` by scanning project structure and imports |
+| `/varp:init` | New project onboarding | Scaffold `varp.yaml` by scanning project structure, imports, and root `docs/` folder |
 | `/varp:plan` | Feature request or task decomposition | Produce `plan.xml` with touches and contracts |
 | `/varp:execute` | Approved plan ready for implementation | Dispatch tasks to subagents with capability enforcement. Outputs a status snapshot (freshness + lint) on plan completion. |
 | `/varp:review` | Wave or plan completion | Diff expected vs actual via `varp_parse_log`, track doc changes via `varp_watch_freshness`, visualize deps via `varp_render_graph`. Appends project status snapshot. |

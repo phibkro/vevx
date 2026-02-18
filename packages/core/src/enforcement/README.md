@@ -17,10 +17,10 @@ Paths are resolved to absolute paths against the manifest directory. Component o
 
 ## Restart Strategy
 
-Given a failed task and the current execution state (completed/dispatched task IDs), derives one of three strategies:
+Given a failed task and the current execution state (completed/dispatched task IDs), derives one of three strategies based on `touches` and `mutexes` overlap:
 
 | Strategy | When | Action |
 |----------|------|--------|
-| `isolated_retry` | No downstream tasks affected | Retry the failed task alone |
-| `cascade_restart` | Downstream tasks depend on failed task's writes | Restart failed task + all transitively affected |
-| `escalate` | Circular dependencies or unresolvable conflicts | Surface to user for manual intervention |
+| `isolated_retry` | No downstream tasks read from failed task's writes or share its mutexes | Retry the failed task alone |
+| `cascade_restart` | Downstream tasks depend on failed task's writes or share mutexes | Restart failed task + all transitively affected |
+| `escalate` | Completed tasks already consumed failed output | Surface to user for manual intervention |
