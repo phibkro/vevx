@@ -298,25 +298,32 @@ async function runAuditFlow(validatedPath: string, config: Config, args: CliArgs
   }
 }
 
+async function run(fn: () => Promise<void>): Promise<never> {
+  try {
+    await fn();
+    process.exit(0);
+  } catch (error) {
+    console.error(formatError(error instanceof Error ? error : new Error(String(error))));
+    process.exit(1);
+  }
+}
+
 /**
  * Main orchestration flow
  */
 async function main(): Promise<void> {
   // Check for subcommands first (before parsing args)
   const firstArg = process.argv[2];
+  const restArgs = process.argv.slice(3);
 
-  if (firstArg === "login") {
-    await login();
-    return;
-  }
-
+  if (firstArg === "login") return run(() => login());
   if (firstArg === "logout") {
     logout();
     return;
   }
 
   if (firstArg === "completions") {
-    const shell = (process.argv[3] || "bash") as "bash" | "zsh";
+    const shell = (restArgs[0] || "bash") as "bash" | "zsh";
     if (shell !== "bash" && shell !== "zsh") {
       console.error("Error: Shell must be 'bash' or 'zsh'");
       process.exit(1);
@@ -325,55 +332,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (firstArg === "audit") {
-    try {
-      await runAuditCommand(process.argv.slice(3));
-    } catch (error) {
-      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
-      process.exit(1);
-    }
-    return;
-  }
-
-  if (firstArg === "lint") {
-    try {
-      await runLintCommand(process.argv.slice(3));
-    } catch (error) {
-      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
-      process.exit(1);
-    }
-    return;
-  }
-
-  if (firstArg === "graph") {
-    try {
-      await runGraphCommand(process.argv.slice(3));
-    } catch (error) {
-      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
-      process.exit(1);
-    }
-    return;
-  }
-
-  if (firstArg === "freshness") {
-    try {
-      await runFreshnessCommand(process.argv.slice(3));
-    } catch (error) {
-      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
-      process.exit(1);
-    }
-    return;
-  }
-
-  if (firstArg === "validate") {
-    try {
-      await runValidateCommand(process.argv.slice(3));
-    } catch (error) {
-      console.error(formatError(error instanceof Error ? error : new Error(String(error))));
-      process.exit(1);
-    }
-    return;
-  }
+  if (firstArg === "audit") return run(() => runAuditCommand(restArgs));
+  if (firstArg === "lint") return run(() => runLintCommand(restArgs));
+  if (firstArg === "graph") return run(() => runGraphCommand(restArgs));
+  if (firstArg === "freshness") return run(() => runFreshnessCommand(restArgs));
+  if (firstArg === "validate") return run(() => runValidateCommand(restArgs));
 
   // Parse CLI arguments
   const args = parseCliArgs();
