@@ -31,7 +31,7 @@ MCP server + skills + hooks plugin for Claude Code. Adds manifest-aware context 
 `varp.yaml` is the source of truth for project structure. It defines 8 components: shared (types), server (MCP wiring), manifest/plan/scheduler/enforcement (domain tools), skills (prompts), hooks (lifecycle). Import alias `#shared/*` maps to `src/shared/*`.
 
 ```
-src/                    MCP server — 18 tools, 8 components
+src/                    MCP server, 8 components
   shared/               Shared types + utilities (types.ts, ownership.ts)
   manifest/             Manifest parsing, doc resolution, freshness, graph, imports, touches, lint, scoped-tests
   plan/                 Plan XML parsing, validation, diff

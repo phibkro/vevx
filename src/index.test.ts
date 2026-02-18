@@ -86,7 +86,7 @@ describe("MCP server integration", () => {
     } catch {}
   });
 
-  test("lists all 19 tools", async () => {
+  test("lists all 22 tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -100,8 +100,10 @@ describe("MCP server integration", () => {
       "varp_infer_imports",
       "varp_invalidation_cascade",
       "varp_lint",
+      "varp_parse_log",
       "varp_parse_plan",
       "varp_read_manifest",
+      "varp_render_graph",
       "varp_resolve_docs",
       "varp_scan_links",
       "varp_scoped_tests",
@@ -109,6 +111,7 @@ describe("MCP server integration", () => {
       "varp_suggest_touches",
       "varp_validate_plan",
       "varp_verify_capabilities",
+      "varp_watch_freshness",
     ]);
   });
 
@@ -643,6 +646,29 @@ describe("MCP server integration", () => {
 
   // ── Suggest Components ──
 
+  test("varp_suggest_components with mode=domains detects domain-organized projects", async () => {
+    const tmpDir = join("/tmp/claude", "suggest-domains-integration");
+    rmSync(tmpDir, { recursive: true, force: true });
+
+    mkdirSync(join(tmpDir, "auth/controllers"), { recursive: true });
+    mkdirSync(join(tmpDir, "auth/services"), { recursive: true });
+    writeFileSync(join(tmpDir, "auth/controllers/login.ts"), "");
+    writeFileSync(join(tmpDir, "auth/services/auth.ts"), "");
+
+    try {
+      const result = await client.callTool({
+        name: "varp_suggest_components",
+        arguments: { root_dir: tmpDir, mode: "domains" },
+      });
+      const data = parseResult(result);
+      expect(data.components).toHaveLength(1);
+      expect(data.components[0].name).toBe("auth");
+      expect(data.components[0].path).toEqual(["auth/controllers", "auth/services"]);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test("varp_suggest_components returns suggestions for layer-organized project", async () => {
     const tmpDir = join("/tmp/claude", "suggest-components-integration");
     rmSync(tmpDir, { recursive: true, force: true });
@@ -666,5 +692,82 @@ describe("MCP server integration", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  // ── Parse Log ──
+
+  test("varp_parse_log parses execution log XML", async () => {
+    const logPath = join(PLAN_DIR, "test-log.xml");
+    const result = await client.callTool({
+      name: "varp_parse_log",
+      arguments: { path: logPath },
+    });
+    const data = parseResult(result);
+    expect(data.session.mode).toBe("sequential");
+    expect(data.tasks).toHaveLength(2);
+    expect(data.tasks[0].id).toBe("1");
+    expect(data.tasks[0].status).toBe("COMPLETE");
+    expect(data.tasks[0].metrics.tokens).toBe(25000);
+    expect(data.tasks[0].files_modified).toEqual(["src/auth/login.ts", "src/auth/session.ts"]);
+    expect(data.tasks[1].status).toBe("PARTIAL");
+    expect(data.invariant_checks).toHaveLength(2);
+    expect(data.waves).toHaveLength(2);
+  });
+
+  test("varp_parse_log returns error for missing file", async () => {
+    const result = await client.callTool({
+      name: "varp_parse_log",
+      arguments: { path: "/nonexistent/log.xml" },
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  // ── Render Graph ──
+
+  test("varp_render_graph returns Mermaid diagram", async () => {
+    const result = await client.callTool({
+      name: "varp_render_graph",
+      arguments: { manifest_path: MANIFEST_PATH },
+    });
+    const data = parseResult(result);
+    expect(data.mermaid).toContain("graph TD");
+    expect(data.mermaid).toContain("auth");
+    expect(data.mermaid).toContain("api");
+    expect(data.mermaid).toContain("web");
+  });
+
+  test("varp_render_graph respects LR direction", async () => {
+    const result = await client.callTool({
+      name: "varp_render_graph",
+      arguments: { manifest_path: MANIFEST_PATH, direction: "LR" },
+    });
+    const data = parseResult(result);
+    expect(data.mermaid).toContain("graph LR");
+  });
+
+  // ── Watch Freshness ──
+
+  test("varp_watch_freshness returns snapshot with changes and total_stale", async () => {
+    const result = await client.callTool({
+      name: "varp_watch_freshness",
+      arguments: { manifest_path: MANIFEST_PATH },
+    });
+    const data = parseResult(result);
+    expect(data).toHaveProperty("changes");
+    expect(data).toHaveProperty("snapshot_time");
+    expect(data).toHaveProperty("total_stale");
+    expect(Array.isArray(data.changes)).toBe(true);
+    expect(typeof data.snapshot_time).toBe("string");
+    expect(typeof data.total_stale).toBe("number");
+  });
+
+  test("varp_watch_freshness with since filters changes", async () => {
+    // Use a future date — nothing should have changed
+    const result = await client.callTool({
+      name: "varp_watch_freshness",
+      arguments: { manifest_path: MANIFEST_PATH, since: "2099-01-01T00:00:00Z" },
+    });
+    const data = parseResult(result);
+    expect(data.changes).toEqual([]);
   });
 });

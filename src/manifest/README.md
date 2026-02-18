@@ -137,13 +137,21 @@ Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | 
 
 ## Suggest Components
 
-`varp_suggest_components` helps bootstrap a manifest for layer-organized codebases. Given a root directory, it:
+`varp_suggest_components` helps bootstrap a manifest for layer-organized or domain-organized codebases. Three detection modes:
 
-1. Detects conventional layer directories (`controllers`, `services`, `repositories`, `handlers`, `models`, `routes`, `middleware`, `providers`) — or accepts user-provided layer names
-2. Extracts name stems by stripping known suffixes (`.controller.ts` → `user`) and file extensions
-3. Groups stems across layers — stems appearing in 2+ layers become suggested multi-path components
+- **layers** — Scans for conventional layer directories (`controllers`, `services`, etc.) at root. Extracts name stems (`.controller.ts` → `user`), groups stems appearing in 2+ layers into multi-path components.
+- **domains** — Scans for top-level directories containing 2+ layer subdirectories (e.g. `auth/controllers/`, `auth/services/`). Each domain directory becomes a component with multi-path entries.
+- **auto** (default) — Runs both modes and merges, deduplicating by name (layer results take priority).
 
 Use the output to scaffold `varp.yaml` components with `path: [...]` arrays.
+
+## Render Graph
+
+`varp_render_graph` generates Mermaid diagram syntax from the manifest dependency graph. Nodes are annotated with stability badges when set. Useful for visualizing project structure during init or status reporting.
+
+## Watch Freshness
+
+`varp_watch_freshness` wraps `varp_check_freshness` with timestamp-based filtering. On first call (no `since`), returns all stale docs as the initial snapshot. On subsequent calls, pass the previous `snapshot_time` as `since` to get only changes since the baseline. Returns `total_stale` count for quick polling.
 
 ## Minimal Example
 

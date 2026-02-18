@@ -123,9 +123,128 @@ export function detectLayerDirs(rootDir: string): string[] {
 }
 
 /**
+ * Detect domain directories that contain 2+ layer subdirectories.
+ * For projects structured as `src/auth/controllers/`, `src/auth/services/`, etc.
+ */
+export function detectDomainDirs(
+  rootDir: string,
+  layerNames?: Set<string>,
+): { name: string; layers: string[] }[] {
+  const layers = layerNames ?? DEFAULT_LAYER_NAMES;
+  const results: { name: string; layers: string[] }[] = [];
+
+  let topDirs: string[];
+  try {
+    topDirs = readdirSync(rootDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    return [];
+  }
+
+  for (const dir of topDirs) {
+    let subdirs: string[];
+    try {
+      subdirs = readdirSync(join(rootDir, dir), { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name);
+    } catch {
+      continue;
+    }
+
+    const matchingLayers = subdirs.filter((s) => layers.has(s)).sort();
+    if (matchingLayers.length >= 2) {
+      results.push({ name: dir, layers: matchingLayers });
+    }
+  }
+
+  return results.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Suggest components from domain-organized projects.
+ * Each domain dir with 2+ layer subdirs becomes a component with multi-path.
+ */
+export function suggestComponentsFromDomains(
+  rootDir: string,
+  opts?: { layerNames?: Set<string> },
+): SuggestComponentsResult {
+  const domains = detectDomainDirs(rootDir, opts?.layerNames);
+
+  const components: SuggestedComponent[] = domains.map((domain) => ({
+    name: domain.name,
+    path: domain.layers.map((layer) => join(domain.name, layer)),
+    evidence: domain.layers.map((layer) => ({
+      stem: `${domain.name}/${layer}`,
+      files: listCodeFiles(join(rootDir, domain.name, layer)),
+    })),
+  }));
+
+  const allLayers = new Set<string>();
+  for (const d of domains) {
+    for (const l of d.layers) allLayers.add(l);
+  }
+
+  return {
+    components,
+    layer_dirs_scanned: [...allLayers].sort(),
+  };
+}
+
+/**
  * Scan a project's layer directories to suggest multi-path component groupings.
+ * Supports three modes:
+ * - "layers": files organized by layer dirs at root (controllers/, services/)
+ * - "domains": domain dirs at root containing layer subdirs (auth/controllers/, auth/services/)
+ * - "auto": run both and merge results (dedup by name)
  */
 export function suggestComponents(
+  rootDir: string,
+  opts?: { layerDirs?: string[]; suffixes?: string[]; mode?: "layers" | "domains" | "auto" },
+): SuggestComponentsResult {
+  const mode = opts?.mode ?? "auto";
+
+  if (mode === "domains") {
+    return suggestComponentsFromDomains(rootDir);
+  }
+
+  const layerResult = suggestComponentsFromLayers(rootDir, opts);
+
+  if (mode === "layers") {
+    return layerResult;
+  }
+
+  // auto: merge both
+  const domainResult = suggestComponentsFromDomains(rootDir);
+
+  const seen = new Set<string>();
+  const merged: SuggestedComponent[] = [];
+
+  // Layer results take priority
+  for (const comp of layerResult.components) {
+    seen.add(comp.name);
+    merged.push(comp);
+  }
+  for (const comp of domainResult.components) {
+    if (!seen.has(comp.name)) {
+      merged.push(comp);
+    }
+  }
+
+  merged.sort((a, b) => a.name.localeCompare(b.name));
+
+  const allLayerDirs = new Set([
+    ...layerResult.layer_dirs_scanned,
+    ...domainResult.layer_dirs_scanned,
+  ]);
+
+  return {
+    components: merged,
+    layer_dirs_scanned: [...allLayerDirs].sort(),
+  };
+}
+
+function suggestComponentsFromLayers(
   rootDir: string,
   opts?: { layerDirs?: string[]; suffixes?: string[] },
 ): SuggestComponentsResult {
@@ -161,6 +280,18 @@ export function suggestComponents(
     components: clusterByNameStem(stemEntries),
     layer_dirs_scanned: layerDirs,
   };
+}
+
+/** List code files in a directory (non-recursive). */
+function listCodeFiles(dirPath: string): string[] {
+  try {
+    return readdirSync(dirPath).filter((name) => {
+      const ext = getExtension(name);
+      return CODE_EXTENSIONS.has(ext);
+    });
+  } catch {
+    return [];
+  }
 }
 
 // ── Helpers ──

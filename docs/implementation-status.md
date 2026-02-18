@@ -13,15 +13,15 @@ Current state of Varp relative to the design documents. Updated February 2026.
 
 ### MCP Tools by Category
 
-**Manifest:** `varp_read_manifest`, `varp_resolve_docs`, `varp_invalidation_cascade`, `varp_check_freshness`, `varp_scan_links`, `varp_infer_imports`, `varp_suggest_touches`, `varp_lint`
+**Manifest:** `varp_read_manifest`, `varp_resolve_docs`, `varp_invalidation_cascade`, `varp_check_freshness`, `varp_scan_links`, `varp_infer_imports`, `varp_suggest_touches`, `varp_lint`, `varp_render_graph`, `varp_watch_freshness`
 
 **Scheduler:** `varp_compute_waves`, `varp_detect_hazards`, `varp_compute_critical_path`
 
-**Plan:** `varp_parse_plan`, `varp_validate_plan`, `varp_diff_plan`
+**Plan:** `varp_parse_plan`, `varp_validate_plan`, `varp_diff_plan`, `varp_parse_log`
 
 **Enforcement:** `varp_verify_capabilities`, `varp_derive_restart_strategy`
 
-**Analysis:** `varp_scoped_tests`
+**Analysis:** `varp_scoped_tests`, `varp_suggest_components`, `varp_check_env`
 
 ### Skills
 

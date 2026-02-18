@@ -133,7 +133,7 @@ Project state at any time — component registry, doc freshness, active plan pro
 varp.yaml                Source of truth for project structure
   |
   v
-MCP Server (17 tools)    Deterministic logic: parsing, scheduling, enforcement
+MCP Server               Deterministic logic: parsing, scheduling, enforcement
   |
   v
 Skills (5)               Workflow protocols: init, plan, execute, review, status

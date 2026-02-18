@@ -363,6 +363,79 @@ export const SuggestComponentsResultSchema = z.object({
 export type SuggestedComponent = z.infer<typeof SuggestedComponentSchema>;
 export type SuggestComponentsResult = z.infer<typeof SuggestComponentsResultSchema>;
 
+// ── Execution Log ──
+
+export const TaskMetricsSchema = z.object({
+  tokens: z.number(),
+  minutes: z.number(),
+  tools: z.number(),
+});
+
+export const PostconditionCheckSchema = z.object({
+  id: z.string(),
+  result: z.enum(["pass", "fail"]),
+});
+
+export const TaskLogSchema = z.object({
+  id: z.string(),
+  status: z.enum(["COMPLETE", "PARTIAL", "BLOCKED", "NEEDS_REPLAN"]),
+  metrics: TaskMetricsSchema,
+  files_modified: z.array(z.string()),
+  postconditions: z.array(PostconditionCheckSchema),
+  observations: z.array(z.string()),
+});
+
+export const InvariantCheckSchema = z.object({
+  wave: z.number(),
+  checks: z.array(
+    z.object({
+      description: z.string(),
+      result: z.enum(["pass", "fail"]),
+    }),
+  ),
+});
+
+export const WaveLogSchema = z.object({
+  id: z.number(),
+  status: z.enum(["complete", "incomplete"]),
+});
+
+export const ExecutionLogSchema = z.object({
+  session: z.object({
+    started: z.string(),
+    mode: z.enum(["single-scope", "sequential", "parallel"]),
+  }),
+  tasks: z.array(TaskLogSchema),
+  invariant_checks: z.array(InvariantCheckSchema),
+  waves: z.array(WaveLogSchema),
+});
+
+export type TaskMetrics = z.infer<typeof TaskMetricsSchema>;
+export type PostconditionCheck = z.infer<typeof PostconditionCheckSchema>;
+export type TaskLog = z.infer<typeof TaskLogSchema>;
+export type InvariantCheck = z.infer<typeof InvariantCheckSchema>;
+export type WaveLog = z.infer<typeof WaveLogSchema>;
+export type ExecutionLog = z.infer<typeof ExecutionLogSchema>;
+
+// ── Watch Freshness ──
+
+export const FreshnessChangeSchema = z.object({
+  component: z.string(),
+  doc: z.string(),
+  became_stale: z.boolean(),
+  source_modified: z.string(),
+  doc_modified: z.string(),
+});
+
+export const WatchFreshnessResultSchema = z.object({
+  changes: z.array(FreshnessChangeSchema),
+  snapshot_time: z.string(),
+  total_stale: z.number(),
+});
+
+export type FreshnessChange = z.infer<typeof FreshnessChangeSchema>;
+export type WatchFreshnessResult = z.infer<typeof WatchFreshnessResultSchema>;
+
 // ── Execution Metrics ──
 
 export const ExecutionMetricsSchema = z.object({

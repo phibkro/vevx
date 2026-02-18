@@ -68,6 +68,14 @@ Checks plan consistency against the manifest:
 
 **Returns:** `ValidationResult`
 
+#### `varp_parse_log`
+
+Parses execution `log.xml` (written by `/varp:execute` skill) into a typed structure with session metadata, per-task metrics, postcondition check results, observations, file modifications, invariant checks, and wave status.
+
+**Parameters:** `{ path: string }`
+
+**Returns:** `ExecutionLog`
+
 #### `varp_diff_plan`
 
 Structurally diffs two parsed plans. Compares metadata, contracts (by ID), and tasks (by ID) — reports added, removed, and modified entries with field-level detail.
@@ -116,9 +124,12 @@ Given file paths that will be modified, suggests a `touches` declaration using o
 
 #### `varp_suggest_components`
 
-Analyzes a layer-organized project directory to suggest multi-path component groupings. Scans layer directories (controllers, services, repositories, etc.) for files with common name stems, and groups stems appearing in 2+ layers into suggested components.
+Analyzes a project directory to suggest multi-path component groupings. Supports three detection modes:
+- **layers**: Scans layer directories (controllers, services, etc.) for files with common name stems across 2+ layers
+- **domains**: Scans for domain directories containing 2+ layer subdirectories (e.g. `auth/controllers/`, `auth/services/`)
+- **auto** (default): Runs both modes and merges results, deduplicating by name (layer results take priority)
 
-**Parameters:** `{ root_dir: string, layer_dirs?: string[], suffixes?: string[] }`
+**Parameters:** `{ root_dir: string, layer_dirs?: string[], suffixes?: string[], mode?: "layers" | "domains" | "auto" }`
 
 **Returns:** `SuggestComponentsResult`
 
@@ -137,6 +148,22 @@ Runs all health checks against the manifest: import dependency verification, lin
 **Parameters:** `{ manifest_path?: string }`
 
 **Returns:** `LintReport`
+
+#### `varp_render_graph`
+
+Renders the manifest dependency graph as Mermaid diagram syntax. Annotates nodes with stability badges (🟢 stable, 🟡 active, 🔴 experimental).
+
+**Parameters:** `{ manifest_path?: string, direction?: "TD" | "LR" }`
+
+**Returns:** `{ mermaid: string }`
+
+#### `varp_watch_freshness`
+
+Checks freshness and returns changes since a given baseline timestamp. Only returns components/docs whose source or doc was modified after the baseline. Omit `since` for an initial full snapshot of stale docs. The caller polls by passing the returned `snapshot_time` as `since` on the next call.
+
+**Parameters:** `{ manifest_path?: string, since?: string }`
+
+**Returns:** `WatchFreshnessResult`
 
 #### `varp_check_env`
 
@@ -405,6 +432,46 @@ interface EnvCheckResult {
   required: string[]   // all env vars from the components' `env` fields (deduplicated, sorted)
   set: string[]        // subset of required that are present in process.env
   missing: string[]    // subset of required that are missing from process.env
+}
+
+interface ExecutionLog {
+  session: { started: string; mode: 'single-scope' | 'sequential' | 'parallel' }
+  tasks: TaskLog[]
+  invariant_checks: InvariantCheck[]
+  waves: WaveLog[]
+}
+
+interface TaskLog {
+  id: string
+  status: 'COMPLETE' | 'PARTIAL' | 'BLOCKED' | 'NEEDS_REPLAN'
+  metrics: { tokens: number; minutes: number; tools: number }
+  files_modified: string[]
+  postconditions: { id: string; result: 'pass' | 'fail' }[]
+  observations: string[]
+}
+
+interface InvariantCheck {
+  wave: number
+  checks: { description: string; result: 'pass' | 'fail' }[]
+}
+
+interface WaveLog {
+  id: number
+  status: 'complete' | 'incomplete'
+}
+
+interface WatchFreshnessResult {
+  changes: FreshnessChange[]
+  snapshot_time: string
+  total_stale: number
+}
+
+interface FreshnessChange {
+  component: string
+  doc: string
+  became_stale: boolean
+  source_modified: string
+  doc_modified: string
 }
 
 interface ExecutionMetrics {

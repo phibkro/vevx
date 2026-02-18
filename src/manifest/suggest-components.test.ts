@@ -6,6 +6,8 @@ import {
   extractStem,
   clusterByNameStem,
   detectLayerDirs,
+  detectDomainDirs,
+  suggestComponentsFromDomains,
   suggestComponents,
   type StemEntry,
 } from "./suggest-components.js";
@@ -207,6 +209,152 @@ describe("suggestComponents", () => {
 
     const result = suggestComponents(TMP);
     expect(result.components).toEqual([]);
+
+    teardown();
+  });
+});
+
+describe("detectDomainDirs", () => {
+  test("finds domain dirs with 2+ layer subdirs", () => {
+    setup();
+    mkdirSync(join(TMP, "auth/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "auth/services"), { recursive: true });
+    mkdirSync(join(TMP, "auth/models"), { recursive: true });
+    mkdirSync(join(TMP, "utils"), { recursive: true }); // no layer subdirs
+
+    const result = detectDomainDirs(TMP);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("auth");
+    expect(result[0].layers).toEqual(["controllers", "models", "services"]);
+
+    teardown();
+  });
+
+  test("skips dirs with fewer than 2 layer subdirs", () => {
+    setup();
+    mkdirSync(join(TMP, "auth/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "auth/lib"), { recursive: true }); // not a layer name
+
+    const result = detectDomainDirs(TMP);
+    expect(result).toEqual([]);
+
+    teardown();
+  });
+
+  test("returns empty for nonexistent directory", () => {
+    expect(detectDomainDirs("/tmp/claude/nonexistent-dir-xyz")).toEqual([]);
+  });
+
+  test("sorts results by name", () => {
+    setup();
+    mkdirSync(join(TMP, "zebra/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "zebra/services"), { recursive: true });
+    mkdirSync(join(TMP, "alpha/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "alpha/services"), { recursive: true });
+
+    const result = detectDomainDirs(TMP);
+    expect(result.map((d) => d.name)).toEqual(["alpha", "zebra"]);
+
+    teardown();
+  });
+});
+
+describe("suggestComponentsFromDomains", () => {
+  test("creates multi-path components from domain dirs", () => {
+    setup();
+    mkdirSync(join(TMP, "auth/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "auth/services"), { recursive: true });
+    mkdirSync(join(TMP, "auth/repositories"), { recursive: true });
+    writeFileSync(join(TMP, "auth/controllers/login.ts"), "");
+    writeFileSync(join(TMP, "auth/services/auth-service.ts"), "");
+
+    const result = suggestComponentsFromDomains(TMP);
+
+    expect(result.components).toHaveLength(1);
+    expect(result.components[0].name).toBe("auth");
+    expect(result.components[0].path).toEqual([
+      "auth/controllers",
+      "auth/repositories",
+      "auth/services",
+    ]);
+    expect(result.components[0].evidence).toHaveLength(3);
+
+    teardown();
+  });
+});
+
+describe("suggestComponents with mode", () => {
+  test("mode=layers only detects layer-organized projects", () => {
+    setup();
+    // Domain structure (should be ignored in layers mode)
+    mkdirSync(join(TMP, "auth/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "auth/services"), { recursive: true });
+
+    const result = suggestComponents(TMP, { mode: "layers" });
+    expect(result.components).toEqual([]);
+
+    teardown();
+  });
+
+  test("mode=domains only detects domain-organized projects", () => {
+    setup();
+    // Layer structure (should be ignored in domains mode)
+    mkdirSync(join(TMP, "controllers"), { recursive: true });
+    mkdirSync(join(TMP, "services"), { recursive: true });
+    writeFileSync(join(TMP, "controllers/user.controller.ts"), "");
+    writeFileSync(join(TMP, "services/user.service.ts"), "");
+
+    // Domain structure
+    mkdirSync(join(TMP, "auth/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "auth/services"), { recursive: true });
+
+    const result = suggestComponents(TMP, { mode: "domains" });
+    expect(result.components).toHaveLength(1);
+    expect(result.components[0].name).toBe("auth");
+
+    teardown();
+  });
+
+  test("mode=auto merges both modes and deduplicates", () => {
+    setup();
+
+    // Layer structure — produces "user" component
+    mkdirSync(join(TMP, "controllers"), { recursive: true });
+    mkdirSync(join(TMP, "services"), { recursive: true });
+    writeFileSync(join(TMP, "controllers/user.controller.ts"), "");
+    writeFileSync(join(TMP, "services/user.service.ts"), "");
+
+    // Domain structure — produces "auth" component
+    mkdirSync(join(TMP, "auth/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "auth/services"), { recursive: true });
+
+    const result = suggestComponents(TMP, { mode: "auto" });
+    const names = result.components.map((c) => c.name);
+    expect(names).toContain("user");
+    expect(names).toContain("auth");
+
+    teardown();
+  });
+
+  test("auto mode deduplicates by name (layer wins)", () => {
+    setup();
+
+    // Both modes produce a component named "auth"
+    // Layer: auth appears in controllers/ and services/
+    mkdirSync(join(TMP, "controllers"), { recursive: true });
+    mkdirSync(join(TMP, "services"), { recursive: true });
+    writeFileSync(join(TMP, "controllers/auth.controller.ts"), "");
+    writeFileSync(join(TMP, "services/auth.service.ts"), "");
+
+    // Domain: auth/ with layer subdirs
+    mkdirSync(join(TMP, "auth/controllers"), { recursive: true });
+    mkdirSync(join(TMP, "auth/services"), { recursive: true });
+
+    const result = suggestComponents(TMP, { mode: "auto" });
+    const authComponents = result.components.filter((c) => c.name === "auth");
+    expect(authComponents).toHaveLength(1);
+    // Layer result should win — paths are layer dirs, not domain subdirs
+    expect(authComponents[0].path).toEqual(["controllers", "services"]);
 
     teardown();
   });

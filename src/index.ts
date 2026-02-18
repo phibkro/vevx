@@ -13,11 +13,14 @@ import { scanImports } from "./manifest/imports.js";
 import { scanLinks, type LinkScanMode } from "./manifest/links.js";
 import { runLint } from "./manifest/lint.js";
 import { parseManifest } from "./manifest/parser.js";
+import { renderGraph } from "./manifest/render-graph.js";
 import { resolveDocs } from "./manifest/resolver.js";
 import { findScopedTests } from "./manifest/scoped-tests.js";
 import { suggestComponents } from "./manifest/suggest-components.js";
 import { suggestTouches } from "./manifest/touches.js";
+import { watchFreshness } from "./manifest/watch.js";
 import { diffPlans } from "./plan/diff.js";
+import { parseLogFile } from "./plan/log-parser.js";
 import { parsePlanFile } from "./plan/parser.js";
 import { validatePlan } from "./plan/validator.js";
 import { computeCriticalPath } from "./scheduler/critical-path.js";
@@ -314,7 +317,7 @@ const tools: ToolDef[] = [
   {
     name: "varp_suggest_components",
     description:
-      "Analyze a layer-organized project to suggest multi-path component groupings. Scans layer directories for files with common name stems across layers.",
+      "Analyze a project to suggest multi-path component groupings. Supports layer-organized (controllers/, services/), domain-organized (auth/controllers/, auth/services/), or auto (both) detection modes.",
     inputSchema: {
       root_dir: z.string().describe("Root directory to scan for layer directories"),
       layer_dirs: z
@@ -329,12 +332,68 @@ const tools: ToolDef[] = [
         .describe(
           "File suffixes to strip when extracting name stems (defaults to .controller, .service, .repository, etc.)",
         ),
+      mode: z
+        .enum(["layers", "domains", "auto"])
+        .optional()
+        .describe(
+          "Detection mode: layers (files across layer dirs), domains (domain dirs with layer subdirs), auto (both, default)",
+        ),
     },
-    handler: async ({ root_dir, layer_dirs, suffixes }) => {
+    handler: async ({ root_dir, layer_dirs, suffixes, mode }) => {
       return suggestComponents(root_dir, {
         layerDirs: layer_dirs,
         suffixes,
+        mode,
       });
+    },
+  },
+
+  // Parse Log
+  {
+    name: "varp_parse_log",
+    description:
+      "Parse execution log.xml (written by /varp:execute skill) into typed structure with task metrics, postcondition checks, and wave status.",
+    inputSchema: {
+      path: z.string().describe("Path to log.xml"),
+    },
+    handler: async ({ path }) => parseLogFile(path),
+  },
+
+  // Render Graph
+  {
+    name: "varp_render_graph",
+    description:
+      "Render the manifest dependency graph as Mermaid diagram syntax. Annotates nodes with stability badges.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      direction: z
+        .enum(["TD", "LR"])
+        .optional()
+        .describe("Graph direction: TD (top-down, default) or LR (left-right)"),
+    },
+    handler: async ({ manifest_path, direction }) => {
+      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      return { mermaid: renderGraph(manifest, { direction }) };
+    },
+  },
+
+  // Watch Freshness
+  {
+    name: "varp_watch_freshness",
+    description:
+      "Check freshness and return changes since a given baseline timestamp. Returns only components/docs modified since the baseline. Omit since for initial snapshot.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      since: z
+        .string()
+        .optional()
+        .describe(
+          "ISO timestamp baseline — only return changes after this time. Omit for full snapshot.",
+        ),
+    },
+    handler: async ({ manifest_path, since }) => {
+      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      return watchFreshness(manifest, since);
     },
   },
 ];

@@ -60,7 +60,9 @@ Resolve glob patterns to actual directories. Each resolved directory becomes a c
 
 If no workspace config found, fall back to filesystem scanning. Use Glob to find directories containing TypeScript or JavaScript source files. Check common patterns: `src/`, `packages/*`, `apps/*`, `lib/*`, and top-level directories with `*.ts` or `*.js` files. Each distinct source directory becomes a component.
 
-Present the discovered components to the user for confirmation before proceeding.
+After initial scanning, call `varp_suggest_components` with `root_dir` set to the detected source root and `mode: "auto"` to detect both layer-organized projects (files like `user.controller.ts` across `controllers/`, `services/` dirs) and domain-organized projects (domains as top-level dirs with layer subdirs like `src/auth/controllers/`, `src/auth/services/`). Present suggestions to the user for confirmation before generating the manifest.
+
+If suggestions are found, use `varp_render_graph` to visualize the suggested dependency graph before the user confirms.
 
 ### Step 3: Infer Dependencies
 
@@ -142,3 +144,5 @@ Output a summary:
 |------|---------|
 | `varp_read_manifest` | Parse and validate the generated manifest |
 | `varp_infer_imports` | Cross-check declared deps against actual import patterns |
+| `varp_suggest_components` | Auto-detect component groupings from project structure |
+| `varp_render_graph` | Visualize the dependency graph as a Mermaid diagram |

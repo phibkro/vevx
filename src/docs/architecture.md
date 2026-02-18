@@ -18,7 +18,9 @@ src/
     imports.ts                Static import scanner — extract, resolve, cross-component dep inference (tsconfig path alias aware)
     links.ts                  Markdown link scanner — extract, resolve, integrity + dep inference
     scoped-tests.ts           Find test files scoped to a touches declaration
-    suggest-components.ts     Analyze layer dirs to suggest multi-path component groupings
+    suggest-components.ts     Analyze layer/domain dirs to suggest multi-path component groupings
+    render-graph.ts           Render dependency graph as Mermaid diagram syntax
+    watch.ts                  Freshness polling — filter changes since baseline timestamp
     touches.ts                Suggest touches declarations from file paths + import deps
     parser.ts                 Flat YAML -> Manifest (path resolution)
     resolver.ts               Touches x discovery -> doc paths with visibility
@@ -30,6 +32,7 @@ src/
     parser.ts                 XML -> Plan via fast-xml-parser
     validator.ts              Plan-manifest consistency checks
     diff.ts                   Structural plan diff (metadata, contracts, tasks)
+    log-parser.ts             Execution log.xml parser (task metrics, postconditions, waves)
   scheduler/
     hazards.ts                O(n^2) pairwise RAW/WAR/WAW detection
     waves.ts                  Topological sort with wave grouping
