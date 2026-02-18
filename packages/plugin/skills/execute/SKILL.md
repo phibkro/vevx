@@ -1,6 +1,7 @@
 ---
 name: execute
 description: Execute a Varp plan by dispatching tasks to subagents with capability enforcement
+allowed-tools: mcp__plugin_varp_varp__*
 ---
 
 # /varp:execute -- Orchestrator Protocol

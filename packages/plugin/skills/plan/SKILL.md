@@ -1,6 +1,7 @@
 ---
 name: plan
 description: Decompose a feature into a concrete, verifiable Varp execution plan
+allowed-tools: mcp__plugin_varp_varp__*
 ---
 
 # /varp:plan -- Planner Protocol

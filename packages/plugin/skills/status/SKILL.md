@@ -1,6 +1,7 @@
 ---
 name: status
 description: Generate a concise snapshot of the current Varp-managed project state
+allowed-tools: mcp__plugin_varp_varp__*
 ---
 
 # /varp:status -- Project State Report
