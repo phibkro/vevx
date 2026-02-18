@@ -2,11 +2,13 @@ varp: 0.1.0
 
 shared:
   path: ./packages/core/src/shared
+  tags: [core]
   stability: stable
 
 server:
   path: ./packages/core/src
   deps: [shared, manifest, plan, scheduler, enforcement]
+  tags: [core]
   stability: stable
   docs:
     - ./docs/core/design-architecture.md
@@ -17,36 +19,43 @@ server:
 manifest:
   path: ./packages/core/src/manifest
   deps: [shared]
+  tags: [core]
   stability: stable
 
 plan:
   path: ./packages/core/src/plan
   deps: [shared]
+  tags: [core]
   stability: stable
 
 scheduler:
   path: ./packages/core/src/scheduler
   deps: [shared]
+  tags: [core]
   stability: stable
 
 enforcement:
   path: ./packages/core/src/enforcement
   deps: [shared]
+  tags: [core]
   stability: stable
 
 skills:
   path: ./packages/plugin/skills
   deps: [manifest]
+  tags: [plugin]
   stability: stable
 
 hooks:
   path: ./packages/plugin/hooks
   deps: [manifest]
+  tags: [plugin]
   stability: stable
 
 audit-core:
   path: ./packages/audit/src
   deps: [shared]
+  tags: [audit]
   stability: experimental
   docs:
     - ./docs/audit/design.md
@@ -54,11 +63,13 @@ audit-core:
 audit-planner:
   path: ./packages/audit/src/planner
   deps: [shared]
+  tags: [audit]
   stability: experimental
 
 audit-agents:
   path: ./packages/audit/src/agents
   deps: [shared]
+  tags: [audit]
   stability: experimental
 
 cli:
