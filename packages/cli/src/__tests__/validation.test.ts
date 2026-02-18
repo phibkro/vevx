@@ -17,7 +17,6 @@ describe("Input Validation", () => {
   it("validates that path exists", () => {
     process.env.ANTHROPIC_API_KEY = "test-key";
 
-    expect(() => validateInput("/nonexistent/path/that/does/not/exist")).toThrow();
     expect(() => validateInput("/nonexistent/path/that/does/not/exist")).toThrow(/does not exist/);
   });
 
@@ -32,14 +31,12 @@ describe("Input Validation", () => {
   it("validates API key exists", () => {
     delete process.env.ANTHROPIC_API_KEY;
 
-    expect(() => validateInput(".")).toThrow();
     expect(() => validateInput(".")).toThrow(/API key/);
   });
 
   it("validates API key is not empty", () => {
     process.env.ANTHROPIC_API_KEY = "";
 
-    expect(() => validateInput(".")).toThrow();
     expect(() => validateInput(".")).toThrow(/API key/);
   });
 

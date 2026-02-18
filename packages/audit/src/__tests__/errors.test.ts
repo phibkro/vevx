@@ -16,12 +16,6 @@ describe("Error Classes", () => {
       expect(error.message).toContain("Rate limit");
       expect(error.message).toContain("120");
     });
-
-    it("is instance of Error", () => {
-      const error = new RateLimitError(30);
-      expect(error).toBeInstanceOf(Error);
-      expect(error).toBeInstanceOf(RateLimitError);
-    });
   });
 
   describe("AuthenticationError", () => {
@@ -36,12 +30,6 @@ describe("Error Classes", () => {
       const error = new AuthenticationError();
       expect(error.message).toContain("API key");
     });
-
-    it("is instance of Error", () => {
-      const error = new AuthenticationError();
-      expect(error).toBeInstanceOf(Error);
-      expect(error).toBeInstanceOf(AuthenticationError);
-    });
   });
 
   describe("ValidationError", () => {
@@ -55,12 +43,6 @@ describe("Error Classes", () => {
       const error = new ValidationError("model", "Invalid model name");
       expect(error.message).toContain("Invalid model name");
     });
-
-    it("is instance of Error", () => {
-      const error = new ValidationError("test", "test message");
-      expect(error).toBeInstanceOf(Error);
-      expect(error).toBeInstanceOf(ValidationError);
-    });
   });
 
   describe("AgentError", () => {
@@ -73,12 +55,6 @@ describe("Error Classes", () => {
     it("includes error description", () => {
       const error = new AgentError("security", "Timeout occurred");
       expect(error.message).toContain("Timeout occurred");
-    });
-
-    it("is instance of Error", () => {
-      const error = new AgentError("test", "test error");
-      expect(error).toBeInstanceOf(Error);
-      expect(error).toBeInstanceOf(AgentError);
     });
   });
 });

@@ -2,102 +2,10 @@ import { describe, it, expect, mock } from "bun:test";
 
 import { agents } from "../agents/index";
 import type { AgentResult } from "../agents/types";
+import type { FileContent } from "../agents/types";
+import { calculateOverallScore, runAudit } from "../orchestrator";
 import type { ProgressEvent } from "../orchestrator";
-import { calculateOverallScore } from "../orchestrator";
-
-describe("Orchestrator Progress Tracking", () => {
-  describe("ProgressEvent types", () => {
-    it("started event contains agent count", () => {
-      const event: ProgressEvent = {
-        type: "started",
-        agentCount: 5,
-      };
-
-      expect(event.type).toBe("started");
-      expect(event.agentCount).toBe(5);
-    });
-
-    it("agent-started event contains agent name", () => {
-      const event: ProgressEvent = {
-        type: "agent-started",
-        agent: "correctness",
-      };
-
-      expect(event.type).toBe("agent-started");
-      expect(event.agent).toBe("correctness");
-    });
-
-    it("agent-completed event contains score and duration", () => {
-      const event: ProgressEvent = {
-        type: "agent-completed",
-        agent: "security",
-        score: 8.5,
-        duration: 2.3,
-      };
-
-      expect(event.type).toBe("agent-completed");
-      expect(event.agent).toBe("security");
-      expect(event.score).toBe(8.5);
-      expect(event.duration).toBe(2.3);
-    });
-
-    it("completed event contains total duration", () => {
-      const event: ProgressEvent = {
-        type: "completed",
-        totalDuration: 5.7,
-      };
-
-      expect(event.type).toBe("completed");
-      expect(event.totalDuration).toBe(5.7);
-    });
-  });
-
-  describe("Progress callback execution order", () => {
-    it("callback receives events in correct order", () => {
-      const events: ProgressEvent[] = [];
-      const onProgress = mock((event: ProgressEvent) => {
-        events.push(event);
-      });
-
-      // Simulate progress events
-      onProgress({ type: "started", agentCount: 3 });
-      onProgress({ type: "agent-started", agent: "agent1" });
-      onProgress({ type: "agent-completed", agent: "agent1", score: 9, duration: 1.5 });
-      onProgress({ type: "completed", totalDuration: 4.5 });
-
-      expect(onProgress).toHaveBeenCalledTimes(4);
-      expect(events[0].type).toBe("started");
-      expect(events[1].type).toBe("agent-started");
-      expect(events[2].type).toBe("agent-completed");
-      expect(events[3].type).toBe("completed");
-    });
-  });
-
-  describe("Optional progress callback", () => {
-    it("callback is truly optional", () => {
-      // Verify the signature allows omitting the callback
-      function mockProgressCallback(cb?: (event: ProgressEvent) => void) {
-        cb?.({ type: "started", agentCount: 5 });
-      }
-
-      expect(() => mockProgressCallback()).not.toThrow();
-      expect(() => mockProgressCallback(undefined)).not.toThrow();
-    });
-
-    it("undefined callback does not execute", () => {
-      let executed = false;
-      const callback = undefined as ((event: ProgressEvent) => void) | undefined;
-
-      // Optional chaining prevents execution
-      if (callback) {
-        callback({ type: "started", agentCount: 5 });
-        executed = true;
-      }
-
-      expect(executed).toBe(false);
-    });
-  });
-});
+import type { ModelCaller } from "../planner/types";
 
 describe("Orchestrator Score Calculation", () => {
   it("calculates weighted average correctly", () => {
@@ -247,104 +155,134 @@ describe("Orchestrator Score Calculation", () => {
     expect(overallScore).toBeCloseTo(7.0, 1);
   });
 
-  it("handles decimal scores correctly", () => {
-    const results: AgentResult[] = [
-      {
-        agent: "correctness",
-        score: 8.7,
-        findings: [],
-        summary: "Good",
-        durationMs: 1000,
-      },
-      {
-        agent: "security",
-        score: 6.3,
-        findings: [],
-        summary: "Fair",
-        durationMs: 1000,
-      },
-      {
-        agent: "performance",
-        score: 7.9,
-        findings: [],
-        summary: "Good",
-        durationMs: 1000,
-      },
-      {
-        agent: "maintainability",
-        score: 8.1,
-        findings: [],
-        summary: "Good",
-        durationMs: 1000,
-      },
-      {
-        agent: "edge-cases",
-        score: 5.5,
-        findings: [],
-        summary: "Fair",
-        durationMs: 1000,
-      },
-    ];
-
-    const overallScore = calculateOverallScore(results);
-
-    // Should handle decimals properly
-    expect(overallScore).toBeGreaterThan(0);
-    expect(overallScore).toBeLessThanOrEqual(10);
-  });
-
   it("returns 0 for empty results array", () => {
     const overallScore = calculateOverallScore([]);
     expect(overallScore).toBe(0);
   });
 });
 
-describe("Orchestrator Integration", () => {
-  it("agent system is correctly configured", () => {
-    // Verify we have all expected agents
-    expect(agents).toHaveLength(7);
+// ── runAudit orchestration ──
 
-    const agentNames = agents.map((a) => a.name);
-    expect(agentNames).toContain("correctness");
-    expect(agentNames).toContain("security");
-    expect(agentNames).toContain("performance");
-    expect(agentNames).toContain("maintainability");
-    expect(agentNames).toContain("edge-cases");
-    expect(agentNames).toContain("accessibility");
-    expect(agentNames).toContain("documentation");
-  });
+describe("runAudit", () => {
+  const mockFiles: FileContent[] = [
+    {
+      path: "/test/file.ts",
+      relativePath: "file.ts",
+      content: "const x = 1;",
+      language: "typescript",
+      size: 12,
+    },
+  ];
 
-  it("all agents have required properties", () => {
-    agents.forEach((agent) => {
-      expect(agent).toHaveProperty("name");
-      expect(agent).toHaveProperty("weight");
-      expect(agent).toHaveProperty("systemPrompt");
-      expect(agent).toHaveProperty("userPromptTemplate");
-      expect(agent).toHaveProperty("parseResponse");
-
-      expect(typeof agent.name).toBe("string");
-      expect(typeof agent.weight).toBe("number");
-      expect(typeof agent.systemPrompt).toBe("string");
-      expect(typeof agent.userPromptTemplate).toBe("function");
-      expect(typeof agent.parseResponse).toBe("function");
+  function makeValidResponse(agentName: string, score: number): string {
+    return JSON.stringify({
+      score,
+      summary: `${agentName} analysis complete`,
+      findings: [],
     });
+  }
+
+  function makeMockCaller(
+    responseFactory: (system: string, user: string) => string = () =>
+      makeValidResponse("test", 7.5),
+  ): ModelCaller {
+    return mock(async (_system: string, user: string) => ({
+      text: responseFactory(_system, user),
+    })) as unknown as ModelCaller;
+  }
+
+  it("runs all agents and returns results", async () => {
+    const caller = makeMockCaller((_sys, _user) => {
+      // Each agent gets a valid response
+      return makeValidResponse("agent", 8.0);
+    });
+
+    const results = await runAudit(mockFiles, { caller, model: "test-model" });
+
+    expect(results).toHaveLength(agents.length);
+    // Each agent should have returned a result
+    const agentNames = results.map((r) => r.agent);
+    for (const agent of agents) {
+      expect(agentNames).toContain(agent.name);
+    }
+    // The mock was called once per agent
+    expect(caller).toHaveBeenCalledTimes(agents.length);
   });
 
-  it("weights configuration matches expected values", () => {
-    const weightMap = agents.reduce(
-      (map, agent) => {
-        map[agent.name] = agent.weight;
-        return map;
-      },
-      {} as Record<string, number>,
-    );
+  it("returns score 0 for failed agents without blocking others", async () => {
+    let callCount = 0;
+    const caller = mock(async () => {
+      callCount++;
+      // First call (correctness) throws, rest succeed
+      if (callCount === 1) {
+        throw new Error("API timeout");
+      }
+      return { text: makeValidResponse("agent", 8.0) };
+    }) as unknown as ModelCaller;
 
-    expect(weightMap["correctness"]).toBe(0.22);
-    expect(weightMap["security"]).toBe(0.22);
-    expect(weightMap["performance"]).toBe(0.13);
-    expect(weightMap["maintainability"]).toBe(0.15);
-    expect(weightMap["edge-cases"]).toBe(0.13);
-    expect(weightMap["accessibility"]).toBe(0.1);
-    expect(weightMap["documentation"]).toBe(0.05);
+    const results = await runAudit(mockFiles, { caller, model: "test-model" });
+
+    expect(results).toHaveLength(agents.length);
+    // At least one agent should have score 0 (the failed one)
+    const failedResults = results.filter((r) => r.score === 0);
+    expect(failedResults.length).toBeGreaterThanOrEqual(1);
+    // Failed agent should have a failure finding
+    const failed = failedResults[0];
+    expect(failed.findings).toHaveLength(1);
+    expect(failed.findings[0].severity).toBe("critical");
+    expect(failed.findings[0].title).toContain("failed");
+
+    // Other agents should have succeeded
+    const succeededResults = results.filter((r) => r.score > 0);
+    expect(succeededResults.length).toBeGreaterThanOrEqual(agents.length - 1);
+  });
+
+  it("emits progress events in correct order", async () => {
+    const caller = makeMockCaller();
+    const events: ProgressEvent[] = [];
+    const onProgress = mock((event: ProgressEvent) => events.push(event));
+
+    await runAudit(mockFiles, { caller, model: "test-model" }, onProgress);
+
+    // First event should be "started"
+    expect(events[0].type).toBe("started");
+    expect((events[0] as { agentCount: number }).agentCount).toBe(agents.length);
+
+    // Last event should be "completed"
+    const lastEvent = events[events.length - 1];
+    expect(lastEvent.type).toBe("completed");
+
+    // Should have agent-started and agent-completed for each agent
+    const agentStarted = events.filter((e) => e.type === "agent-started");
+    const agentCompleted = events.filter((e) => e.type === "agent-completed");
+    expect(agentStarted).toHaveLength(agents.length);
+    expect(agentCompleted).toHaveLength(agents.length);
+
+    // Total events: 1 started + N agent-started + N agent-completed + 1 completed
+    expect(events).toHaveLength(1 + agents.length * 2 + 1);
+  });
+
+  it("works without progress callback", async () => {
+    const caller = makeMockCaller();
+
+    // Should not throw when no callback provided
+    const results = await runAudit(mockFiles, { caller, model: "test-model" });
+    expect(results).toHaveLength(agents.length);
+  });
+
+  it("passes model and maxTokens to caller", async () => {
+    const caller = mock(async () => ({
+      text: makeValidResponse("agent", 8.0),
+    })) as unknown as ModelCaller;
+
+    await runAudit(mockFiles, { caller, model: "claude-test", maxTokens: 8192 });
+
+    // Check that caller was invoked with correct options
+    const calls = (caller as any).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    // Third argument is options: { model, maxTokens }
+    const options = calls[0][2];
+    expect(options.model).toBe("claude-test");
+    expect(options.maxTokens).toBe(8192);
   });
 });

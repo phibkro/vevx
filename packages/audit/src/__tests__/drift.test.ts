@@ -7,35 +7,8 @@ import {
   generateDriftJson,
 } from "../planner/drift";
 import type { DriftReport } from "../planner/drift";
-import type { AuditFinding, ComplianceReport, CorroboratedFinding } from "../planner/findings";
-
-function makeFinding(overrides: Partial<AuditFinding> = {}): AuditFinding {
-  return {
-    ruleId: "BAC-01",
-    severity: "high",
-    title: "Missing auth check",
-    description: "Endpoint lacks authorization",
-    locations: [{ file: "src/api/routes.ts", startLine: 10 }],
-    evidence: 'app.get("/users/:id", (req, res) => { ... })',
-    remediation: "Add auth middleware",
-    confidence: 0.85,
-    ...overrides,
-  };
-}
-
-function makeCorroborated(
-  overrides: Partial<AuditFinding> = {},
-  corr: Partial<CorroboratedFinding> = {},
-): CorroboratedFinding {
-  const finding = makeFinding(overrides);
-  return {
-    finding,
-    corroborations: 1,
-    sourceTaskIds: ["scan-1"],
-    effectiveConfidence: finding.confidence,
-    ...corr,
-  };
-}
+import type { ComplianceReport, CorroboratedFinding } from "../planner/findings";
+import { makeCorroborated } from "./fixtures";
 
 function makeReport(
   findings: CorroboratedFinding[],

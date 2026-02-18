@@ -3,8 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { formatError } from "../errors";
 
 describe("Error Formatting", () => {
-  it("formats rate limit error with retry time", () => {
-    // Simulate RateLimitError structure
+  it("formats rate limit error with retry time and solutions", () => {
     const error = new Error("Rate limit exceeded");
     error.name = "RateLimitError";
     (error as any).retryAfter = 60;
@@ -15,9 +14,12 @@ describe("Error Formatting", () => {
     expect(output).toContain("60");
     expect(output).toContain("Wait");
     expect(output).toContain("✗");
+    expect(output).toContain("Solutions");
+    expect(output).toContain("Reduce");
+    expect(output).toContain("Upgrade");
   });
 
-  it("formats authentication error with help URL", () => {
+  it("formats authentication error with help URL and solutions", () => {
     const error = new Error("Invalid API key");
     error.name = "AuthenticationError";
     (error as any).helpUrl = "https://console.anthropic.com/";
@@ -28,6 +30,9 @@ describe("Error Formatting", () => {
     expect(output).toContain("API key");
     expect(output).toContain("https://console.anthropic.com/");
     expect(output).toContain("✗");
+    expect(output).toContain("Solutions");
+    expect(output).toContain("ANTHROPIC_API_KEY");
+    expect(output).toContain("export");
   });
 
   it("formats validation error", () => {
@@ -59,29 +64,5 @@ describe("Error Formatting", () => {
 
     expect(output).toContain("Error");
     expect(output).toContain("✗");
-  });
-
-  it("provides actionable solutions for rate limits", () => {
-    const error = new Error("Rate limit exceeded");
-    error.name = "RateLimitError";
-    (error as any).retryAfter = 30;
-
-    const output = formatError(error);
-
-    expect(output).toContain("Solutions");
-    expect(output).toContain("Reduce");
-    expect(output).toContain("Upgrade");
-  });
-
-  it("provides actionable solutions for authentication", () => {
-    const error = new Error("Invalid API key");
-    error.name = "AuthenticationError";
-    (error as any).helpUrl = "https://console.anthropic.com/";
-
-    const output = formatError(error);
-
-    expect(output).toContain("Solutions");
-    expect(output).toContain("ANTHROPIC_API_KEY");
-    expect(output).toContain("export");
   });
 });

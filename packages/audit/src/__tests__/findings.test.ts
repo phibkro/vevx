@@ -6,21 +6,8 @@ import {
   deduplicateFindings,
   summarizeFindings,
 } from "../planner/findings";
-import type { AuditFinding, AuditTaskResult, AuditSeverity } from "../planner/findings";
-
-function makeFinding(overrides: Partial<AuditFinding> = {}): AuditFinding {
-  return {
-    ruleId: "BAC-01",
-    severity: "high",
-    title: "Missing auth check",
-    description: "Endpoint lacks authorization",
-    locations: [{ file: "src/api/routes.ts", startLine: 10 }],
-    evidence: 'app.get("/users/:id", (req, res) => { ... })',
-    remediation: "Add auth middleware",
-    confidence: 0.85,
-    ...overrides,
-  };
-}
+import type { AuditTaskResult, AuditSeverity } from "../planner/findings";
+import { makeFinding } from "./fixtures";
 
 function makeTaskResult(overrides: Partial<AuditTaskResult> = {}): AuditTaskResult {
   return {

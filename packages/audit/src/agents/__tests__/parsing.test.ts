@@ -1,13 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { accessibilityAgent } from "../accessibility";
 import { correctnessAgent } from "../correctness";
-import { documentationAgent } from "../documentation";
-import { edgeCasesAgent } from "../edge-cases";
 import { agents } from "../index";
-import { maintainabilityAgent } from "../maintainability";
-import { performanceAgent } from "../performance";
-import { securityAgent } from "../security";
 import type { FileContent } from "../types";
 
 describe("Agent Response Parsing", () => {
@@ -138,106 +132,25 @@ Hope this helps!`;
     });
   });
 
-  describe("Security Agent", () => {
-    it("parses valid JSON response", () => {
-      const response = validResponse("security", 6.5);
-      const result = securityAgent.parseResponse(response);
+  // All non-correctness agents use the same createParseResponse factory.
+  // Test them in a parameterized loop instead of copy-paste blocks.
+  const otherAgents = agents.filter((a) => a.name !== "correctness");
 
-      expect(result.agent).toBe("security");
-      expect(result.score).toBe(6.5);
+  describe.each(otherAgents.map((a) => [a.name, a]))("%s Agent", (_name, agent) => {
+    it("parses valid JSON response", () => {
+      const response = validResponse(agent.name, 7.5);
+      const result = agent.parseResponse(response);
+
+      expect(result.agent).toBe(agent.name);
+      expect(result.score).toBe(7.5);
     });
 
     it("handles malformed JSON with fallback", () => {
-      const result = securityAgent.parseResponse("invalid");
+      const result = agent.parseResponse("invalid");
 
-      expect(result.agent).toBe("security");
+      expect(result.agent).toBe(agent.name);
       expect(result.score).toBe(5.0);
       expect(result.findings.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe("Performance Agent", () => {
-    it("parses valid JSON response", () => {
-      const response = validResponse("performance", 7.5);
-      const result = performanceAgent.parseResponse(response);
-
-      expect(result.agent).toBe("performance");
-      expect(result.score).toBe(7.5);
-    });
-
-    it("handles malformed JSON with fallback", () => {
-      const result = performanceAgent.parseResponse("invalid");
-
-      expect(result.agent).toBe("performance");
-      expect(result.score).toBe(5.0);
-    });
-  });
-
-  describe("Maintainability Agent", () => {
-    it("parses valid JSON response", () => {
-      const response = validResponse("maintainability", 8.0);
-      const result = maintainabilityAgent.parseResponse(response);
-
-      expect(result.agent).toBe("maintainability");
-      expect(result.score).toBe(8.0);
-    });
-
-    it("handles malformed JSON with fallback", () => {
-      const result = maintainabilityAgent.parseResponse("invalid");
-
-      expect(result.agent).toBe("maintainability");
-      expect(result.score).toBe(5.0);
-    });
-  });
-
-  describe("Edge Cases Agent", () => {
-    it("parses valid JSON response", () => {
-      const response = validResponse("edge-cases", 6.0);
-      const result = edgeCasesAgent.parseResponse(response);
-
-      expect(result.agent).toBe("edge-cases");
-      expect(result.score).toBe(6.0);
-    });
-
-    it("handles malformed JSON with fallback", () => {
-      const result = edgeCasesAgent.parseResponse("invalid");
-
-      expect(result.agent).toBe("edge-cases");
-      expect(result.score).toBe(5.0);
-    });
-  });
-
-  describe("Accessibility Agent", () => {
-    it("parses valid JSON response", () => {
-      const response = validResponse("accessibility", 7.5);
-      const result = accessibilityAgent.parseResponse(response);
-
-      expect(result.agent).toBe("accessibility");
-      expect(result.score).toBe(7.5);
-    });
-
-    it("handles malformed JSON with fallback", () => {
-      const result = accessibilityAgent.parseResponse("invalid");
-
-      expect(result.agent).toBe("accessibility");
-      expect(result.score).toBe(5.0);
-    });
-  });
-
-  describe("Documentation Agent", () => {
-    it("parses valid JSON response", () => {
-      const response = validResponse("documentation", 8.0);
-      const result = documentationAgent.parseResponse(response);
-
-      expect(result.agent).toBe("documentation");
-      expect(result.score).toBe(8.0);
-    });
-
-    it("handles malformed JSON with fallback", () => {
-      const result = documentationAgent.parseResponse("invalid");
-
-      expect(result.agent).toBe("documentation");
-      expect(result.score).toBe(5.0);
     });
   });
 
@@ -284,6 +197,7 @@ Hope this helps!`;
     });
 
     it("security agent generates prompt", () => {
+      const securityAgent = agents.find((a) => a.name === "security")!;
       const prompt = securityAgent.userPromptTemplate(mockFiles);
       expect(prompt).toContain("file.ts");
       expect(prompt).toContain("security");

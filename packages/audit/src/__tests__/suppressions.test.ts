@@ -1,48 +1,26 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { join } from "path";
 
-import type { CorroboratedFinding, AuditFinding } from "../planner/findings";
 import {
   parseInlineSuppressions,
   parseSuppressConfig,
   findingSuppressedBy,
   applySuppressions,
 } from "../planner/suppressions";
+import { makeCorroborated } from "./fixtures";
 
 // ── Test helpers ──
 
-let tempDir: string;
-
-beforeEach(() => {
-  tempDir = mkdtempSync(join(tmpdir(), "audit-suppress-"));
-});
-
-afterEach(() => {
-  rmSync(tempDir, { recursive: true, force: true });
-});
-
-function makeFinding(overrides: Partial<AuditFinding> = {}): AuditFinding {
-  return {
-    ruleId: "BAC-01",
-    severity: "high",
-    title: "Missing auth",
-    description: "No auth check",
-    locations: [{ file: "src/api/routes.ts", startLine: 10 }],
-    evidence: 'app.get("/admin")',
-    remediation: "Add auth middleware",
-    confidence: 0.85,
-    ...overrides,
-  };
-}
-
-function makeCorroborated(overrides: Partial<AuditFinding> = {}): CorroboratedFinding {
-  return {
-    finding: makeFinding(overrides),
-    corroborations: 1,
-    sourceTaskIds: ["scan-1"],
-    effectiveConfidence: 0.85,
+/** Each test gets its own temp dir to avoid races under --concurrent */
+function withTempDir(fn: (dir: string) => Promise<void>): () => Promise<void> {
+  return async () => {
+    const dir = mkdtempSync(join("/tmp/claude", "audit-suppress-"));
+    try {
+      await fn(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   };
 }
 
@@ -127,10 +105,12 @@ describe("parseInlineSuppressions", () => {
 // ── parseSuppressConfig ──
 
 describe("parseSuppressConfig", () => {
-  it("parses .audit-suppress.yaml", () => {
-    writeFileSync(
-      join(tempDir, ".audit-suppress.yaml"),
-      `
+  it(
+    "parses .audit-suppress.yaml",
+    withTempDir(async (tempDir) => {
+      writeFileSync(
+        join(tempDir, ".audit-suppress.yaml"),
+        `
 suppressions:
   - rule: BAC-01
     file: src/admin/routes.ts
@@ -139,34 +119,41 @@ suppressions:
     glob: "test/**"
     reason: "Test files don't need audit logging"
 `,
-      "utf-8",
-    );
+        "utf-8",
+      );
 
-    const rules = parseSuppressConfig(tempDir);
+      const rules = parseSuppressConfig(tempDir);
 
-    expect(rules).toHaveLength(2);
-    expect(rules[0]).toEqual({
-      rule: "BAC-01",
-      file: "src/admin/routes.ts",
-      glob: undefined,
-      reason: "Authorization handled by gateway",
-    });
-    expect(rules[1]).toEqual({
-      rule: "LOG-01",
-      file: undefined,
-      glob: "test/**",
-      reason: "Test files don't need audit logging",
-    });
-  });
+      expect(rules).toHaveLength(2);
+      expect(rules[0]).toEqual({
+        rule: "BAC-01",
+        file: "src/admin/routes.ts",
+        glob: undefined,
+        reason: "Authorization handled by gateway",
+      });
+      expect(rules[1]).toEqual({
+        rule: "LOG-01",
+        file: undefined,
+        glob: "test/**",
+        reason: "Test files don't need audit logging",
+      });
+    }),
+  );
 
-  it("returns empty array when no config exists", () => {
-    expect(parseSuppressConfig(tempDir)).toEqual([]);
-  });
+  it(
+    "returns empty array when no config exists",
+    withTempDir(async (tempDir) => {
+      expect(parseSuppressConfig(tempDir)).toEqual([]);
+    }),
+  );
 
-  it("returns empty array for malformed config", () => {
-    writeFileSync(join(tempDir, ".audit-suppress.yaml"), "not: valid", "utf-8");
-    expect(parseSuppressConfig(tempDir)).toEqual([]);
-  });
+  it(
+    "returns empty array for malformed config",
+    withTempDir(async (tempDir) => {
+      writeFileSync(join(tempDir, ".audit-suppress.yaml"), "not: valid", "utf-8");
+      expect(parseSuppressConfig(tempDir)).toEqual([]);
+    }),
+  );
 });
 
 // ── findingSuppressedBy ──

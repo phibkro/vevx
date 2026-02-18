@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { resolve, join } from "path";
 
 import {
@@ -14,15 +13,17 @@ import type { Rule } from "../planner/types";
 
 // ── Test helpers ──
 
-let tempDir: string;
-
-beforeEach(() => {
-  tempDir = mkdtempSync(join(tmpdir(), "audit-manifest-"));
-});
-
-afterEach(() => {
-  rmSync(tempDir, { recursive: true, force: true });
-});
+/** Each test gets its own temp dir to avoid races under --concurrent */
+function withTempDir(fn: (dir: string) => Promise<void>): () => Promise<void> {
+  return async () => {
+    const dir = mkdtempSync(join("/tmp/claude", "audit-manifest-"));
+    try {
+      await fn(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+}
 
 function writeManifest(dir: string, content: string): string {
   const path = join(dir, "varp.yaml");
@@ -50,56 +51,76 @@ utils:
 // ── findManifest ──
 
 describe("findManifest", () => {
-  it("finds varp.yaml in the target directory", () => {
-    writeManifest(tempDir, SAMPLE_MANIFEST);
-    const result = findManifest(tempDir);
-    expect(result).toBe(join(tempDir, "varp.yaml"));
-  });
+  it(
+    "finds varp.yaml in the target directory",
+    withTempDir(async (tempDir) => {
+      writeManifest(tempDir, SAMPLE_MANIFEST);
+      const result = findManifest(tempDir);
+      expect(result).toBe(join(tempDir, "varp.yaml"));
+    }),
+  );
 
-  it("finds varp.yaml in parent directories", () => {
-    writeManifest(tempDir, SAMPLE_MANIFEST);
-    const subDir = join(tempDir, "src", "api");
-    mkdirSync(subDir, { recursive: true });
+  it(
+    "finds varp.yaml in parent directories",
+    withTempDir(async (tempDir) => {
+      writeManifest(tempDir, SAMPLE_MANIFEST);
+      const subDir = join(tempDir, "src", "api");
+      mkdirSync(subDir, { recursive: true });
 
-    const result = findManifest(subDir);
-    expect(result).toBe(join(tempDir, "varp.yaml"));
-  });
+      const result = findManifest(subDir);
+      expect(result).toBe(join(tempDir, "varp.yaml"));
+    }),
+  );
 
-  it("returns null when no manifest found", () => {
-    const result = findManifest(tempDir);
-    expect(result).toBeNull();
-  });
+  it(
+    "returns null when no manifest found",
+    withTempDir(async (tempDir) => {
+      const result = findManifest(tempDir);
+      expect(result).toBeNull();
+    }),
+  );
 });
 
 // ── parseManifest ──
 
 describe("parseManifest", () => {
-  it("parses components with paths, tags, and deps", () => {
-    const path = writeManifest(tempDir, SAMPLE_MANIFEST);
-    const manifest = parseManifest(path);
+  it(
+    "parses components with paths, tags, and deps",
+    withTempDir(async (tempDir) => {
+      const path = writeManifest(tempDir, SAMPLE_MANIFEST);
+      const manifest = parseManifest(path);
 
-    expect(manifest.varp).toBe("0.1.0");
-    expect(Object.keys(manifest.components)).toEqual(["api", "db", "utils"]);
+      expect(manifest.varp).toBe("0.1.0");
+      expect(Object.keys(manifest.components)).toEqual(["api", "db", "utils"]);
 
-    expect(manifest.components.api.tags).toEqual(["api", "http"]);
-    expect(manifest.components.api.deps).toEqual(["db"]);
-    expect(manifest.components.db.tags).toEqual(["database"]);
-  });
+      expect(manifest.components.api.tags).toEqual(["api", "http"]);
+      expect(manifest.components.api.deps).toEqual(["db"]);
+      expect(manifest.components.db.tags).toEqual(["database"]);
+    }),
+  );
 
-  it("resolves paths relative to manifest directory", () => {
-    const path = writeManifest(tempDir, SAMPLE_MANIFEST);
-    const manifest = parseManifest(path);
+  it(
+    "resolves paths relative to manifest directory",
+    withTempDir(async (tempDir) => {
+      const path = writeManifest(tempDir, SAMPLE_MANIFEST);
+      const manifest = parseManifest(path);
 
-    expect(manifest.components.api.path).toBe(resolve(tempDir, "src/api"));
-  });
+      expect(manifest.components.api.path).toBe(resolve(tempDir, "src/api"));
+    }),
+  );
 
-  it("throws on missing varp key", () => {
-    const path = writeManifest(tempDir, "foo: bar");
-    expect(() => parseManifest(path)).toThrow("missing 'varp' key");
-  });
+  it(
+    "throws on missing varp key",
+    withTempDir(async (tempDir) => {
+      const path = writeManifest(tempDir, "foo: bar");
+      expect(() => parseManifest(path)).toThrow("missing 'varp' key");
+    }),
+  );
 
-  it("handles multi-path components", () => {
-    const manifest = `
+  it(
+    "handles multi-path components",
+    withTempDir(async (tempDir) => {
+      const manifest = `
 varp: 0.1.0
 
 multi:
@@ -108,12 +129,13 @@ multi:
     - ./src/b
   tags: [test]
 `;
-    const path = writeManifest(tempDir, manifest);
-    const result = parseManifest(path);
-    const paths = result.components.multi.path;
-    expect(Array.isArray(paths)).toBe(true);
-    expect((paths as string[]).length).toBe(2);
-  });
+      const path = writeManifest(tempDir, manifest);
+      const result = parseManifest(path);
+      const paths = result.components.multi.path;
+      expect(Array.isArray(paths)).toBe(true);
+      expect((paths as string[]).length).toBe(2);
+    }),
+  );
 });
 
 // ── matchRulesByTags ──
@@ -155,67 +177,70 @@ describe("matchRulesByTags", () => {
 // ── assignFilesToComponents ──
 
 describe("assignFilesToComponents", () => {
-  it("assigns files to components based on path containment", () => {
-    const manifestPath = writeManifest(tempDir, SAMPLE_MANIFEST);
-    const manifest = parseManifest(manifestPath);
+  it(
+    "assigns files to components based on path containment",
+    withTempDir(async (tempDir) => {
+      const manifestPath = writeManifest(tempDir, SAMPLE_MANIFEST);
+      const manifest = parseManifest(manifestPath);
 
-    // Create component dirs
-    mkdirSync(join(tempDir, "src", "api"), { recursive: true });
-    mkdirSync(join(tempDir, "src", "db"), { recursive: true });
+      // Create component dirs
+      mkdirSync(join(tempDir, "src", "api"), { recursive: true });
+      mkdirSync(join(tempDir, "src", "db"), { recursive: true });
 
-    const components: AuditComponent[] = [
-      {
-        name: "api",
-        path: resolve(tempDir, "src/api"),
-        files: [],
-        languages: [],
-        estimatedTokens: 0,
-      },
-      {
-        name: "db",
-        path: resolve(tempDir, "src/db"),
-        files: [],
-        languages: [],
-        estimatedTokens: 0,
-      },
-    ];
+      const components: AuditComponent[] = [
+        {
+          name: "api",
+          path: resolve(tempDir, "src/api"),
+          files: [],
+          languages: [],
+          estimatedTokens: 0,
+        },
+        {
+          name: "db",
+          path: resolve(tempDir, "src/db"),
+          files: [],
+          languages: [],
+          estimatedTokens: 0,
+        },
+      ];
 
-    const files = [
-      {
-        relativePath: "src/api/routes.ts",
-        language: "typescript",
-        content: "const x = 1;",
-        path: "/test/src/api/routes.ts",
-        size: 100,
-      },
-      {
-        relativePath: "src/api/auth.ts",
-        language: "typescript",
-        content: "const y = 2;",
-        path: "/test/src/api/auth.ts",
-        size: 100,
-      },
-      {
-        relativePath: "src/db/queries.ts",
-        language: "typescript",
-        content: "const z = 3;",
-        path: "/test/src/db/queries.ts",
-        size: 100,
-      },
-      {
-        relativePath: "src/other/util.ts",
-        language: "typescript",
-        content: "const w = 4;",
-        path: "/test/src/other/util.ts",
-        size: 100,
-      },
-    ];
+      const files = [
+        {
+          relativePath: "src/api/routes.ts",
+          language: "typescript",
+          content: "const x = 1;",
+          path: "/test/src/api/routes.ts",
+          size: 100,
+        },
+        {
+          relativePath: "src/api/auth.ts",
+          language: "typescript",
+          content: "const y = 2;",
+          path: "/test/src/api/auth.ts",
+          size: 100,
+        },
+        {
+          relativePath: "src/db/queries.ts",
+          language: "typescript",
+          content: "const z = 3;",
+          path: "/test/src/db/queries.ts",
+          size: 100,
+        },
+        {
+          relativePath: "src/other/util.ts",
+          language: "typescript",
+          content: "const w = 4;",
+          path: "/test/src/other/util.ts",
+          size: 100,
+        },
+      ];
 
-    assignFilesToComponents(components, manifest, files, tempDir);
+      assignFilesToComponents(components, manifest, files, tempDir);
 
-    expect(components[0].files).toEqual(["src/api/routes.ts", "src/api/auth.ts"]);
-    expect(components[1].files).toEqual(["src/db/queries.ts"]);
-    expect(components[0].languages).toContain("typescript");
-    expect(components[0].estimatedTokens).toBeGreaterThan(0);
-  });
+      expect(components[0].files).toEqual(["src/api/routes.ts", "src/api/auth.ts"]);
+      expect(components[1].files).toEqual(["src/db/queries.ts"]);
+      expect(components[0].languages).toContain("typescript");
+      expect(components[0].estimatedTokens).toBeGreaterThan(0);
+    }),
+  );
 });
