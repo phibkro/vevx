@@ -1,14 +1,20 @@
 # CLAUDE.md
 
-Compliance-focused code auditing tool (evolving from generic code review). Multi-agent orchestration analyzes full codebases against compliance frameworks.
+Compliance-focused code auditing using multi-agent orchestration. Analyzes full codebases against compliance frameworks (OWASP, HIPAA, PCI-DSS). Will merge into the [Varp](https://github.com/varp) monorepo as `packages/audit`.
 
 ## Structure
 
 ```
-packages/core/      # Orchestration engine, agents, API client
-apps/cli/           # Bun CLI (primary interface)
-rulesets/           # Compliance framework definitions (OWASP Top 10)
-docs/               # Design documents and research
+packages/core/                  # Orchestration engine, agents, API client
+  src/agents/                   # Generic review agents (7 active, weighted)
+  src/planner/                  # Compliance audit planner (NEW)
+    ruleset-parser.ts           # Markdown ruleset → structured rules
+    planner.ts                  # Files + rules → 3-wave audit plan
+    findings.ts                 # Findings schema, deduplication, reporting
+    types.ts                    # Ruleset, AuditTask, AuditPlan types
+apps/cli/                       # Bun CLI (primary interface)
+rulesets/                       # Compliance framework definitions
+docs/                           # Design documents and research
 ```
 
 **Dependency flow**: cli → core
@@ -26,7 +32,21 @@ cd packages/core && bun run dev       # Watch mode
 cd apps/cli && bun run build:binaries # Platform executables
 ```
 
-## Agent Architecture
+## Audit Planner (`packages/core/src/planner/`)
+
+The planner takes discovered files + a parsed ruleset and generates a 3-wave audit plan:
+
+1. **Wave 1** — Component scans (parallel). Each task checks one component against one rule category.
+2. **Wave 2** — Cross-cutting analysis (parallel). Data flow tracing, auth chain completeness, secrets management.
+3. **Wave 3** — Synthesis. Deduplicate findings, compute coverage, produce `ComplianceReport`.
+
+**Rulesets** are markdown with YAML frontmatter. Rules have: id, severity, appliesTo tags, compliant/violation patterns, what-to-look-for lists, false positive guidance.
+
+**Findings** use a 5-level severity (critical/high/medium/low/informational). Duplicate findings from multiple tasks are corroborated — same rule + overlapping location = merged with boosted confidence.
+
+**Varp integration**: Component grouping and wave scheduling will be replaced by varp's manifest and scheduler post-merge. See `docs/research/varp-integration.md`.
+
+## Generic Agents (`packages/core/src/agents/`)
 
 Agents defined in `packages/core/src/agents/<name>.ts`. Each has `name`, `weight`, `systemPrompt`, `userPromptTemplate`, `parseResponse`.
 
@@ -55,5 +75,7 @@ Two file discovery implementations exist:
 ## Common Tasks
 
 **New agent**: Create in `packages/core/src/agents/`, export from `index.ts`, rebalance all weights to sum 1.0.
+
+**New ruleset**: Add to `rulesets/`. Follow the structure of `owasp-top-10.md` — YAML frontmatter + `## Category` → `### RULE-ID: Title` with Severity, Applies to, Compliant, Violation, What to look for, Guidance fields.
 
 **Build errors**: Run `bun run build` from root.

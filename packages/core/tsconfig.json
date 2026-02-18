@@ -15,5 +15,5 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*"],
-  "exclude": ["src/discovery.ts"]
+  "exclude": ["src/discovery.ts", "src/__tests__"]
 }
