@@ -48,8 +48,8 @@ export function formatMarkdown(report: AuditReport): string {
           finding.severity === "critical"
             ? "🔴 **CRITICAL**"
             : finding.severity === "warning"
-            ? "🟡 **WARNING**"
-            : "🔵 **INFO**";
+              ? "🟡 **WARNING**"
+              : "🔵 **INFO**";
 
         md += `#### ${severityBadge}: ${finding.title}\n\n`;
         md += `**File:** \`${finding.file}\`${finding.line ? `:${finding.line}` : ""}\n\n`;

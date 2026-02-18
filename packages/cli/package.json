@@ -8,6 +8,12 @@
   "scripts": {
     "build": "bun build ./src/cli.ts --outdir ./dist --target bun",
     "test": "bun test",
+    "lint": "oxlint",
+    "format": "oxfmt --write 'src/**/*.ts'",
+    "format:check": "oxfmt --check 'src/**/*.ts'",
+    "check": "bun run format:check && bun run lint && bun run build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
     "dev": "bun run src/cli.ts"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
-import type { AgentResult } from "../agents/types";
 import { agents } from "../agents/index";
+import type { AgentResult } from "../agents/types";
 
 export interface AuditReport {
   target: string; // file/directory audited

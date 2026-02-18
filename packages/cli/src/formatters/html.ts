@@ -5,13 +5,13 @@ import type { AuditReport } from "../report/synthesizer";
  */
 export function formatHtml(report: AuditReport): string {
   const criticalFindings = report.agentResults.flatMap((r) =>
-    r.findings.filter((f) => f.severity === "critical")
+    r.findings.filter((f) => f.severity === "critical"),
   );
   const warningFindings = report.agentResults.flatMap((r) =>
-    r.findings.filter((f) => f.severity === "warning")
+    r.findings.filter((f) => f.severity === "warning"),
   );
   const infoFindings = report.agentResults.flatMap((r) =>
-    r.findings.filter((f) => f.severity === "info")
+    r.findings.filter((f) => f.severity === "info"),
   );
 
   return `<!DOCTYPE html>
@@ -220,7 +220,7 @@ export function formatHtml(report: AuditReport): string {
           <td>${result.findings.length}</td>
           <td>${(result.durationMs / 1000).toFixed(1)}s</td>
         </tr>
-        `
+        `,
           )
           .join("")}
       </tbody>
@@ -235,7 +235,7 @@ export function formatHtml(report: AuditReport): string {
         .map(
           (rec) => `
         <li style="margin-bottom: 12px;">${rec.replace(/\n/g, "<br>")}</li>
-      `
+      `,
         )
         .join("")}
     </ol>
@@ -266,7 +266,7 @@ export function formatHtml(report: AuditReport): string {
             : ""
         }
       </div>
-      `
+      `,
         )
         .join("")}
     </details>
@@ -295,7 +295,7 @@ export function formatHtml(report: AuditReport): string {
             : ""
         }
       </div>
-      `
+      `,
         )
         .join("")}
     </details>
@@ -324,7 +324,7 @@ export function formatHtml(report: AuditReport): string {
             : ""
         }
       </div>
-      `
+      `,
         )
         .join("")}
     </details>

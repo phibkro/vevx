@@ -52,7 +52,7 @@ export function loadConfig(cliArgs: Partial<Config> = {}): Config {
   // Merge: defaults → config file → CLI args
   // Filter out undefined values from cliArgs
   const filteredCliArgs = Object.fromEntries(
-    Object.entries(cliArgs).filter(([_, v]) => v !== undefined)
+    Object.entries(cliArgs).filter(([_, v]) => v !== undefined),
   );
 
   return {

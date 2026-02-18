@@ -1,25 +1,21 @@
-import type { FileContent } from '../agents/types';
-import type { AuditPlan, AuditTask, Ruleset, ModelCaller } from './types';
-import type {
-  AuditTaskResult,
-  ComplianceReport,
-  CoverageEntry,
-} from './findings';
-import { generatePrompt, parseAuditResponse, AUDIT_FINDINGS_SCHEMA } from './prompt-generator';
-import { deduplicateFindings, summarizeFindings } from './findings';
-import { parseSuppressConfig, parseInlineSuppressions, applySuppressions } from './suppressions';
+import type { FileContent } from "../agents/types";
+import type { AuditTaskResult, ComplianceReport, CoverageEntry } from "./findings";
+import { deduplicateFindings, summarizeFindings } from "./findings";
+import { generatePrompt, parseAuditResponse, AUDIT_FINDINGS_SCHEMA } from "./prompt-generator";
+import { parseSuppressConfig, parseInlineSuppressions, applySuppressions } from "./suppressions";
+import type { AuditPlan, AuditTask, Ruleset, ModelCaller } from "./types";
 
 // ── Progress events ──
 
 export type AuditProgressEvent =
-  | { type: 'plan-ready'; plan: AuditPlan }
-  | { type: 'wave-start'; wave: 1 | 2 | 3; taskCount: number }
-  | { type: 'task-start'; task: AuditTask }
-  | { type: 'task-complete'; task: AuditTask; result: AuditTaskResult }
-  | { type: 'task-error'; task: AuditTask; error: Error }
-  | { type: 'task-skipped'; task: AuditTask; reason: 'budget-exceeded' }
-  | { type: 'wave-complete'; wave: 1 | 2 | 3; results: AuditTaskResult[] }
-  | { type: 'complete'; report: ComplianceReport };
+  | { type: "plan-ready"; plan: AuditPlan }
+  | { type: "wave-start"; wave: 1 | 2 | 3; taskCount: number }
+  | { type: "task-start"; task: AuditTask }
+  | { type: "task-complete"; task: AuditTask; result: AuditTaskResult }
+  | { type: "task-error"; task: AuditTask; error: Error }
+  | { type: "task-skipped"; task: AuditTask; reason: "budget-exceeded" }
+  | { type: "wave-complete"; wave: 1 | 2 | 3; results: AuditTaskResult[] }
+  | { type: "complete"; report: ComplianceReport };
 
 export type ProgressCallback = (event: AuditProgressEvent) => void;
 
@@ -51,7 +47,7 @@ export interface ExecutorOptions {
   budget?: number;
 }
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
 const DEFAULT_MAX_TOKENS = 4096;
 const DEFAULT_CONCURRENCY = 5;
 
@@ -83,7 +79,14 @@ async function executeTask(
     ? result.usage.inputTokens + result.usage.outputTokens
     : Math.ceil((prompt.systemPrompt.length + prompt.userPrompt.length + result.text.length) / 4);
 
-  return parseAuditResponse(result.text, task, options.model, tokensUsed, durationMs, result.structured);
+  return parseAuditResponse(
+    result.text,
+    task,
+    options.model,
+    tokensUsed,
+    durationMs,
+    result.structured,
+  );
 }
 
 /**
@@ -117,10 +120,7 @@ async function runWithConcurrency(
     }
   }
 
-  const workers = Array.from(
-    { length: Math.min(concurrency, tasks.length) },
-    () => worker()
-  );
+  const workers = Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker());
   await Promise.all(workers);
 
   return results;
@@ -139,7 +139,7 @@ function computeCoverage(
   skippedTaskIds: Set<string>,
 ): CoverageEntry[] {
   const entries: CoverageEntry[] = [];
-  const completedTaskIds = new Set(results.map(r => r.taskId));
+  const completedTaskIds = new Set(results.map((r) => r.taskId));
 
   for (const task of plan.waves.wave1) {
     if (!task.component) continue;
@@ -152,21 +152,21 @@ function computeCoverage(
           component: task.component,
           ruleId,
           checked: false,
-          reason: 'agent failed',
+          reason: "agent failed",
         });
       } else if (skippedTaskIds.has(task.id)) {
         entries.push({
           component: task.component,
           ruleId,
           checked: false,
-          reason: 'budget exceeded',
+          reason: "budget exceeded",
         });
       } else {
         entries.push({
           component: task.component,
           ruleId,
           checked: false,
-          reason: 'task not executed',
+          reason: "task not executed",
         });
       }
     }
@@ -206,14 +206,14 @@ export async function executeAuditPlan(
   let tasksSkipped = 0;
   let cumulativeEstimatedTokens = 0;
 
-  onProgress?.({ type: 'plan-ready', plan });
+  onProgress?.({ type: "plan-ready", plan });
 
   // Build file lookup for quick access
-  const filesByPath = new Map(files.map(f => [f.relativePath, f]));
+  const filesByPath = new Map(files.map((f) => [f.relativePath, f]));
 
   function resolveFiles(task: AuditTask): FileContent[] {
     return task.files
-      .map(path => filesByPath.get(path))
+      .map((path) => filesByPath.get(path))
       .filter((f): f is FileContent => f !== undefined);
   }
 
@@ -229,7 +229,7 @@ export async function executeAuditPlan(
       if (cumulativeEstimatedTokens + task.estimatedTokens > options.budget) {
         tasksSkipped++;
         skippedTaskIds.add(task.id);
-        onProgress?.({ type: 'task-skipped', task, reason: 'budget-exceeded' });
+        onProgress?.({ type: "task-skipped", task, reason: "budget-exceeded" });
         continue;
       }
       cumulativeEstimatedTokens += task.estimatedTokens;
@@ -241,53 +241,53 @@ export async function executeAuditPlan(
   // ── Wave 1: Component scans ──
   if (plan.waves.wave1.length > 0) {
     const wave1Tasks = applyBudget(plan.waves.wave1);
-    onProgress?.({ type: 'wave-start', wave: 1, taskCount: wave1Tasks.length });
+    onProgress?.({ type: "wave-start", wave: 1, taskCount: wave1Tasks.length });
 
     const wave1Results = await runWithConcurrency(
       wave1Tasks,
       (task) => {
-        onProgress?.({ type: 'task-start', task });
+        onProgress?.({ type: "task-start", task });
         return executeTask(task, resolveFiles(task), ruleset, caller, callOptions);
       },
       concurrency,
-      (task, result) => onProgress?.({ type: 'task-complete', task, result }),
+      (task, result) => onProgress?.({ type: "task-complete", task, result }),
       (task, error) => {
         tasksFailed++;
         failedTaskIds.add(task.id);
-        onProgress?.({ type: 'task-error', task, error });
+        onProgress?.({ type: "task-error", task, error });
       },
     );
 
     allResults.push(...wave1Results);
-    onProgress?.({ type: 'wave-complete', wave: 1, results: wave1Results });
+    onProgress?.({ type: "wave-complete", wave: 1, results: wave1Results });
   }
 
   // ── Wave 2: Cross-cutting analysis ──
   if (plan.waves.wave2.length > 0) {
     const wave2Tasks = applyBudget(plan.waves.wave2);
-    onProgress?.({ type: 'wave-start', wave: 2, taskCount: wave2Tasks.length });
+    onProgress?.({ type: "wave-start", wave: 2, taskCount: wave2Tasks.length });
 
     const wave2Results = await runWithConcurrency(
       wave2Tasks,
       (task) => {
-        onProgress?.({ type: 'task-start', task });
+        onProgress?.({ type: "task-start", task });
         return executeTask(task, resolveFiles(task), ruleset, caller, callOptions);
       },
       concurrency,
-      (task, result) => onProgress?.({ type: 'task-complete', task, result }),
+      (task, result) => onProgress?.({ type: "task-complete", task, result }),
       (task, error) => {
         tasksFailed++;
         failedTaskIds.add(task.id);
-        onProgress?.({ type: 'task-error', task, error });
+        onProgress?.({ type: "task-error", task, error });
       },
     );
 
     allResults.push(...wave2Results);
-    onProgress?.({ type: 'wave-complete', wave: 2, results: wave2Results });
+    onProgress?.({ type: "wave-complete", wave: 2, results: wave2Results });
   }
 
   // ── Wave 3: Synthesis (in-process) ──
-  onProgress?.({ type: 'wave-start', wave: 3, taskCount: 1 });
+  onProgress?.({ type: "wave-start", wave: 3, taskCount: 1 });
 
   const corroboratedFindings = deduplicateFindings(allResults);
 
@@ -298,7 +298,11 @@ export async function executeAuditPlan(
   if (options.targetPath) {
     const configRules = parseSuppressConfig(options.targetPath);
     const inlineSuppressions = parseInlineSuppressions(files);
-    const { active, suppressed } = applySuppressions(corroboratedFindings, configRules, inlineSuppressions);
+    const { active, suppressed } = applySuppressions(
+      corroboratedFindings,
+      configRules,
+      inlineSuppressions,
+    );
     activeFindings = active;
     suppressedCount = suppressed.length;
   }
@@ -308,13 +312,11 @@ export async function executeAuditPlan(
 
   const totalComponents = plan.components.length;
   const checkedComponents = new Set(
-    coverageEntries.filter(e => e.checked).map(e => e.component)
+    coverageEntries.filter((e) => e.checked).map((e) => e.component),
   ).size;
 
   const totalRules = plan.stats.totalRules;
-  const checkedRules = new Set(
-    coverageEntries.filter(e => e.checked).map(e => e.ruleId)
-  ).size;
+  const checkedRules = new Set(coverageEntries.filter((e) => e.checked).map((e) => e.ruleId)).size;
 
   const completedAt = new Date().toISOString();
   const totalDurationMs = new Date(completedAt).getTime() - new Date(startedAt).getTime();
@@ -323,7 +325,7 @@ export async function executeAuditPlan(
     scope: {
       ruleset: ruleset.meta.framework,
       rulesetVersion: ruleset.meta.rulesetVersion,
-      components: plan.components.map(c => c.name),
+      components: plan.components.map((c) => c.name),
       totalFiles: plan.stats.totalFiles,
       ...(options.diff ? { diff: options.diff } : {}),
     },
@@ -341,14 +343,14 @@ export async function executeAuditPlan(
       tasksExecuted: allResults.length,
       tasksFailed,
       totalTokensUsed: allResults.reduce((sum, r) => sum + r.tokensUsed, 0),
-      models: [...new Set(allResults.map(r => r.model))],
+      models: [...new Set(allResults.map((r) => r.model))],
       ...(tasksSkipped > 0 ? { tasksSkipped } : {}),
       ...(suppressedCount > 0 ? { suppressedCount } : {}),
     },
   };
 
-  onProgress?.({ type: 'wave-complete', wave: 3, results: [] });
-  onProgress?.({ type: 'complete', report });
+  onProgress?.({ type: "wave-complete", wave: 3, results: [] });
+  onProgress?.({ type: "complete", report });
 
   return report;
 }

@@ -1,10 +1,10 @@
-import { correctnessAgent } from "./correctness";
-import { securityAgent } from "./security";
-import { performanceAgent } from "./performance";
-import { maintainabilityAgent } from "./maintainability";
-import { edgeCasesAgent } from "./edge-cases";
 import { accessibilityAgent } from "./accessibility";
+import { correctnessAgent } from "./correctness";
 import { documentationAgent } from "./documentation";
+import { edgeCasesAgent } from "./edge-cases";
+import { maintainabilityAgent } from "./maintainability";
+import { performanceAgent } from "./performance";
+import { securityAgent } from "./security";
 // import { dependencySecurityAgent } from "./dependency-security"; // Disabled by default (weight=0.00)
 
 export type { AgentDefinition, AgentResult, Finding, Severity } from "./types";
@@ -44,7 +44,7 @@ function validateWeights(): void {
   if (Math.abs(totalWeight - 1.0) > tolerance) {
     throw new Error(
       `Agent weights must sum to 1.0, but got ${totalWeight}. ` +
-        `Weights: ${agents.map((a) => `${a.name}=${a.weight}`).join(", ")}`
+        `Weights: ${agents.map((a) => `${a.name}=${a.weight}`).join(", ")}`,
     );
   }
 }

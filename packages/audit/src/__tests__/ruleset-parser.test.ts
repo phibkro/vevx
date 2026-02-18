@@ -1,4 +1,4 @@
-import { parseRuleset } from '../planner/ruleset-parser';
+import { parseRuleset } from "../planner/ruleset-parser";
 
 const MINIMAL_RULESET = `---
 framework: OWASP Top 10
@@ -74,57 +74,57 @@ languages: [typescript, javascript, python]
 - PII access is authorized
 `;
 
-describe('parseRuleset', () => {
-  it('parses YAML frontmatter', () => {
+describe("parseRuleset", () => {
+  it("parses YAML frontmatter", () => {
     const ruleset = parseRuleset(MINIMAL_RULESET);
 
-    expect(ruleset.meta.framework).toBe('OWASP Top 10');
-    expect(ruleset.meta.version).toBe('2021');
-    expect(ruleset.meta.rulesetVersion).toBe('0.1.0');
-    expect(ruleset.meta.scope).toBe('Web applications and APIs');
-    expect(ruleset.meta.languages).toEqual(['typescript', 'javascript', 'python']);
+    expect(ruleset.meta.framework).toBe("OWASP Top 10");
+    expect(ruleset.meta.version).toBe("2021");
+    expect(ruleset.meta.rulesetVersion).toBe("0.1.0");
+    expect(ruleset.meta.scope).toBe("Web applications and APIs");
+    expect(ruleset.meta.languages).toEqual(["typescript", "javascript", "python"]);
   });
 
-  it('parses rules from categories', () => {
+  it("parses rules from categories", () => {
     const ruleset = parseRuleset(MINIMAL_RULESET);
 
     expect(ruleset.rules).toHaveLength(3);
 
-    const bac01 = ruleset.rules.find(r => r.id === 'BAC-01');
+    const bac01 = ruleset.rules.find((r) => r.id === "BAC-01");
     expect(bac01).toBeDefined();
-    expect(bac01!.title).toBe('Missing Authorization Checks on Endpoints');
-    expect(bac01!.category).toBe('A01:2021 — Broken Access Control');
-    expect(bac01!.severity).toBe('Critical');
-    expect(bac01!.appliesTo).toEqual(['API routes', 'HTTP handlers']);
+    expect(bac01!.title).toBe("Missing Authorization Checks on Endpoints");
+    expect(bac01!.category).toBe("A01:2021 — Broken Access Control");
+    expect(bac01!.severity).toBe("Critical");
+    expect(bac01!.appliesTo).toEqual(["API routes", "HTTP handlers"]);
     expect(bac01!.whatToLookFor).toHaveLength(2);
-    expect(bac01!.guidance).toContain('Authentication is not authorization');
+    expect(bac01!.guidance).toContain("Authentication is not authorization");
   });
 
-  it('parses rules from multiple categories', () => {
+  it("parses rules from multiple categories", () => {
     const ruleset = parseRuleset(MINIMAL_RULESET);
 
-    const inj01 = ruleset.rules.find(r => r.id === 'INJ-01');
+    const inj01 = ruleset.rules.find((r) => r.id === "INJ-01");
     expect(inj01).toBeDefined();
-    expect(inj01!.category).toBe('A03:2021 — Injection');
-    expect(inj01!.severity).toBe('Critical');
-    expect(inj01!.appliesTo).toContain('Database access layers');
+    expect(inj01!.category).toBe("A03:2021 — Injection");
+    expect(inj01!.severity).toBe("Critical");
+    expect(inj01!.appliesTo).toContain("Database access layers");
   });
 
-  it('parses cross-cutting patterns', () => {
+  it("parses cross-cutting patterns", () => {
     const ruleset = parseRuleset(MINIMAL_RULESET);
 
     expect(ruleset.crossCutting).toHaveLength(1);
 
     const cross01 = ruleset.crossCutting[0];
-    expect(cross01.id).toBe('CROSS-01');
-    expect(cross01.title).toBe('PII Data Flow Tracing');
-    expect(cross01.scope).toBe('Full codebase');
-    expect(cross01.relatesTo).toEqual(['CRYPTO-01', 'LOG-02', 'AUTH-03']);
+    expect(cross01.id).toBe("CROSS-01");
+    expect(cross01.title).toBe("PII Data Flow Tracing");
+    expect(cross01.scope).toBe("Full codebase");
+    expect(cross01.relatesTo).toEqual(["CRYPTO-01", "LOG-02", "AUTH-03"]);
     expect(cross01.checks).toHaveLength(3);
-    expect(cross01.checks[0]).toBe('PII is encrypted at rest');
+    expect(cross01.checks[0]).toBe("PII is encrypted at rest");
   });
 
-  it('throws on missing frontmatter', () => {
-    expect(() => parseRuleset('# No frontmatter')).toThrow('YAML frontmatter');
+  it("throws on missing frontmatter", () => {
+    expect(() => parseRuleset("# No frontmatter")).toThrow("YAML frontmatter");
   });
 });

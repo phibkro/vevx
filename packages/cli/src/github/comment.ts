@@ -1,5 +1,5 @@
-import type { AuditReport } from "../report/index";
 import { agents } from "../agents/index";
+import type { AuditReport } from "../report/index";
 
 /**
  * Format score as star rating (0-10 → 0-5 stars)
@@ -37,15 +37,9 @@ function formatSeverity(severity: string): string {
 /**
  * Format a finding for PR comment
  */
-function formatFinding(
-  finding: any,
-  agentName: string,
-  index: number
-): string {
+function formatFinding(finding: any, agentName: string, index: number): string {
   const severity = finding.severity.toUpperCase();
-  const location = finding.line
-    ? `${finding.file}:${finding.line}`
-    : finding.file;
+  const location = finding.line ? `${finding.file}:${finding.line}` : finding.file;
 
   let result = `${index + 1}. **[${severity}]** ${finding.title}\n`;
   result += `   - **Location:** \`${location}\`\n`;
@@ -63,12 +57,8 @@ function formatFinding(
 /**
  * Format full PR comment with report
  */
-export function formatPRComment(
-  report: AuditReport,
-  isPublic: boolean
-): string {
-  const { overallScore, agentResults, criticalCount, warningCount, infoCount } =
-    report;
+export function formatPRComment(report: AuditReport, isPublic: boolean): string {
+  const { overallScore, agentResults, criticalCount, warningCount, infoCount } = report;
 
   // Header
   let comment = "## 🤖 AI Code Auditor Report\n\n";
@@ -129,10 +119,8 @@ export function formatPRComment(
     // Sort by severity (critical > warning > info)
     allFindings.sort((a, b) => {
       const severityOrder = { critical: 3, warning: 2, info: 1 };
-      const aSeverity =
-        severityOrder[a.finding.severity as keyof typeof severityOrder] || 0;
-      const bSeverity =
-        severityOrder[b.finding.severity as keyof typeof severityOrder] || 0;
+      const aSeverity = severityOrder[a.finding.severity as keyof typeof severityOrder] || 0;
+      const bSeverity = severityOrder[b.finding.severity as keyof typeof severityOrder] || 0;
       return bSeverity - aSeverity;
     });
 

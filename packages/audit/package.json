@@ -10,6 +10,8 @@
     "lint": "oxlint",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",
+    "check": "bun run format:check && bun run lint && bun run build",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {

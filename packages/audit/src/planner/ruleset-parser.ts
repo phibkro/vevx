@@ -1,4 +1,4 @@
-import type { RulesetMeta, Rule, CrossCuttingPattern, Ruleset } from './types';
+import type { RulesetMeta, Rule, CrossCuttingPattern, Ruleset } from "./types";
 
 /**
  * Parse YAML frontmatter from a markdown string.
@@ -7,7 +7,7 @@ import type { RulesetMeta, Rule, CrossCuttingPattern, Ruleset } from './types';
 function parseFrontmatter(content: string): { meta: RulesetMeta; body: string } {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!match) {
-    throw new Error('Ruleset must have YAML frontmatter (--- delimited)');
+    throw new Error("Ruleset must have YAML frontmatter (--- delimited)");
   }
 
   const yaml = match[1];
@@ -15,7 +15,7 @@ function parseFrontmatter(content: string): { meta: RulesetMeta; body: string } 
 
   // Simple YAML parser for flat key-value pairs and arrays
   const meta: Record<string, any> = {};
-  for (const line of yaml.split('\n')) {
+  for (const line of yaml.split("\n")) {
     const kvMatch = line.match(/^(\w[\w_-]*)\s*:\s*(.+)$/);
     if (!kvMatch) continue;
 
@@ -23,13 +23,18 @@ function parseFrontmatter(content: string): { meta: RulesetMeta; body: string } 
     let value: any = rawValue.trim();
 
     // Handle quoted strings
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     // Handle inline arrays: [a, b, c]
-    else if (value.startsWith('[') && value.endsWith(']')) {
-      value = value.slice(1, -1).split(',').map((s: string) => s.trim());
+    else if (value.startsWith("[") && value.endsWith("]")) {
+      value = value
+        .slice(1, -1)
+        .split(",")
+        .map((s: string) => s.trim());
     }
 
     meta[key] = value;
@@ -37,10 +42,10 @@ function parseFrontmatter(content: string): { meta: RulesetMeta; body: string } 
 
   return {
     meta: {
-      framework: meta.framework || 'unknown',
-      version: meta.version || '0',
-      rulesetVersion: meta.ruleset_version || meta.rulesetVersion || '0.1.0',
-      scope: meta.scope || '',
+      framework: meta.framework || "unknown",
+      version: meta.version || "0",
+      rulesetVersion: meta.ruleset_version || meta.rulesetVersion || "0.1.0",
+      scope: meta.scope || "",
       languages: Array.isArray(meta.languages) ? meta.languages : [],
     },
     body,
@@ -69,19 +74,22 @@ function parseRule(block: string, category: string): Rule | null {
   const id = headingMatch[1];
   const title = headingMatch[2].trim();
 
-  const severity = extractField(block, 'Severity') || 'Medium';
-  const appliesTo = extractField(block, 'Applies to') || '';
-  const compliant = extractField(block, 'Compliant') || '';
-  const violation = extractField(block, 'Violation') || '';
-  const guidance = extractField(block, 'Guidance') || '';
-  const whatToLookFor = extractList(block, 'What to look for');
+  const severity = extractField(block, "Severity") || "Medium";
+  const appliesTo = extractField(block, "Applies to") || "";
+  const compliant = extractField(block, "Compliant") || "";
+  const violation = extractField(block, "Violation") || "";
+  const guidance = extractField(block, "Guidance") || "";
+  const whatToLookFor = extractList(block, "What to look for");
 
   return {
     id,
     title,
     category,
     severity,
-    appliesTo: appliesTo.split(',').map(s => s.trim()).filter(Boolean),
+    appliesTo: appliesTo
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
     compliant,
     violation,
     whatToLookFor,
@@ -97,7 +105,7 @@ function extractField(block: string, fieldName: string): string | null {
   // Match **Field:** or **Field:**\n with content up to next **Field:** or ### or end
   const regex = new RegExp(
     `\\*\\*${fieldName}:\\*\\*\\s*([\\s\\S]*?)(?=\\n\\*\\*\\w|\\n###|$)`,
-    'i'
+    "i",
   );
   const match = block.match(regex);
   if (!match) return null;
@@ -113,9 +121,9 @@ function extractList(block: string, fieldName: string): string[] {
   if (!content) return [];
 
   return content
-    .split('\n')
-    .filter(line => line.match(/^\s*-\s+/))
-    .map(line => line.replace(/^\s*-\s+/, '').trim());
+    .split("\n")
+    .filter((line) => line.match(/^\s*-\s+/))
+    .map((line) => line.replace(/^\s*-\s+/, "").trim());
 }
 
 /**
@@ -137,13 +145,13 @@ function parseCrossCuttingPattern(block: string): CrossCuttingPattern | null {
   const id = headingMatch[1];
   const title = headingMatch[2].trim();
 
-  const scope = extractField(block, 'Scope') || 'Full codebase';
-  const relatesTo = (extractField(block, 'Relates to') || '')
-    .split(',')
-    .map(s => s.trim())
+  const scope = extractField(block, "Scope") || "Full codebase";
+  const relatesTo = (extractField(block, "Relates to") || "")
+    .split(",")
+    .map((s) => s.trim())
     .filter(Boolean);
-  const objective = extractField(block, 'Objective') || '';
-  const checks = extractList(block, 'What to verify');
+  const objective = extractField(block, "Objective") || "";
+  const checks = extractList(block, "What to verify");
 
   return { id, title, scope, relatesTo, objective, checks };
 }
@@ -167,7 +175,7 @@ export function parseRuleset(content: string): Ruleset {
     const categoryTitle = categoryMatch[1].trim();
 
     // Check if this is the cross-cutting section
-    if (categoryTitle.toLowerCase().includes('cross-cutting')) {
+    if (categoryTitle.toLowerCase().includes("cross-cutting")) {
       // Split into individual pattern blocks (### headings)
       const patternBlocks = section.split(/\n(?=### )/);
       for (const block of patternBlocks) {

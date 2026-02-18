@@ -1,5 +1,5 @@
-import type { AuditReport } from "./report/synthesizer";
 import { getApiKey } from "./auth";
+import type { AuditReport } from "./report/synthesizer";
 
 interface DashboardConfig {
   apiKey: string;
@@ -46,7 +46,7 @@ function getGitInfo(): { repo?: string; commit?: string; branch?: string } {
  */
 export async function syncToDashboard(
   report: AuditReport,
-  durationMs: number
+  durationMs: number,
 ): Promise<DashboardResponse | null> {
   const authConfig = getApiKey();
 
@@ -70,7 +70,7 @@ export async function syncToDashboard(
         file: finding.file,
         line: finding.line,
         suggestion: finding.suggestion,
-      }))
+      })),
     );
 
     const payload = {
@@ -114,7 +114,10 @@ export async function syncToDashboard(
 
     return await response.json();
   } catch (error) {
-    console.error("Error syncing to dashboard:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "Error syncing to dashboard:",
+      error instanceof Error ? error.message : String(error),
+    );
     return null;
   }
 }

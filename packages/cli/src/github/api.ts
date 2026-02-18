@@ -13,9 +13,7 @@ export interface GitHubContext {
 /**
  * Get GitHub context from Actions environment
  */
-export async function getGitHubContext(
-  octokit: Octokit
-): Promise<GitHubContext | null> {
+export async function getGitHubContext(octokit: Octokit): Promise<GitHubContext | null> {
   const context = github.context;
 
   // Only run on pull requests
@@ -49,10 +47,7 @@ export async function getGitHubContext(
 /**
  * Get list of files changed in the PR
  */
-export async function getChangedFiles(
-  octokit: Octokit,
-  context: GitHubContext
-): Promise<string[]> {
+export async function getChangedFiles(octokit: Octokit, context: GitHubContext): Promise<string[]> {
   const { owner, repo, prNumber } = context;
 
   try {
@@ -97,8 +92,7 @@ export async function getChangedFiles(
     core.info(`Found ${changedFiles.length} changed code files in PR`);
     return changedFiles;
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
+    const message = error instanceof Error ? error.message : "Unknown error";
     core.warning(`Failed to get changed files: ${message}`);
     return [];
   }
@@ -109,7 +103,7 @@ export async function getChangedFiles(
  */
 export async function findExistingComment(
   octokit: Octokit,
-  context: GitHubContext
+  context: GitHubContext,
 ): Promise<number | null> {
   const { owner, repo, prNumber } = context;
 
@@ -122,14 +116,11 @@ export async function findExistingComment(
 
     // Find comment that starts with our marker
     const marker = "## 🤖 AI Code Auditor Report";
-    const existing = comments.find((comment) =>
-      comment.body?.startsWith(marker)
-    );
+    const existing = comments.find((comment) => comment.body?.startsWith(marker));
 
     return existing ? existing.id : null;
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
+    const message = error instanceof Error ? error.message : "Unknown error";
     core.warning(`Failed to find existing comment: ${message}`);
     return null;
   }
@@ -141,7 +132,7 @@ export async function findExistingComment(
 export async function postPRComment(
   octokit: Octokit,
   context: GitHubContext,
-  comment: string
+  comment: string,
 ): Promise<string> {
   const { owner, repo, prNumber } = context;
 
@@ -156,8 +147,7 @@ export async function postPRComment(
     core.info(`Posted PR comment: ${data.html_url}`);
     return data.html_url;
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
+    const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to post PR comment: ${message}`);
   }
 }
@@ -169,7 +159,7 @@ export async function updatePRComment(
   octokit: Octokit,
   context: GitHubContext,
   commentId: number,
-  comment: string
+  comment: string,
 ): Promise<string> {
   const { owner, repo } = context;
 
@@ -184,8 +174,7 @@ export async function updatePRComment(
     core.info(`Updated PR comment: ${data.html_url}`);
     return data.html_url;
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
+    const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to update PR comment: ${message}`);
   }
 }
@@ -196,7 +185,7 @@ export async function updatePRComment(
 export async function postOrUpdateComment(
   octokit: Octokit,
   context: GitHubContext,
-  comment: string
+  comment: string,
 ): Promise<string> {
   // Try to find existing comment
   const existingId = await findExistingComment(octokit, context);
@@ -216,15 +205,13 @@ export async function postOrUpdateComment(
 export async function isPublicRepo(
   octokit: Octokit,
   owner: string,
-  repo: string
+  repo: string,
 ): Promise<boolean> {
   try {
     const { data } = await octokit.rest.repos.get({ owner, repo });
     return !data.private;
   } catch (error) {
-    core.warning(
-      `Failed to check if repo is public, assuming private`
-    );
+    core.warning(`Failed to check if repo is public, assuming private`);
     return false;
   }
 }

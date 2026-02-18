@@ -1,5 +1,5 @@
-import type { AuditReport } from "./synthesizer";
 import { agents } from "../agents/index";
+import type { AuditReport } from "./synthesizer";
 
 // ANSI color codes
 const colors = {
@@ -60,9 +60,24 @@ function formatDuration(ms: number): string {
 export function printReport(report: AuditReport): void {
   // Header
   console.log();
-  console.log(colors.bold + colors.cyan + "╔══════════════════════════════════════════════════════════╗" + colors.reset);
-  console.log(colors.bold + colors.cyan + "║           AI Code Auditor - Multi-Agent Report           ║" + colors.reset);
-  console.log(colors.bold + colors.cyan + "╚══════════════════════════════════════════════════════════╝" + colors.reset);
+  console.log(
+    colors.bold +
+      colors.cyan +
+      "╔══════════════════════════════════════════════════════════╗" +
+      colors.reset,
+  );
+  console.log(
+    colors.bold +
+      colors.cyan +
+      "║           AI Code Auditor - Multi-Agent Report           ║" +
+      colors.reset,
+  );
+  console.log(
+    colors.bold +
+      colors.cyan +
+      "╚══════════════════════════════════════════════════════════╝" +
+      colors.reset,
+  );
   console.log();
 
   // Target and overall score
@@ -70,14 +85,23 @@ export function printReport(report: AuditReport): void {
   const scoreColor = getScoreColor(report.overallScore);
   const stars = getStarRating(report.overallScore);
   console.log(
-    colors.bold + "Overall Score: " + colors.reset +
-    scoreColor + colors.bold + report.overallScore.toFixed(1) + "/10" + colors.reset +
-    " " + stars
+    colors.bold +
+      "Overall Score: " +
+      colors.reset +
+      scoreColor +
+      colors.bold +
+      report.overallScore.toFixed(1) +
+      "/10" +
+      colors.reset +
+      " " +
+      stars,
   );
   console.log();
 
   // Separator
-  console.log(colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset);
+  console.log(
+    colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset,
+  );
   console.log();
 
   // Agent breakdown
@@ -92,16 +116,35 @@ export function printReport(report: AuditReport): void {
     const statusColor = result.score >= 7 ? colors.green : colors.yellow;
 
     console.log(
-      statusColor + status + colors.reset + " " +
-      colors.bold + result.agent.padEnd(15) + colors.reset +
-      scoreColor + colors.bold + result.score.toFixed(1) + "/10" + colors.reset +
-      colors.gray + "  (weight: " + weight + "%)" + colors.reset +
-      colors.gray + "  [" + formatDuration(result.durationMs) + "]" + colors.reset
+      statusColor +
+        status +
+        colors.reset +
+        " " +
+        colors.bold +
+        result.agent.padEnd(15) +
+        colors.reset +
+        scoreColor +
+        colors.bold +
+        result.score.toFixed(1) +
+        "/10" +
+        colors.reset +
+        colors.gray +
+        "  (weight: " +
+        weight +
+        "%)" +
+        colors.reset +
+        colors.gray +
+        "  [" +
+        formatDuration(result.durationMs) +
+        "]" +
+        colors.reset,
     );
   });
 
   console.log();
-  console.log(colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset);
+  console.log(
+    colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset,
+  );
   console.log();
 
   // Findings summary
@@ -114,7 +157,9 @@ export function printReport(report: AuditReport): void {
 
   // Top recommendations
   if (report.topRecommendations.length > 0) {
-    console.log(colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset);
+    console.log(
+      colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset,
+    );
     console.log();
     console.log(colors.bold + "🎯 Top Recommendations:" + colors.reset);
     console.log();
@@ -133,7 +178,13 @@ export function printReport(report: AuditReport): void {
         severityColor = colors.blue;
       }
 
-      console.log(colors.bold + `${index + 1}. ` + severityColor + firstLine.replace(/^\[.*?\]\s*/, "") + colors.reset);
+      console.log(
+        colors.bold +
+          `${index + 1}. ` +
+          severityColor +
+          firstLine.replace(/^\[.*?\]\s*/, "") +
+          colors.reset,
+      );
 
       // Print remaining lines (location and suggestion)
       for (let i = 1; i < lines.length; i++) {
@@ -144,7 +195,9 @@ export function printReport(report: AuditReport): void {
   }
 
   // Detailed findings
-  console.log(colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset);
+  console.log(
+    colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset,
+  );
   console.log();
   console.log(colors.bold + "📋 Detailed Findings:" + colors.reset);
   console.log();
@@ -161,10 +214,18 @@ export function printReport(report: AuditReport): void {
     result.findings.forEach((finding) => {
       const severityColor = getSeverityColor(finding.severity);
       const severityLabel = finding.severity.toUpperCase();
-      const icon = finding.severity === "critical" ? "🔴" : finding.severity === "warning" ? "🟡" : "🔵";
+      const icon =
+        finding.severity === "critical" ? "🔴" : finding.severity === "warning" ? "🟡" : "🔵";
 
       console.log(
-        severityColor + icon + " " + severityLabel + ": " + colors.bold + finding.title + colors.reset
+        severityColor +
+          icon +
+          " " +
+          severityLabel +
+          ": " +
+          colors.bold +
+          finding.title +
+          colors.reset,
       );
 
       const location = finding.line ? `${finding.file}:${finding.line}` : finding.file;
@@ -182,6 +243,8 @@ export function printReport(report: AuditReport): void {
     });
   });
 
-  console.log(colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset);
+  console.log(
+    colors.gray + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + colors.reset,
+  );
   console.log();
 }

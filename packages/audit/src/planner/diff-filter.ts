@@ -1,6 +1,7 @@
-import { execSync } from 'child_process';
-import { resolve, relative } from 'path';
-import type { FileContent } from '../agents/types';
+import { execSync } from "child_process";
+import { resolve, relative } from "path";
+
+import type { FileContent } from "../agents/types";
 
 /**
  * Get list of changed files from git diff.
@@ -9,19 +10,19 @@ import type { FileContent } from '../agents/types';
  * @param targetPath - Directory to run git diff in
  * @param ref - Git ref to diff against (default: HEAD)
  */
-export function getChangedFiles(targetPath: string, ref: string = 'HEAD'): string[] {
+export function getChangedFiles(targetPath: string, ref: string = "HEAD"): string[] {
   const cwd = resolve(targetPath);
 
   try {
     const output = execSync(`git diff --name-only ${ref}`, {
       cwd,
-      encoding: 'utf-8',
+      encoding: "utf-8",
       timeout: 10_000,
     }).trim();
 
     if (!output) return [];
 
-    return output.split('\n').filter(Boolean);
+    return output.split("\n").filter(Boolean);
   } catch {
     // Not a git repo or git not available
     return [];
@@ -31,12 +32,9 @@ export function getChangedFiles(targetPath: string, ref: string = 'HEAD'): strin
 /**
  * Filter discovered files to only those that changed in the diff.
  */
-export function filterToChanged(
-  files: FileContent[],
-  changedPaths: string[],
-): FileContent[] {
+export function filterToChanged(files: FileContent[], changedPaths: string[]): FileContent[] {
   const changedSet = new Set(changedPaths);
-  return files.filter(f => changedSet.has(f.relativePath));
+  return files.filter((f) => changedSet.has(f.relativePath));
 }
 
 /**
@@ -60,10 +58,12 @@ export function expandWithDependents(
   for (const [name, comp] of Object.entries(components)) {
     const compPaths = Array.isArray(comp.path) ? comp.path : [comp.path];
     for (const changed of changedPaths) {
-      if (compPaths.some(cp => {
-        const rel = relative(cp, resolve(cp, '..', changed));
-        return !rel.startsWith('..');
-      })) {
+      if (
+        compPaths.some((cp) => {
+          const rel = relative(cp, resolve(cp, "..", changed));
+          return !rel.startsWith("..");
+        })
+      ) {
         changedComponents.add(name);
       }
     }

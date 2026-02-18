@@ -5,7 +5,7 @@
  * Distinct from the existing agent Severity ("critical" | "warning" | "info")
  * which is too coarse for compliance reporting.
  */
-export type AuditSeverity = 'critical' | 'high' | 'medium' | 'low' | 'informational';
+export type AuditSeverity = "critical" | "high" | "medium" | "low" | "informational";
 
 const SEVERITY_RANK: Record<AuditSeverity, number> = {
   critical: 0,
@@ -26,9 +26,9 @@ export function compareSeverity(a: AuditSeverity, b: AuditSeverity): number {
  * (e.g. data flows from file A line 10 to file B line 45).
  */
 export interface CodeLocation {
-  file: string;       // relative path
+  file: string; // relative path
   startLine: number;
-  endLine?: number;   // omit for single-line findings
+  endLine?: number; // omit for single-line findings
 }
 
 // ── Finding ──
@@ -72,7 +72,7 @@ export interface AuditFinding {
  */
 export interface AuditTaskResult {
   taskId: string;
-  type: 'component-scan' | 'cross-cutting' | 'synthesis';
+  type: "component-scan" | "cross-cutting" | "synthesis";
   component?: string;
   rulesChecked: string[];
   findings: AuditFinding[];
@@ -166,7 +166,7 @@ export interface ComplianceReport {
 
   /** Execution metadata */
   metadata: {
-    startedAt: string;  // ISO 8601
+    startedAt: string; // ISO 8601
     completedAt: string;
     totalDurationMs: number;
     tasksExecuted: number;
@@ -189,14 +189,14 @@ export interface ComplianceReport {
 export function findingsOverlap(a: AuditFinding, b: AuditFinding): boolean {
   if (a.ruleId !== b.ruleId) return false;
 
-  return a.locations.some(locA =>
-    b.locations.some(locB => {
+  return a.locations.some((locA) =>
+    b.locations.some((locB) => {
       if (locA.file !== locB.file) return false;
       // Same file, check line overlap
       const aEnd = locA.endLine ?? locA.startLine;
       const bEnd = locB.endLine ?? locB.startLine;
       return locA.startLine <= bEnd && locB.startLine <= aEnd;
-    })
+    }),
   );
 }
 
@@ -213,8 +213,8 @@ export function deduplicateFindings(taskResults: AuditTaskResult[]): Corroborate
   for (const result of taskResults) {
     for (const finding of result.findings) {
       // Try to merge into an existing group
-      const match = groups.find(g =>
-        g.findings.some(existing => findingsOverlap(existing, finding))
+      const match = groups.find((g) =>
+        g.findings.some((existing) => findingsOverlap(existing, finding)),
       );
 
       if (match) {
@@ -232,7 +232,7 @@ export function deduplicateFindings(taskResults: AuditTaskResult[]): Corroborate
   }
 
   return groups
-    .map(group => {
+    .map((group) => {
       // Pick canonical: highest severity, then highest confidence
       const sorted = [...group.findings].sort((a, b) => {
         const sevDiff = compareSeverity(a.severity, b.severity);
@@ -242,10 +242,7 @@ export function deduplicateFindings(taskResults: AuditTaskResult[]): Corroborate
 
       const canonical = sorted[0];
       const corroborations = group.taskIds.length;
-      const effectiveConfidence = Math.min(
-        1.0,
-        canonical.confidence + 0.1 * (corroborations - 1)
-      );
+      const effectiveConfidence = Math.min(1.0, canonical.confidence + 0.1 * (corroborations - 1));
 
       return {
         finding: canonical,
@@ -265,7 +262,7 @@ export function deduplicateFindings(taskResults: AuditTaskResult[]): Corroborate
 /**
  * Build the summary counts from corroborated findings.
  */
-export function summarizeFindings(findings: CorroboratedFinding[]): ComplianceReport['summary'] {
+export function summarizeFindings(findings: CorroboratedFinding[]): ComplianceReport["summary"] {
   const summary = { critical: 0, high: 0, medium: 0, low: 0, informational: 0, total: 0 };
   for (const { finding } of findings) {
     summary[finding.severity]++;

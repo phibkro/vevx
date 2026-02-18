@@ -1,5 +1,4 @@
 import type { ProgressEvent } from "@varp/audit";
-
 import ora from "ora";
 
 export function createProgressReporter() {

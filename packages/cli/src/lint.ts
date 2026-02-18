@@ -1,5 +1,6 @@
-import { parseManifest, runLint } from "@varp/core/lib";
 import { resolve } from "path";
+
+import { parseManifest, runLint } from "@varp/core/lib";
 
 export interface LintArgs {
   manifest: string;

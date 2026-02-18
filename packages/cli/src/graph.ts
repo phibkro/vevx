@@ -1,5 +1,6 @@
-import { parseManifest, renderGraph } from "@varp/core/lib";
 import { resolve } from "path";
+
+import { parseManifest, renderGraph } from "@varp/core/lib";
 
 export interface GraphArgs {
   manifest: string;

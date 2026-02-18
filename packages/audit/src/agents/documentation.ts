@@ -240,9 +240,7 @@ function createUserPrompt(files: FileContent[]): string {
   const fileContents = nonTestFiles
     .map((file) => {
       const lines = file.content.split("\n");
-      const numberedLines = lines
-        .map((line, index) => `${index + 1}→${line}`)
-        .join("\n");
+      const numberedLines = lines.map((line, index) => `${index + 1}→${line}`).join("\n");
       return `File: ${file.relativePath}\nLanguage: ${file.language}\n\n${numberedLines}`;
     })
     .join("\n\n---\n\n");

@@ -1,3 +1,5 @@
+import { resolve, dirname } from "path";
+
 import {
   parseManifest,
   parsePlanFile,
@@ -5,7 +7,6 @@ import {
   detectHazards,
   scanImports,
 } from "@varp/core/lib";
-import { resolve, dirname } from "path";
 
 export interface ValidateArgs {
   planPath: string;

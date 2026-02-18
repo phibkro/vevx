@@ -5,7 +5,7 @@ import chokidar from "chokidar";
  */
 function debounce<T extends (...args: any[]) => any>(
   fn: T,
-  delay: number
+  delay: number,
 ): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -23,10 +23,7 @@ function debounce<T extends (...args: any[]) => any>(
 /**
  * Watch mode: re-run audit on file changes
  */
-export async function watchMode(
-  path: string,
-  onRun: () => Promise<void>
-): Promise<void> {
+export async function watchMode(path: string, onRun: () => Promise<void>): Promise<void> {
   console.log(`\n👀 Watching ${path} for changes...\n`);
 
   const watcher = chokidar.watch(path, {

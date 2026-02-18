@@ -43,7 +43,7 @@ function truncateFile(file: FileContent, maxTokens: number): FileContent {
   const truncatedContent = file.content.substring(0, maxChars) + "\n\n[... truncated ...]";
 
   console.warn(
-    `Warning: File ${file.relativePath} exceeds token budget (${fileTokens} tokens). Truncating to ${maxTokens} tokens.`
+    `Warning: File ${file.relativePath} exceeds token budget (${fileTokens} tokens). Truncating to ${maxTokens} tokens.`,
   );
 
   return {
@@ -137,7 +137,7 @@ export function formatChunkSummary(chunks: Chunk[]): string {
 
   chunks.forEach((chunk, index) => {
     lines.push(
-      `  Chunk ${index + 1}: ${chunk.files.length} file${chunk.files.length === 1 ? "" : "s"}, ~${chunk.estimatedTokens.toLocaleString()} tokens`
+      `  Chunk ${index + 1}: ${chunk.files.length} file${chunk.files.length === 1 ? "" : "s"}, ~${chunk.estimatedTokens.toLocaleString()} tokens`,
     );
   });
 

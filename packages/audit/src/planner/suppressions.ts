@@ -1,6 +1,7 @@
-import { readFileSync, existsSync } from 'fs';
-import { resolve, join } from 'path';
-import type { CorroboratedFinding } from './findings';
+import { readFileSync, existsSync } from "fs";
+import { resolve, join } from "path";
+
+import type { CorroboratedFinding } from "./findings";
 
 // ── Glob matching ──
 
@@ -11,10 +12,10 @@ import type { CorroboratedFinding } from './findings';
 function simpleGlobMatch(filePath: string, pattern: string): boolean {
   // Convert glob pattern to regex
   const regexStr = pattern
-    .replace(/\*\*/g, '<<<GLOBSTAR>>>')
-    .replace(/\*/g, '[^/]*')
-    .replace(/<<<GLOBSTAR>>>/g, '.*')
-    .replace(/\?/g, '[^/]');
+    .replace(/\*\*/g, "<<<GLOBSTAR>>>")
+    .replace(/\*/g, "[^/]*")
+    .replace(/<<<GLOBSTAR>>>/g, ".*")
+    .replace(/\?/g, "[^/]");
 
   const regex = new RegExp(`^${regexStr}$`);
   return regex.test(filePath);
@@ -56,7 +57,7 @@ export function parseInlineSuppressions(
   const suppressions: InlineSuppression[] = [];
 
   for (const file of files) {
-    const lines = file.content.split('\n');
+    const lines = file.content.split("\n");
     for (let i = 0; i < lines.length; i++) {
       const match = lines[i].match(SUPPRESS_PATTERN);
       if (!match) continue;
@@ -85,23 +86,24 @@ export function parseInlineSuppressions(
  * Returns parsed suppression rules, or empty array if not found.
  */
 export function parseSuppressConfig(targetPath: string): SuppressionRule[] {
-  const configPath = join(resolve(targetPath), '.audit-suppress.yaml');
+  const configPath = join(resolve(targetPath), ".audit-suppress.yaml");
   if (!existsSync(configPath)) return [];
 
-  const raw = readFileSync(configPath, 'utf-8');
+  const raw = readFileSync(configPath, "utf-8");
   const parsed = Bun.YAML.parse(raw) as Record<string, unknown> | null;
 
   if (!parsed || !Array.isArray(parsed.suppressions)) return [];
 
   return (parsed.suppressions as unknown[])
-    .filter((s: unknown): s is Record<string, unknown> =>
-      typeof s === 'object' && s !== null && 'rule' in s
+    .filter(
+      (s: unknown): s is Record<string, unknown> =>
+        typeof s === "object" && s !== null && "rule" in s,
     )
     .map((s: Record<string, unknown>) => ({
       rule: String(s.rule),
-      file: typeof s.file === 'string' ? s.file : undefined,
-      glob: typeof s.glob === 'string' ? s.glob : undefined,
-      reason: typeof s.reason === 'string' ? s.reason : 'Suppressed by config',
+      file: typeof s.file === "string" ? s.file : undefined,
+      glob: typeof s.glob === "string" ? s.glob : undefined,
+      reason: typeof s.reason === "string" ? s.reason : "Suppressed by config",
     }));
 }
 
@@ -124,13 +126,13 @@ export function findingSuppressedBy(
 
     // If rule has file constraint, check it
     if (rule.file) {
-      const matchesFile = f.locations.some(loc => loc.file === rule.file);
+      const matchesFile = f.locations.some((loc) => loc.file === rule.file);
       if (!matchesFile) continue;
     }
 
     // If rule has glob constraint, check it
     if (rule.glob) {
-      const matchesGlob = f.locations.some(loc => simpleGlobMatch(loc.file, rule.glob!));
+      const matchesGlob = f.locations.some((loc) => simpleGlobMatch(loc.file, rule.glob!));
       if (!matchesGlob) continue;
     }
 
@@ -142,7 +144,7 @@ export function findingSuppressedBy(
     if (sup.ruleId !== f.ruleId) continue;
 
     const matchesLocation = f.locations.some(
-      loc => loc.file === sup.file && loc.startLine === sup.line
+      (loc) => loc.file === sup.file && loc.startLine === sup.line,
     );
 
     if (matchesLocation) {
@@ -161,7 +163,10 @@ export function applySuppressions(
   findings: CorroboratedFinding[],
   configRules: SuppressionRule[],
   inlineSuppressions: InlineSuppression[],
-): { active: CorroboratedFinding[]; suppressed: { finding: CorroboratedFinding; reason: string }[] } {
+): {
+  active: CorroboratedFinding[];
+  suppressed: { finding: CorroboratedFinding; reason: string }[];
+} {
   const active: CorroboratedFinding[] = [];
   const suppressed: { finding: CorroboratedFinding; reason: string }[] = [];
 

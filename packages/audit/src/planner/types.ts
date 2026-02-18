@@ -13,11 +13,11 @@ export interface RulesetMeta {
  * A single compliance rule parsed from a ruleset
  */
 export interface Rule {
-  id: string;           // e.g. "BAC-01", "CRYPTO-04"
+  id: string; // e.g. "BAC-01", "CRYPTO-04"
   title: string;
-  category: string;     // e.g. "A01:2021 — Broken Access Control"
-  severity: string;     // "Critical", "High", "Medium", etc.
-  appliesTo: string[];  // e.g. ["API routes", "HTTP handlers"]
+  category: string; // e.g. "A01:2021 — Broken Access Control"
+  severity: string; // "Critical", "High", "Medium", etc.
+  appliesTo: string[]; // e.g. ["API routes", "HTTP handlers"]
   compliant: string;
   violation: string;
   whatToLookFor: string[];
@@ -28,12 +28,12 @@ export interface Rule {
  * A cross-cutting concern parsed from a ruleset
  */
 export interface CrossCuttingPattern {
-  id: string;           // e.g. "CROSS-01"
+  id: string; // e.g. "CROSS-01"
   title: string;
   scope: string;
-  relatesTo: string[];  // rule IDs this pattern references
+  relatesTo: string[]; // rule IDs this pattern references
   objective: string;
-  checks: string[];     // what to verify
+  checks: string[]; // what to verify
 }
 
 /**
@@ -51,7 +51,7 @@ export interface Ruleset {
 export interface AuditComponent {
   name: string;
   path: string;
-  files: string[];       // relative paths
+  files: string[]; // relative paths
   languages: string[];
   estimatedTokens: number;
 }
@@ -62,13 +62,13 @@ export interface AuditComponent {
 export interface AuditTask {
   id: string;
   wave: 1 | 2 | 3;
-  type: 'component-scan' | 'cross-cutting' | 'synthesis';
-  component?: string;    // component name (wave 1)
-  rules: string[];       // rule IDs to check
-  files: string[];       // file paths to include as context
+  type: "component-scan" | "cross-cutting" | "synthesis";
+  component?: string; // component name (wave 1)
+  rules: string[]; // rule IDs to check
+  files: string[]; // file paths to include as context
   estimatedTokens: number;
-  priority: number;      // lower = higher priority (risk-based ordering)
-  description: string;   // human-readable task description
+  priority: number; // lower = higher priority (risk-based ordering)
+  description: string; // human-readable task description
 }
 
 /**
@@ -78,9 +78,9 @@ export interface AuditPlan {
   ruleset: RulesetMeta;
   components: AuditComponent[];
   waves: {
-    wave1: AuditTask[];  // component scans (parallel)
-    wave2: AuditTask[];  // cross-cutting analysis (parallel, uses wave 1 outputs)
-    wave3: AuditTask[];  // synthesis (single task)
+    wave1: AuditTask[]; // component scans (parallel)
+    wave2: AuditTask[]; // cross-cutting analysis (parallel, uses wave 1 outputs)
+    wave3: AuditTask[]; // synthesis (single task)
   };
   stats: {
     totalTasks: number;

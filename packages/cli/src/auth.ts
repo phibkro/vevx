@@ -37,7 +37,9 @@ export function getApiKey(): { apiKey: string; apiUrl: string } | null {
       }
     }
   } catch (error) {
-    console.warn(`Warning: Failed to read auth config: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `Warning: Failed to read auth config: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   return null;
@@ -97,7 +99,9 @@ async function validateApiKey(apiKey: string, apiUrl: string): Promise<boolean> 
     // 200 = valid, 401 = invalid key, 400 = valid key but bad payload (acceptable for validation)
     return response.status !== 401;
   } catch (error) {
-    console.warn(`Warning: Could not validate API key: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `Warning: Could not validate API key: ${error instanceof Error ? error.message : String(error)}`,
+    );
     // If network error, assume key format is good enough
     return true;
   }
@@ -120,7 +124,9 @@ export async function login(): Promise<void> {
 
   // Validate format
   if (!validateApiKeyFormat(apiKey)) {
-    console.error("Error: Invalid API key format. Keys should start with 'ca_' and be 64+ characters.");
+    console.error(
+      "Error: Invalid API key format. Keys should start with 'ca_' and be 64+ characters.",
+    );
     process.exit(1);
   }
 
@@ -170,7 +176,9 @@ export function logout(): void {
       console.log("Already logged out (no config file found)\n");
     }
   } catch (error) {
-    console.error(`Error removing config: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `Error removing config: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exit(1);
   }
 }

@@ -2,7 +2,7 @@ import type { FileContent } from "./types";
 import type { AgentDefinition, AgentResult, Finding } from "./types";
 
 const AGENT_NAME = "accessibility";
-const WEIGHT = 0.10;
+const WEIGHT = 0.1;
 
 const SYSTEM_PROMPT = `You are an accessibility specialist analyzing code for WCAG compliance and usability barriers.
 
@@ -205,9 +205,7 @@ function createUserPrompt(files: FileContent[]): string {
   const fileContents = uiFiles
     .map((file) => {
       const lines = file.content.split("\n");
-      const numberedLines = lines
-        .map((line, index) => `${index + 1}→${line}`)
-        .join("\n");
+      const numberedLines = lines.map((line, index) => `${index + 1}→${line}`).join("\n");
       return `File: ${file.relativePath}\nLanguage: ${file.language}\n\n${numberedLines}`;
     })
     .join("\n\n---\n\n");

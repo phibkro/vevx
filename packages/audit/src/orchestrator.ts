@@ -1,6 +1,6 @@
+import { agents } from "./agents/index";
 import type { FileContent } from "./agents/types";
 import type { AgentResult } from "./agents/types";
-import { agents } from "./agents/index";
 import type { ModelCaller } from "./planner/types";
 
 export interface OrchestratorOptions {
@@ -13,10 +13,10 @@ export interface OrchestratorOptions {
  * Progress event types emitted during audit execution
  */
 export type ProgressEvent =
-  | { type: 'started'; agentCount: number }
-  | { type: 'agent-started'; agent: string }
-  | { type: 'agent-completed'; agent: string; score: number; duration: number }
-  | { type: 'completed'; totalDuration: number }
+  | { type: "started"; agentCount: number }
+  | { type: "agent-started"; agent: string }
+  | { type: "agent-completed"; agent: string; score: number; duration: number }
+  | { type: "completed"; totalDuration: number };
 
 /**
  * Run a single agent on the provided files
@@ -24,7 +24,7 @@ export type ProgressEvent =
 async function runAgent(
   agent: any,
   files: FileContent[],
-  options: OrchestratorOptions
+  options: OrchestratorOptions,
 ): Promise<AgentResult> {
   const startTime = Date.now();
 
@@ -33,14 +33,10 @@ async function runAgent(
     const userPrompt = agent.userPromptTemplate(files);
 
     // Call Claude API (no JSON schema for generic agents — they use their own text parsers)
-    const apiResult = await options.caller(
-      agent.systemPrompt,
-      userPrompt,
-      {
-        model: options.model,
-        maxTokens: options.maxTokens || 4096,
-      }
-    );
+    const apiResult = await options.caller(agent.systemPrompt, userPrompt, {
+      model: options.model,
+      maxTokens: options.maxTokens || 4096,
+    });
 
     // Parse response
     const result = agent.parseResponse(apiResult.text);
@@ -53,7 +49,10 @@ async function runAgent(
     // If agent fails, return error result with sanitized message
     const durationMs = Date.now() - startTime;
 
-    console.error(`Agent ${agent.name} failed:`, error instanceof Error ? error.message : String(error));
+    console.error(
+      `Agent ${agent.name} failed:`,
+      error instanceof Error ? error.message : String(error),
+    );
 
     return {
       agent: agent.name,
@@ -78,14 +77,14 @@ async function runAgent(
 export async function runAudit(
   files: FileContent[],
   options: OrchestratorOptions,
-  onProgress?: (event: ProgressEvent) => void
+  onProgress?: (event: ProgressEvent) => void,
 ): Promise<AgentResult[]> {
   console.log(`\nRunning ${agents.length} agents in parallel...`);
 
   const startTime = Date.now();
 
   // Emit started event
-  onProgress?.({ type: 'started', agentCount: agents.length });
+  onProgress?.({ type: "started", agentCount: agents.length });
 
   // Run all agents in parallel using Promise.allSettled
   // This ensures that if one agent fails, others continue
@@ -94,21 +93,21 @@ export async function runAudit(
       const agentStartTime = Date.now();
 
       // Emit agent-started event
-      onProgress?.({ type: 'agent-started', agent: agent.name });
+      onProgress?.({ type: "agent-started", agent: agent.name });
 
       const result = await runAgent(agent, files, options);
       const duration = (Date.now() - agentStartTime) / 1000;
 
       // Emit agent-completed event
       onProgress?.({
-        type: 'agent-completed',
+        type: "agent-completed",
         agent: agent.name,
         score: result.score,
         duration,
       });
 
       return result;
-    })
+    }),
   );
 
   const totalDuration = Date.now() - startTime;
@@ -121,7 +120,10 @@ export async function runAudit(
       return result.value;
     } else {
       // Promise was rejected — log full detail, return sanitized message
-      console.error(`Agent ${agent.name} promise rejected:`, result.reason instanceof Error ? result.reason.message : String(result.reason));
+      console.error(
+        `Agent ${agent.name} promise rejected:`,
+        result.reason instanceof Error ? result.reason.message : String(result.reason),
+      );
       return {
         agent: agent.name,
         score: 0,
@@ -142,14 +144,14 @@ export async function runAudit(
   console.log(`All agents completed in ${(totalDuration / 1000).toFixed(2)}s`);
 
   // Emit completed event
-  onProgress?.({ type: 'completed', totalDuration: totalDuration / 1000 });
+  onProgress?.({ type: "completed", totalDuration: totalDuration / 1000 });
 
   // Log individual agent performance
   agentResults.forEach((result) => {
     const status = result.score > 0 ? "✓" : "✗";
     const duration = (result.durationMs / 1000).toFixed(2);
     console.log(
-      `  ${status} ${result.agent.padEnd(15)} - ${duration}s - Score: ${result.score.toFixed(1)}/10 - ${result.findings.length} findings`
+      `  ${status} ${result.agent.padEnd(15)} - ${duration}s - Score: ${result.score.toFixed(1)}/10 - ${result.findings.length} findings`,
     );
   });
 

@@ -1,6 +1,7 @@
-import { Glob } from "bun";
 import { readFileSync, statSync } from "fs";
 import { resolve, relative, join } from "path";
+
+import { Glob } from "bun";
 
 export interface FileContent {
   path: string;
@@ -130,7 +131,9 @@ export async function discoverFiles(targetPath: string): Promise<FileContent[]> 
       // Single file
       const language = detectLanguage(absolutePath);
       if (!language) {
-        throw new Error(`Unsupported file type: ${absolutePath}\nSupported extensions: ${SUPPORTED_EXTENSIONS.join(", ")}`);
+        throw new Error(
+          `Unsupported file type: ${absolutePath}\nSupported extensions: ${SUPPORTED_EXTENSIONS.join(", ")}`,
+        );
       }
 
       if (isBinaryFile(absolutePath)) {
@@ -196,7 +199,9 @@ export async function discoverFiles(targetPath: string): Promise<FileContent[]> 
     }
 
     if (files.length === 0) {
-      throw new Error(`No supported code files found in ${absolutePath}\nSupported extensions: ${SUPPORTED_EXTENSIONS.join(", ")}`);
+      throw new Error(
+        `No supported code files found in ${absolutePath}\nSupported extensions: ${SUPPORTED_EXTENSIONS.join(", ")}`,
+      );
     }
 
     return files;

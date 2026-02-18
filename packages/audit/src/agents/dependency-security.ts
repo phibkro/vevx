@@ -2,7 +2,7 @@ import type { FileContent } from "./types";
 import type { AgentDefinition, AgentResult, Finding } from "./types";
 
 const AGENT_NAME = "dependency-security";
-const WEIGHT = 0.00; // Disabled by default (limited effectiveness without CVE database)
+const WEIGHT = 0.0; // Disabled by default (limited effectiveness without CVE database)
 
 const SYSTEM_PROMPT = `You are a dependency security specialist analyzing package.json for vulnerable and outdated dependencies.
 
@@ -219,18 +219,14 @@ Return JSON only, no markdown, no explanatory text outside JSON:
 
 function createUserPrompt(files: FileContent[]): string {
   // Look for package.json
-  const packageJson = files.find((file) =>
-    file.relativePath.endsWith("package.json")
-  );
+  const packageJson = files.find((file) => file.relativePath.endsWith("package.json"));
 
   if (!packageJson) {
     return "No package.json found. Return score 10 with summary: 'No package.json to analyze for dependency security'";
   }
 
   const lines = packageJson.content.split("\n");
-  const numberedLines = lines
-    .map((line, index) => `${index + 1}→${line}`)
-    .join("\n");
+  const numberedLines = lines.map((line, index) => `${index + 1}→${line}`).join("\n");
 
   return `Analyze the following package.json for dependency security issues:\n\nFile: ${packageJson.relativePath}\n\n${numberedLines}\n\nReturn your analysis as JSON.`;
 }

@@ -1,6 +1,6 @@
-import { readFileSync, existsSync, writeFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync, existsSync, writeFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
 import {
   parseRuleset,
@@ -13,13 +13,13 @@ import {
   printDriftReport,
   generateDriftMarkdown,
   generateDriftJson,
-} from '@varp/audit';
-import { discoverFiles } from '@varp/audit/src/discovery';
-import { getChangedFiles, filterToChanged } from '@varp/audit/src/planner/diff-filter';
-import type { FileContent } from '@varp/audit';
-import type { AuditProgressEvent } from '@varp/audit';
-import { callClaude } from './claude-client';
+} from "@varp/audit";
+import type { FileContent } from "@varp/audit";
+import type { AuditProgressEvent } from "@varp/audit";
+import { discoverFiles } from "@varp/audit/src/discovery";
+import { getChangedFiles, filterToChanged } from "@varp/audit/src/planner/diff-filter";
 
+import { callClaude } from "./claude-client";
 
 // ── Arg parsing ──
 
@@ -28,7 +28,7 @@ export interface AuditArgs {
   ruleset: string;
   model?: string;
   concurrency?: number;
-  format?: 'text' | 'json' | 'markdown';
+  format?: "text" | "json" | "markdown";
   output?: string;
   quiet?: boolean;
   /** Git ref for incremental audit. When set, only audit changed files. */
@@ -42,10 +42,10 @@ export interface AuditArgs {
 export function parseAuditArgs(argv: string[]): AuditArgs {
   // argv: everything after "audit" subcommand
   let path: string | undefined;
-  let ruleset = 'owasp-top-10';
+  let ruleset = "owasp-top-10";
   let model: string | undefined;
   let concurrency: number | undefined;
-  let format: 'text' | 'json' | 'markdown' | undefined;
+  let format: "text" | "json" | "markdown" | undefined;
   let output: string | undefined;
   let quiet = false;
   let diff: string | undefined;
@@ -54,45 +54,47 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--baseline' && argv[i + 1]) {
+    if (arg === "--baseline" && argv[i + 1]) {
       baseline = argv[++i];
-    } else if (arg === '--budget' && argv[i + 1]) {
+    } else if (arg === "--budget" && argv[i + 1]) {
       budget = parseInt(argv[++i], 10);
       if (isNaN(budget) || budget <= 0) {
         throw new Error(`Invalid budget: must be a positive integer`);
       }
-    } else if (arg === '--diff') {
+    } else if (arg === "--diff") {
       // --diff with optional ref (default: HEAD)
       const next = argv[i + 1];
-      if (next && !next.startsWith('-')) {
+      if (next && !next.startsWith("-")) {
         diff = argv[++i];
       } else {
-        diff = 'HEAD';
+        diff = "HEAD";
       }
-    } else if (arg === '--ruleset' && argv[i + 1]) {
+    } else if (arg === "--ruleset" && argv[i + 1]) {
       ruleset = argv[++i];
-    } else if (arg === '--model' && argv[i + 1]) {
+    } else if (arg === "--model" && argv[i + 1]) {
       model = argv[++i];
-    } else if (arg === '--concurrency' && argv[i + 1]) {
+    } else if (arg === "--concurrency" && argv[i + 1]) {
       concurrency = parseInt(argv[++i], 10);
-    } else if (arg === '--format' && argv[i + 1]) {
+    } else if (arg === "--format" && argv[i + 1]) {
       const f = argv[++i];
-      if (f === 'text' || f === 'json' || f === 'markdown') {
+      if (f === "text" || f === "json" || f === "markdown") {
         format = f;
       } else {
         throw new Error(`Invalid format: ${f}. Must be text, json, or markdown`);
       }
-    } else if (arg === '--output' && argv[i + 1]) {
+    } else if (arg === "--output" && argv[i + 1]) {
       output = argv[++i];
-    } else if (arg === '--quiet') {
+    } else if (arg === "--quiet") {
       quiet = true;
-    } else if (!arg.startsWith('-') && !path) {
+    } else if (!arg.startsWith("-") && !path) {
       path = arg;
     }
   }
 
   if (!path) {
-    throw new Error('Path argument is required.\nUsage: varp audit <path> [--ruleset <name>] [--format text|json|markdown]');
+    throw new Error(
+      "Path argument is required.\nUsage: varp audit <path> [--ruleset <name>] [--format text|json|markdown]",
+    );
   }
 
   return { path, ruleset, model, concurrency, format, output, quiet, diff, budget, baseline };
@@ -103,35 +105,35 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
 function resolveRuleset(name: string): string {
   // 1. Check if it's a direct path
   if (existsSync(name)) {
-    return readFileSync(name, 'utf-8');
+    return readFileSync(name, "utf-8");
   }
 
   // 2. Check built-in rulesets
-  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../audit/rulesets');
+  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../audit/rulesets");
   const builtinPath = resolve(builtinDir, `${name}.md`);
   if (existsSync(builtinPath)) {
-    return readFileSync(builtinPath, 'utf-8');
+    return readFileSync(builtinPath, "utf-8");
   }
 
   // 3. Check relative to cwd
   const cwdPath = resolve(process.cwd(), name);
   if (existsSync(cwdPath)) {
-    return readFileSync(cwdPath, 'utf-8');
+    return readFileSync(cwdPath, "utf-8");
   }
 
   // 4. Try with .md extension
   const cwdPathMd = resolve(process.cwd(), `${name}.md`);
   if (existsSync(cwdPathMd)) {
-    return readFileSync(cwdPathMd, 'utf-8');
+    return readFileSync(cwdPathMd, "utf-8");
   }
 
   throw new Error(
     `Ruleset not found: ${name}\n` +
-    `Searched:\n` +
-    `  ${name} (direct path)\n` +
-    `  ${builtinPath} (built-in)\n` +
-    `  ${cwdPath} (relative)\n` +
-    `  ${cwdPathMd} (relative with .md)`
+      `Searched:\n` +
+      `  ${name} (direct path)\n` +
+      `  ${builtinPath} (built-in)\n` +
+      `  ${cwdPath} (relative)\n` +
+      `  ${cwdPathMd} (relative with .md)`,
   );
 }
 
@@ -146,10 +148,12 @@ function createAuditProgress(quiet: boolean) {
 
   return (event: AuditProgressEvent) => {
     switch (event.type) {
-      case 'plan-ready':
-        console.log(`\nAudit plan: ${event.plan.stats.totalTasks} tasks, ~${event.plan.stats.estimatedTokens.toLocaleString()} tokens`);
+      case "plan-ready":
+        console.log(
+          `\nAudit plan: ${event.plan.stats.totalTasks} tasks, ~${event.plan.stats.estimatedTokens.toLocaleString()} tokens`,
+        );
         break;
-      case 'wave-start':
+      case "wave-start":
         currentWave = event.wave;
         tasksInWave = event.taskCount;
         completedInWave = 0;
@@ -157,20 +161,24 @@ function createAuditProgress(quiet: boolean) {
           console.log(`\nWave ${event.wave}: ${event.taskCount} tasks`);
         }
         break;
-      case 'task-complete':
+      case "task-complete":
         completedInWave++;
         const findings = event.result.findings.length;
-        const findingsStr = findings > 0 ? ` (${findings} findings)` : '';
-        console.log(`  [${completedInWave}/${tasksInWave}] ${event.task.description}${findingsStr}`);
+        const findingsStr = findings > 0 ? ` (${findings} findings)` : "";
+        console.log(
+          `  [${completedInWave}/${tasksInWave}] ${event.task.description}${findingsStr}`,
+        );
         break;
-      case 'task-error':
+      case "task-error":
         completedInWave++;
-        console.error(`  [${completedInWave}/${tasksInWave}] FAILED: ${event.task.description} — ${event.error.message}`);
+        console.error(
+          `  [${completedInWave}/${tasksInWave}] FAILED: ${event.task.description} — ${event.error.message}`,
+        );
         break;
-      case 'task-skipped':
+      case "task-skipped":
         console.log(`  SKIPPED: ${event.task.description} (${event.reason})`);
         break;
-      case 'complete':
+      case "complete":
         console.log();
         break;
     }
@@ -195,7 +203,9 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
   const rulesetContent = resolveRuleset(args.ruleset);
   const ruleset = parseRuleset(rulesetContent);
   if (!args.quiet) {
-    console.log(`  ${ruleset.meta.framework} v${ruleset.meta.version} — ${ruleset.rules.length} rules, ${ruleset.crossCutting.length} cross-cutting patterns`);
+    console.log(
+      `  ${ruleset.meta.framework} v${ruleset.meta.version} — ${ruleset.rules.length} rules, ${ruleset.crossCutting.length} cross-cutting patterns`,
+    );
   }
 
   // Discover files
@@ -208,7 +218,7 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
   }
 
   // Convert discovered files to FileContent
-  let files: FileContent[] = discoveredFiles.map(f => ({
+  let files: FileContent[] = discoveredFiles.map((f) => ({
     path: f.path,
     relativePath: f.relativePath,
     content: f.content,
@@ -235,7 +245,7 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
   // Execute
   const report = await executeAuditPlan(plan, files, ruleset, {
     caller: callClaude,
-    model: args.model || 'claude-sonnet-4-5-20250929',
+    model: args.model || "claude-sonnet-4-5-20250929",
     concurrency: args.concurrency,
     onProgress: createAuditProgress(args.quiet ?? false),
     targetPath: validatedPath,
@@ -244,10 +254,10 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
   });
 
   // Output
-  const fmt = args.format || 'text';
-  if (fmt === 'json') {
+  const fmt = args.format || "text";
+  if (fmt === "json") {
     console.log(generateComplianceJson(report));
-  } else if (fmt === 'markdown') {
+  } else if (fmt === "markdown") {
     console.log(generateComplianceMarkdown(report));
   } else {
     printComplianceReport(report);
@@ -259,12 +269,12 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
     if (!existsSync(baselinePath)) {
       throw new Error(`Baseline report not found: ${baselinePath}`);
     }
-    const baselineReport = JSON.parse(readFileSync(baselinePath, 'utf-8'));
+    const baselineReport = JSON.parse(readFileSync(baselinePath, "utf-8"));
     const drift = diffReports(baselineReport, report);
 
-    if (fmt === 'json') {
+    if (fmt === "json") {
       console.log(generateDriftJson(drift));
-    } else if (fmt === 'markdown') {
+    } else if (fmt === "markdown") {
       console.log(generateDriftMarkdown(drift));
     } else {
       console.log(printDriftReport(drift));
@@ -274,14 +284,14 @@ export async function runAuditCommand(argv: string[]): Promise<void> {
   // Save to file
   if (args.output) {
     let content: string;
-    if (fmt === 'json') {
+    if (fmt === "json") {
       content = generateComplianceJson(report);
-    } else if (fmt === 'markdown') {
+    } else if (fmt === "markdown") {
       content = generateComplianceMarkdown(report);
     } else {
       content = generateComplianceMarkdown(report); // text saves as markdown
     }
-    writeFileSync(args.output, content, 'utf-8');
+    writeFileSync(args.output, content, "utf-8");
     if (!args.quiet) {
       console.log(`Report saved to: ${args.output}`);
     }

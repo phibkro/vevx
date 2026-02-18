@@ -31,6 +31,6 @@ export function formatJson(report: AuditReport): string {
       topRecommendations: report.topRecommendations,
     },
     null,
-    2
+    2,
   );
 }

@@ -1,5 +1,10 @@
 #!/usr/bin/env bun
 
+import { writeFileSync, readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+import { parseArgs } from "util";
+
 import {
   createChunks,
   formatChunkSummary,
@@ -9,10 +14,6 @@ import {
   generateMarkdown,
 } from "@varp/audit";
 import { discoverFiles } from "@varp/audit/src/discovery";
-import { writeFileSync, readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-import { parseArgs } from "util";
 
 import { runAuditCommand } from "./audit";
 import { login, logout } from "./auth";

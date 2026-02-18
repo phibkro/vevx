@@ -1,5 +1,5 @@
-import type { AuditReport } from "./synthesizer";
 import { agents } from "../agents/index";
+import type { AuditReport } from "./synthesizer";
 
 /**
  * Generate star rating visual for markdown (out of 10)
@@ -51,7 +51,9 @@ export function generateMarkdown(report: AuditReport): string {
   lines.push("");
   lines.push(`**Target:** \`${report.target}\``);
   lines.push(`**Date:** ${report.timestamp}`);
-  lines.push(`**Overall Score:** ${report.overallScore.toFixed(1)}/10 ${getStarRating(report.overallScore)}`);
+  lines.push(
+    `**Overall Score:** ${report.overallScore.toFixed(1)}/10 ${getStarRating(report.overallScore)}`,
+  );
   lines.push("");
   lines.push("---");
   lines.push("");
@@ -68,7 +70,7 @@ export function generateMarkdown(report: AuditReport): string {
     const status = getStatusEmoji(result.score);
 
     lines.push(
-      `| ${status} ${result.agent} | ${result.score.toFixed(1)}/10 | ${weight} | ${formatDuration(result.durationMs)} |`
+      `| ${status} ${result.agent} | ${result.score.toFixed(1)}/10 | ${weight} | ${formatDuration(result.durationMs)} |`,
     );
   });
 
