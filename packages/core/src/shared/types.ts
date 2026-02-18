@@ -426,6 +426,22 @@ export const WatchFreshnessResultSchema = z.object({
 export type FreshnessChange = z.infer<typeof FreshnessChangeSchema>;
 export type WatchFreshnessResult = z.infer<typeof WatchFreshnessResultSchema>;
 
+// ── Warm Staleness ──
+
+export const StaleComponentSchema = z.object({
+  component: z.string(),
+  source_last_modified: z.string(),
+});
+
+export const WarmStalenessResultSchema = z.object({
+  safe_to_resume: z.boolean(),
+  stale_components: z.array(StaleComponentSchema),
+  summary: z.string(),
+});
+
+export type StaleComponent = z.infer<typeof StaleComponentSchema>;
+export type WarmStalenessResult = z.infer<typeof WarmStalenessResultSchema>;
+
 // ── Execution Metrics ──
 
 export const ExecutionMetricsSchema = z.object({

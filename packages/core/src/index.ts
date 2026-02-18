@@ -7,7 +7,7 @@ import { z } from "zod";
 import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
 import { checkEnv } from "./manifest/env-check.js";
-import { checkFreshness } from "./manifest/freshness.js";
+import { checkFreshness, checkWarmStaleness } from "./manifest/freshness.js";
 import { invalidationCascade, validateDependencyGraph } from "./manifest/graph.js";
 import { scanImports } from "./manifest/imports.js";
 import { scanLinks, type LinkScanMode } from "./manifest/links.js";
@@ -387,6 +387,22 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path, since }) => {
       const manifest = parseManifest(manifest_path ?? "./varp.yaml");
       return watchFreshness(manifest, since);
+    },
+  },
+
+  // Warm Staleness
+  {
+    name: "varp_check_warm_staleness",
+    description:
+      "Check whether components have been modified since a warm agent was last active. Returns whether it is safe to resume the agent or if components are stale.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      components: z.array(z.string()).describe("Components the warm agent has context about"),
+      since: z.string().describe("ISO timestamp when the agent was last active"),
+    },
+    handler: async ({ manifest_path, components, since }) => {
+      const manifest = parseManifest(manifest_path ?? "./varp.yaml");
+      return checkWarmStaleness(manifest, components, new Date(since));
     },
   },
 ];

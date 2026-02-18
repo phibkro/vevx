@@ -6,7 +6,7 @@ Shared types, utilities, and test helpers used across all core domain components
 
 | Export | File | Purpose |
 |--------|------|---------|
-| Zod schemas + inferred types | `types.ts` | All domain types: manifest, plan, scheduler, enforcement |
+| Zod schemas + inferred types | `types.ts` | All domain types: manifest, plan, scheduler, enforcement, warm staleness |
 | `buildComponentPaths()` | `ownership.ts` | Builds sorted component path map from manifest |
 | `findOwningComponent()` | `ownership.ts` | Longest-prefix match to find which component owns a file |
 | `createTestManifest()` | `test-helpers.ts` | Factory for test fixture manifests |

@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, utimesSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import { checkFreshness, computeStaleness } from "./freshness.js";
+import { checkFreshness, checkWarmStaleness, computeStaleness } from "./freshness.js";
 
 const PROJECT_ROOT = resolve(import.meta.dir, "../..");
 const TMP_DIR = join(PROJECT_ROOT, "test-fixtures", "freshness-tmp");
@@ -120,5 +120,72 @@ describe("checkFreshness", () => {
       const result = computeStaleness(source, [{ path: "/comp/README.md", mtime: null }], "/comp");
       expect(result["README"].stale).toBe(true);
     });
+  });
+});
+
+describe("checkWarmStaleness", () => {
+  const WARM_TMP = join(PROJECT_ROOT, "test-fixtures", "warm-staleness-tmp");
+
+  beforeAll(() => {
+    // Create two components:
+    //   comp-a/source.ts — mtime: Jan 15 2026
+    //   comp-b/source.ts — mtime: Feb 10 2026
+    mkdirSync(join(WARM_TMP, "comp-a"), { recursive: true });
+    mkdirSync(join(WARM_TMP, "comp-b"), { recursive: true });
+    writeFileSync(join(WARM_TMP, "comp-a/source.ts"), "export const a = 1;");
+    writeFileSync(join(WARM_TMP, "comp-b/source.ts"), "export const b = 1;");
+    const timeA = new Date("2026-01-15T00:00:00Z");
+    utimesSync(join(WARM_TMP, "comp-a/source.ts"), timeA, timeA);
+    const timeB = new Date("2026-02-10T00:00:00Z");
+    utimesSync(join(WARM_TMP, "comp-b/source.ts"), timeB, timeB);
+  });
+
+  afterAll(() => {
+    try {
+      rmSync(WARM_TMP, { recursive: true });
+    } catch {}
+  });
+
+  const manifest = {
+    varp: "0.1.0",
+    components: {
+      "comp-a": { path: join(WARM_TMP, "comp-a"), docs: [] },
+      "comp-b": { path: join(WARM_TMP, "comp-b"), docs: [] },
+    },
+  };
+
+  test("returns safe_to_resume when no components modified since baseline", () => {
+    // Both components were modified before March 2026
+    const since = new Date("2026-03-01T00:00:00Z");
+    const result = checkWarmStaleness(manifest, ["comp-a", "comp-b"], since);
+    expect(result.safe_to_resume).toBe(true);
+    expect(result.stale_components).toEqual([]);
+    expect(result.summary).toBe("No changes detected");
+  });
+
+  test("detects stale components modified after baseline", () => {
+    // comp-a: Jan 15 (before baseline), comp-b: Feb 10 (after baseline)
+    const since = new Date("2026-02-01T00:00:00Z");
+    const result = checkWarmStaleness(manifest, ["comp-a", "comp-b"], since);
+    expect(result.safe_to_resume).toBe(false);
+    expect(result.stale_components).toHaveLength(1);
+    expect(result.stale_components[0].component).toBe("comp-b");
+    expect(result.summary).toContain("comp-b");
+  });
+
+  test("skips unknown components gracefully", () => {
+    const since = new Date("2026-03-01T00:00:00Z");
+    const result = checkWarmStaleness(manifest, ["comp-a", "nonexistent"], since);
+    expect(result.safe_to_resume).toBe(true);
+    expect(result.stale_components).toEqual([]);
+  });
+
+  test("reports multiple stale components", () => {
+    const since = new Date("2026-01-01T00:00:00Z");
+    const result = checkWarmStaleness(manifest, ["comp-a", "comp-b"], since);
+    expect(result.safe_to_resume).toBe(false);
+    expect(result.stale_components).toHaveLength(2);
+    expect(result.summary).toContain("comp-a");
+    expect(result.summary).toContain("comp-b");
   });
 });

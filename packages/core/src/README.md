@@ -45,6 +45,14 @@ Returns freshness status for all component docs — last modified timestamps, st
 
 **Returns:** `FreshnessReport`
 
+#### `varp_check_warm_staleness`
+
+Checks whether components have been modified since a warm agent was last active. Compares source file mtimes (excluding doc files) against a baseline timestamp for each requested component. Used by the orchestrator before resuming a warm agent to verify its cached context is still valid.
+
+**Parameters:** `{ manifest_path?: string, components: string[], since: string }`
+
+**Returns:** `WarmStalenessResult`
+
 ### Plan
 
 #### `varp_parse_plan`
@@ -465,6 +473,15 @@ interface FreshnessChange {
   became_stale: boolean
   source_modified: string
   doc_modified: string
+}
+
+interface WarmStalenessResult {
+  safe_to_resume: boolean              // true if no components were modified
+  stale_components: {
+    component: string
+    source_last_modified: string       // ISO timestamp
+  }[]
+  summary: string                      // human-readable for injection into agent prompt
 }
 
 interface ExecutionMetrics {

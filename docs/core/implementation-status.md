@@ -13,7 +13,7 @@ Current state of Varp relative to the design documents. Updated February 2026.
 
 ### MCP Tools by Category
 
-**Manifest:** `varp_read_manifest`, `varp_resolve_docs`, `varp_invalidation_cascade`, `varp_check_freshness`, `varp_scan_links`, `varp_infer_imports`, `varp_suggest_touches`, `varp_lint`, `varp_render_graph`, `varp_watch_freshness`
+**Manifest:** `varp_read_manifest`, `varp_resolve_docs`, `varp_invalidation_cascade`, `varp_check_freshness`, `varp_check_warm_staleness`, `varp_scan_links`, `varp_infer_imports`, `varp_suggest_touches`, `varp_lint`, `varp_render_graph`, `varp_watch_freshness`
 
 **Scheduler:** `varp_compute_waves`, `varp_detect_hazards`, `varp_compute_critical_path`
 
@@ -81,7 +81,7 @@ Design doc specified per-task token/time budgets enforced at runtime. Dropped en
 | Prompt caching integration | 3.4 | Deferred | Requires Anthropic SDK cache breakpoint API |
 | Batch API for verification | 3.4 | Deferred | Optimization, not blocking |
 | ~~Budget enforcement at runtime~~ | 2.2 | Dropped | Reframed as observability metrics — see [ADR-001](../decisions/adr-001-budget-observability.md) |
-| Warm agent staleness detection | 7.7 | Open | Skills document the protocol, no automated check |
+| Warm agent staleness detection | 7.7 | Implemented | `varp_check_warm_staleness` tool checks component mtimes against baseline |
 | Medium loop UX | 7.1 | Partial | `/varp:review` skill exists but UX is underspecified |
 | Decision authority matrix | 7.3 | Open | Escalation thresholds need empirical tuning |
 

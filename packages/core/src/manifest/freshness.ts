@@ -1,13 +1,18 @@
 import { statSync, readdirSync } from "node:fs";
 import { join, relative, basename } from "node:path";
 
-import { componentPaths, type Manifest, type FreshnessReport } from "#shared/types.js";
+import {
+  componentPaths,
+  type Manifest,
+  type FreshnessReport,
+  type WarmStalenessResult,
+} from "#shared/types.js";
 
 import { discoverDocs } from "./discovery.js";
 
 // ── I/O helpers ──
 
-function getLatestMtime(dirPath: string, excludePaths?: Set<string>): Date | null {
+export function getLatestMtime(dirPath: string, excludePaths?: Set<string>): Date | null {
   try {
     const entries = readdirSync(dirPath, {
       withFileTypes: true,
@@ -109,4 +114,43 @@ export function checkFreshness(manifest: Manifest): FreshnessReport {
   }
 
   return { components };
+}
+
+/** Check whether components have been modified since a baseline timestamp. */
+export function checkWarmStaleness(
+  manifest: Manifest,
+  components: string[],
+  since: Date,
+): WarmStalenessResult {
+  const stale_components: WarmStalenessResult["stale_components"] = [];
+
+  for (const name of components) {
+    const component = manifest.components[name];
+    if (!component) continue;
+
+    const docPathSet = new Set(discoverDocs(component));
+    const paths = componentPaths(component);
+
+    let sourceMtime: Date | null = null;
+    for (const p of paths) {
+      const mtime = getLatestMtime(p, docPathSet);
+      if (mtime && (!sourceMtime || mtime > sourceMtime)) {
+        sourceMtime = mtime;
+      }
+    }
+
+    if (sourceMtime && sourceMtime > since) {
+      stale_components.push({
+        component: name,
+        source_last_modified: sourceMtime.toISOString(),
+      });
+    }
+  }
+
+  const safe_to_resume = stale_components.length === 0;
+  const summary = safe_to_resume
+    ? "No changes detected"
+    : `Components ${stale_components.map((s) => s.component).join(", ")} modified since last dispatch`;
+
+  return { safe_to_resume, stale_components, summary };
 }

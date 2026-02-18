@@ -149,6 +149,10 @@ Use the output to scaffold `varp.yaml` components with `path: [...]` arrays.
 
 `varp_render_graph` generates Mermaid diagram syntax from the manifest dependency graph. Nodes are annotated with stability badges when set. Useful for visualizing project structure during init or status reporting.
 
+## Warm Staleness
+
+`varp_check_warm_staleness` checks whether components have been modified since a warm agent was last dispatched. For each requested component, it gets the latest source file mtime (excluding doc files, same exclusion set as freshness) and compares against the baseline timestamp. Components whose source was modified after the baseline are reported as stale. Returns `safe_to_resume`, the list of stale components, and a human-readable `summary` suitable for injection into a resumed agent's prompt.
+
 ## Watch Freshness
 
 `varp_watch_freshness` wraps `varp_check_freshness` with timestamp-based filtering. On first call (no `since`), returns all stale docs as the initial snapshot. On subsequent calls, pass the previous `snapshot_time` as `since` to get only changes since the baseline. Returns `total_stale` count for quick polling.

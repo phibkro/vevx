@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -84,12 +84,13 @@ describe("MCP server integration", () => {
     } catch {}
   });
 
-  test("lists all 22 tools", async () => {
+  test("lists all 23 tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "varp_check_env",
       "varp_check_freshness",
+      "varp_check_warm_staleness",
       "varp_compute_critical_path",
       "varp_compute_waves",
       "varp_derive_restart_strategy",
@@ -751,5 +752,53 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data.changes).toEqual([]);
+  });
+
+  // ── Warm Staleness ──
+
+  test("varp_check_warm_staleness returns safe when no changes since baseline", async () => {
+    const result = await client.callTool({
+      name: "varp_check_warm_staleness",
+      arguments: {
+        manifest_path: MANIFEST_PATH,
+        components: ["auth", "api"],
+        since: "2099-01-01T00:00:00Z",
+      },
+    });
+    const data = parseResult(result);
+    expect(data.safe_to_resume).toBe(true);
+    expect(data.stale_components).toEqual([]);
+    expect(data.summary).toBe("No changes detected");
+  });
+
+  test("varp_check_warm_staleness detects stale components", async () => {
+    // Create temp fixture with controlled mtimes
+    const tmpDir = join("/tmp/claude", "warm-staleness-integration");
+    rmSync(tmpDir, { recursive: true, force: true });
+    mkdirSync(join(tmpDir, "comp-a"), { recursive: true });
+    writeFileSync(join(tmpDir, "comp-a/source.ts"), "export const a = 1;");
+    const sourceTime = new Date("2026-02-15T00:00:00Z");
+    utimesSync(join(tmpDir, "comp-a/source.ts"), sourceTime, sourceTime);
+
+    const manifestPath = join(tmpDir, "varp.yaml");
+    writeFileSync(manifestPath, `varp: "0.1.0"\ncomp-a:\n  path: ./comp-a\n  docs: []\n`);
+
+    try {
+      const result = await client.callTool({
+        name: "varp_check_warm_staleness",
+        arguments: {
+          manifest_path: manifestPath,
+          components: ["comp-a"],
+          since: "2026-01-01T00:00:00Z",
+        },
+      });
+      const data = parseResult(result);
+      expect(data.safe_to_resume).toBe(false);
+      expect(data.stale_components).toHaveLength(1);
+      expect(data.stale_components[0].component).toBe("comp-a");
+      expect(data.summary).toContain("comp-a");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

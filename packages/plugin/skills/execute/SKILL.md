@@ -25,7 +25,7 @@ Classify the plan based on its scope shape, then follow the corresponding protoc
 - Skip wave computation entirely — tasks are inherently sequential
 - Orchestrator dispatches one subagent at a time
 - Subagent gets the full component scope (all docs)
-- Use warm agent resumption for consecutive tasks on the same component
+- Before resuming a warm agent, call `varp_check_warm_staleness` with the agent's component scope and last-active timestamp. If `safe_to_resume` is false, either start cold or inject the `summary` into the resumed agent's prompt as a staleness warning
 
 **Sequential multi-scope** — tasks write to different components but have RAW dependencies that prevent parallelism.
 - Call `varp_compute_waves` — expect single-task waves

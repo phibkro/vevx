@@ -24,7 +24,7 @@ src/
     touches.ts                Suggest touches declarations from file paths + import deps
     parser.ts                 Flat YAML -> Manifest (path resolution)
     resolver.ts               Touches x discovery -> doc paths with visibility
-    freshness.ts              mtime comparison per component (uses discovery)
+    freshness.ts              mtime comparison per component + warm agent staleness check (uses discovery)
     graph.ts                  Reverse-dep BFS, Kahn's cycle detection
     env-check.ts              Check required env vars for components (set vs missing)
     lint.ts                   Aggregate health checks (imports, links, freshness, stability)
@@ -137,8 +137,8 @@ varp.yaml --> parseManifest() --> Manifest
                                     |
                     +---------------+----------------+
                     v               v                v
-              resolveDocs()   checkFreshness()   invalidationCascade()
-              (Touches->Docs) (mtime compare)    (reverse BFS)
+              resolveDocs()   checkFreshness()   invalidationCascade()   checkWarmStaleness()
+              (Touches->Docs) (mtime compare)    (reverse BFS)           (agent resume check)
 
 plan.xml --> parsePlanXml() --> Plan
                                   |
@@ -189,6 +189,8 @@ Results are deduplicated by path and returned as a flat array with `{ component,
 Compares doc file mtime against the latest mtime of any non-doc file in the component's source directory (recursive scan via `readdirSync({ recursive: true })`). Doc files (discovered via `discoverDocs()`) are excluded from the source mtime scan to prevent a race condition where editing a doc to fix staleness would inflate `source_last_modified` and make sibling docs appear stale. A doc is stale when its mtime is more than 5 seconds behind the source mtime — this threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other. Missing files are reported as `"N/A"` timestamps with `stale: true`.
 
 Uses `(entry as any).parentPath` to handle Bun/Node compatibility for `Dirent.parentPath` (added in Node 20.12).
+
+`checkWarmStaleness()` reuses the same `getLatestMtime()` helper (now exported) and `discoverDocs()` exclusion set. For each requested component, it compares the source mtime against a baseline timestamp. Components modified after the baseline are stale. Returns `{ safe_to_resume, stale_components, summary }` — the orchestrator calls this before resuming a warm agent.
 
 ## Testing
 
