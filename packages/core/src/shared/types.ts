@@ -126,9 +126,17 @@ export type Plan = z.infer<typeof PlanSchema>;
 
 // ── Scheduler ──
 
+export const TaskDefinitionSchema = z.object({
+  id: z.string(),
+  touches: TouchesSchema,
+  mutexes: z.array(z.string()).optional(),
+});
+
+export type TaskDefinition = z.infer<typeof TaskDefinitionSchema>;
+
 export const WaveSchema = z.object({
   id: z.number(),
-  tasks: z.array(TaskSchema),
+  tasks: z.array(TaskDefinitionSchema),
 });
 
 export const HazardSchema = z.object({
@@ -283,6 +291,17 @@ export type CoChangeGraph = z.infer<typeof CoChangeGraphSchema>;
 export type CouplingClassification = z.infer<typeof CouplingClassificationSchema>;
 export type CouplingEntry = z.infer<typeof CouplingEntrySchema>;
 export type CouplingMatrix = z.infer<typeof CouplingMatrixSchema>;
+
+// ── Codebase Graph ──
+
+export const CodebaseGraphSchema = z.object({
+  manifest: ManifestSchema,
+  coChange: CoChangeGraphSchema,
+  imports: ImportScanResultSchema,
+  coupling: CouplingMatrixSchema.optional(),
+});
+
+export type CodebaseGraph = z.infer<typeof CodebaseGraphSchema>;
 
 // ── Validation ──
 
