@@ -56,9 +56,9 @@ There is no `name` field, no `components:` wrapper. The YAML is flat: `varp` is 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `path` | string \| string[] | yes | Directory path(s) for source files. A single string or array of strings. Relative paths resolved from manifest directory. |
-| `deps` | string[] | no | Component names this component depends on. Structural dependencies — "this component consumes that component's interface." |
+| `deps` | string[] | no | Component names or tags this component depends on. A tag entry expands to all components with that tag (excluding self). Structural dependencies — "this component consumes that component's interface." |
 | `docs` | string[] | no | Additional doc paths beyond auto-discovered ones (defaults to `[]`). Only needed for docs outside the component's path. Relative paths resolved from manifest directory. |
-| `tags` | string[] | no | Freeform labels for filtering and grouping (e.g. `[security, api-boundary]`). |
+| `tags` | string[] | no | Labels for grouping — usable in `deps` and MCP tool parameters as non-terminals that expand to all tagged components (e.g. `[core, security]`). |
 | `test` | string | no | Custom test command. When set, `varp_scoped_tests` uses this instead of auto-discovering `*.test.ts` files. |
 | `env` | string[] | no | Environment variables the component requires at runtime (e.g. `[DATABASE_URL]`). Informational — not enforced. |
 | `stability` | `"stable"` \| `"active"` \| `"experimental"` | no | Component maturity level. Helps the planner gauge change risk. |
@@ -99,7 +99,19 @@ The MCP tools perform this resolution at parse time — callers always receive a
 
 ## Dependencies
 
-`deps` declares architectural dependencies between components. These are behavioral relationships ("web consumes auth's interface"), not package dependencies.
+`deps` declares architectural dependencies between components. These are behavioral relationships ("web consumes auth's interface"), not package dependencies. Each entry can be a component name or a tag:
+
+- **Component name** (exact match) — depends on that specific component
+- **Tag** — expands to all components with that tag (excluding self). If a component name and tag share the same name, the component name wins.
+
+Tag expansion happens at parse time — downstream tools always see resolved component names. The same expansion applies to MCP tool parameters that accept component names (`reads`, `writes`, `components`, `changed`) via `resolveComponentRefs`. See `docs/tag-expansion-design.md` for the full design.
+
+```yaml
+# Instead of enumerating every core component:
+cli:
+  path: ./packages/cli/src
+  deps: [core]  # expands to all components tagged "core"
+```
 
 Dependencies serve three purposes:
 
@@ -116,7 +128,7 @@ The manifest is validated at parse time by Zod schemas. Validation errors includ
 - Missing `varp` key
 - Wrong types (e.g. `deps` not an array, `docs` not an array of strings)
 - Dependency cycles (detected via Kahn's algorithm)
-- References to unknown components in `deps`
+- References to unknown components or tags in `deps`
 
 Use `varp_read_manifest` to parse and validate. The response includes `dependency_graph_valid: true|false` and any detected cycles.
 
@@ -173,7 +185,7 @@ Acks are stored in `.varp/freshness.json` in the manifest directory — a sideca
 
 **Parameters:** `{ manifest_path?: string, components: string[], doc?: string }`
 
-- `components` — component names whose docs to acknowledge
+- `components` — component names or tags whose docs to acknowledge
 - `doc` — optional doc key (e.g. `"README"`) to ack a specific doc; omit to ack all docs for the listed components
 
 **Returns:** `{ acked: string[] }` — absolute paths of acknowledged docs

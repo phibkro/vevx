@@ -65,9 +65,9 @@ Only `path` is required. See [Manifest Schema](packages/core/src/manifest/README
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `path` | string | yes | Component source directory |
-| `deps` | string[] | no | Components this one depends on |
+| `deps` | string[] | no | Components or tags this one depends on |
 | `docs` | string[] | no | Doc paths outside the component's directory |
-| `tags` | string[] | no | Freeform labels for filtering and grouping |
+| `tags` | string[] | no | Labels for grouping — usable in `deps` and tool parameters |
 | `test` | string | no | Custom test command (overrides `*.test.ts` discovery) |
 | `env` | string[] | no | Required environment variables (informational) |
 | `stability` | enum | no | `stable`, `active`, or `experimental` |

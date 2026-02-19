@@ -42,7 +42,7 @@ Given a task's `touches` declaration, returns the doc paths to load based on the
 
 This is the core context resolution logic — it ensures each task gets exactly the information it needs.
 
-**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[] }`
+**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[] }` — `reads`/`writes` accept component names or tags.
 
 **Returns:** `ResolvedDocs`
 
@@ -50,7 +50,7 @@ This is the core context resolution logic — it ensures each task gets exactly 
 
 Given a list of components whose docs changed, walks `deps` to return all transitively affected components. Used by the orchestrator after task completion to flag stale contexts.
 
-**Parameters:** `{ manifest_path?: string, changed: string[] }`
+**Parameters:** `{ manifest_path?: string, changed: string[] }` — `changed` accepts component names or tags.
 
 **Returns:** `string[]`
 
@@ -66,7 +66,7 @@ Returns freshness status for all component docs — last modified timestamps, st
 
 Acknowledges component docs as reviewed and still accurate. Records the current timestamp in `.varp/freshness.json` so docs are no longer flagged stale until source changes again. Use after internal refactors that don't affect documented behavior.
 
-**Parameters:** `{ manifest_path?: string, components: string[], doc?: string }`
+**Parameters:** `{ manifest_path?: string, components: string[], doc?: string }` — `components` accepts component names or tags.
 
 **Returns:** `{ acked: string[] }`
 
@@ -74,7 +74,7 @@ Acknowledges component docs as reviewed and still accurate. Records the current 
 
 Checks whether components have been modified since a warm agent was last active. Compares source file mtimes (excluding doc files) against a baseline timestamp for each requested component. Used by the orchestrator before resuming a warm agent to verify its cached context is still valid.
 
-**Parameters:** `{ manifest_path?: string, components: string[], since: string }`
+**Parameters:** `{ manifest_path?: string, components: string[], since: string }` — `components` accepts component names or tags.
 
 **Returns:** `WarmStalenessResult`
 
@@ -249,7 +249,7 @@ Checks freshness and returns changes since a given baseline timestamp. Only retu
 
 Checks environment variables required by a set of components. Collects `env` fields from the named components, deduplicates, and checks which are set vs missing in the current process environment.
 
-**Parameters:** `{ manifest_path?: string, components: string[] }`
+**Parameters:** `{ manifest_path?: string, components: string[] }` — `components` accepts component names or tags.
 
 **Returns:** `EnvCheckResult`
 
@@ -261,7 +261,7 @@ After a subagent completes, verifies that actual file modifications fall within 
 
 Used at orchestrator step 8 — before merge, not after.
 
-**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[], diff_paths: string[] }`
+**Parameters:** `{ manifest_path?: string, reads?: string[], writes?: string[], diff_paths: string[] }` — `reads`/`writes` accept component names or tags.
 
 **Returns:** `CapabilityReport`
 
