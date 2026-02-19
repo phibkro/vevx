@@ -1,33 +1,61 @@
-import { readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { basename, join } from "node:path";
 
 import type { SuggestedComponent, SuggestComponentsResult } from "#shared/types.js";
 
-// ── Constants ──
+// ── Detection Config ──
 
-const DEFAULT_LAYER_NAMES = new Set([
-  "controllers",
-  "services",
-  "repositories",
-  "handlers",
-  "models",
-  "routes",
-  "middleware",
-  "providers",
-]);
+/**
+ * Declarative configuration for component detection conventions.
+ * Each field documents a category of heuristic used by `suggestComponents`.
+ */
+export interface DetectionConfig {
+  /** Directories whose subdirectories are treated as components (e.g. "packages", "apps"). */
+  containerDirs: string[];
+  /** Subdirectories that indicate their parent directory is a component (e.g. "src", "app"). */
+  indicatorDirs: string[];
+  /** Conventional layer directory names for MVC-style detection. */
+  layerDirs: string[];
+  /** File suffixes stripped when extracting name stems (e.g. ".controller"). */
+  suffixes: string[];
+  /** File extensions considered as source code. */
+  codeExtensions: string[];
+}
 
-const DEFAULT_SUFFIXES = [
-  ".controller",
-  ".service",
-  ".repository",
-  ".model",
-  ".handler",
-  ".route",
-  ".middleware",
-  ".provider",
-];
-
-const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
+export const DEFAULT_DETECTION_CONFIG: DetectionConfig = {
+  containerDirs: ["packages", "apps", "modules", "libs"],
+  indicatorDirs: ["src", "app", "lib", "test", "tests", "node_modules"],
+  layerDirs: [
+    "controllers",
+    "services",
+    "repositories",
+    "handlers",
+    "models",
+    "routes",
+    "middleware",
+    "providers",
+    "resolvers",
+    "validators",
+    "schemas",
+    "entities",
+    "components",
+    "pages",
+    "api",
+    "hooks",
+    "utils",
+  ],
+  suffixes: [
+    ".controller",
+    ".service",
+    ".repository",
+    ".model",
+    ".handler",
+    ".route",
+    ".middleware",
+    ".provider",
+  ],
+  codeExtensions: [".ts", ".tsx", ".js", ".jsx"],
+};
 
 // ── Types ──
 
@@ -46,9 +74,14 @@ export interface StemEntry {
  * Strip a known suffix + file extension to extract the name stem.
  * Returns null if the file has no code extension.
  */
-export function extractStem(filename: string, suffixes: string[]): string | null {
+export function extractStem(
+  filename: string,
+  suffixes: string[],
+  config: DetectionConfig = DEFAULT_DETECTION_CONFIG,
+): string | null {
+  const codeExts = new Set(config.codeExtensions);
   // Find the code extension
-  const ext = CODE_EXTENSIONS.has(getExtension(filename)) ? getExtension(filename) : null;
+  const ext = codeExts.has(getExtension(filename)) ? getExtension(filename) : null;
   if (!ext) return null;
 
   const withoutExt = filename.slice(0, -ext.length);
@@ -104,17 +137,223 @@ export function clusterByNameStem(entries: StemEntry[]): SuggestedComponent[] {
   return results.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// ── Monorepo / Package Detection ──
+
+/**
+ * Read and parse package.json from a directory.
+ * Returns null if the file doesn't exist or isn't valid JSON.
+ */
+function readPackageJson(dir: string): Record<string, unknown> | null {
+  const pkgPath = join(dir, "package.json");
+  try {
+    return JSON.parse(readFileSync(pkgPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve workspace glob patterns to directories containing package.json.
+ * Handles both npm/bun (`workspaces: ["packages/*"]`) and
+ * yarn (`workspaces: { packages: ["packages/*"] }`) formats.
+ */
+export function resolveWorkspacePatterns(rootDir: string, workspaces: unknown): string[] {
+  let patterns: string[];
+
+  if (Array.isArray(workspaces)) {
+    patterns = workspaces.filter((w): w is string => typeof w === "string");
+  } else if (
+    typeof workspaces === "object" &&
+    workspaces !== null &&
+    "packages" in workspaces &&
+    Array.isArray((workspaces as Record<string, unknown>).packages)
+  ) {
+    patterns = (workspaces as { packages: unknown[] }).packages.filter(
+      (w): w is string => typeof w === "string",
+    );
+  } else {
+    return [];
+  }
+
+  const dirs: string[] = [];
+
+  for (const pattern of patterns) {
+    // Handle simple glob: "packages/*" → list children of "packages/"
+    if (pattern.endsWith("/*")) {
+      const parentDir = join(rootDir, pattern.slice(0, -2));
+      try {
+        const entries = readdirSync(parentDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory() && existsSync(join(parentDir, entry.name, "package.json"))) {
+            dirs.push(join(pattern.slice(0, -2), entry.name));
+          }
+        }
+      } catch {
+        // Parent doesn't exist, skip
+      }
+    } else {
+      // Literal path
+      if (existsSync(join(rootDir, pattern, "package.json"))) {
+        dirs.push(pattern);
+      }
+    }
+  }
+
+  return dirs.sort();
+}
+
+/**
+ * Detect workspace packages from root package.json.
+ * Returns one component per workspace package, using the npm package name
+ * (stripped of scope) as the component name.
+ */
+export function detectWorkspacePackages(rootDir: string): SuggestedComponent[] {
+  const rootPkg = readPackageJson(rootDir);
+  if (!rootPkg || !rootPkg.workspaces) return [];
+
+  const packageDirs = resolveWorkspacePatterns(rootDir, rootPkg.workspaces);
+  const components: SuggestedComponent[] = [];
+
+  for (const relDir of packageDirs) {
+    const pkg = readPackageJson(join(rootDir, relDir));
+    const pkgName = typeof pkg?.name === "string" ? pkg.name : null;
+
+    // Strip npm scope: "@varp/core" → "core"
+    const name = pkgName ? pkgName.replace(/^@[^/]+\//, "") : basename(relDir);
+
+    components.push({
+      name,
+      path: [relDir],
+      evidence: [{ stem: pkgName ?? relDir, files: [] }],
+    });
+  }
+
+  return components.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Detect components from common container directories (packages/, apps/, etc.)
+ * without requiring a workspaces field in package.json.
+ * Each subdirectory that contains source files or a package.json becomes a component.
+ */
+export function detectContainerComponents(
+  rootDir: string,
+  config: DetectionConfig = DEFAULT_DETECTION_CONFIG,
+): SuggestedComponent[] {
+  const containerNames = new Set(config.containerDirs);
+  const components: SuggestedComponent[] = [];
+
+  let topEntries: string[];
+  try {
+    topEntries = readdirSync(rootDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && containerNames.has(e.name))
+      .map((e) => e.name);
+  } catch {
+    return [];
+  }
+
+  for (const containerDir of topEntries) {
+    const containerPath = join(rootDir, containerDir);
+    let subdirs: string[];
+    try {
+      subdirs = readdirSync(containerPath, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name);
+    } catch {
+      continue;
+    }
+
+    for (const subdir of subdirs) {
+      const fullPath = join(containerPath, subdir);
+      const hasPkg = existsSync(join(fullPath, "package.json"));
+      const hasSrc = existsSync(join(fullPath, "src"));
+      const hasCode = !hasPkg && !hasSrc && listCodeFiles(fullPath).length > 0;
+
+      if (hasPkg || hasSrc || hasCode) {
+        components.push({
+          name: subdir,
+          path: [join(containerDir, subdir)],
+          evidence: [{ stem: `${containerDir}/${subdir}`, files: [] }],
+        });
+      }
+    }
+  }
+
+  return components.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Detect components by finding directories that contain indicator subdirectories
+ * (src/, app/, lib/, test/, tests/). The parent directory name becomes the component name.
+ * Skips container dirs (already handled) and dotdirs/node_modules.
+ */
+export function detectSrcComponents(
+  rootDir: string,
+  config: DetectionConfig = DEFAULT_DETECTION_CONFIG,
+): SuggestedComponent[] {
+  const containerNames = new Set(config.containerDirs);
+  const indicatorNames = new Set(config.indicatorDirs);
+  const components: SuggestedComponent[] = [];
+
+  let topEntries: string[];
+  try {
+    topEntries = readdirSync(rootDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    return [];
+  }
+
+  for (const dir of topEntries) {
+    if (containerNames.has(dir)) continue; // Already handled by container detection
+    if (dir.startsWith(".") || dir === "node_modules") continue;
+
+    // Check if this dir contains any indicator subdirectory
+    let subdirs: string[];
+    try {
+      subdirs = readdirSync(join(rootDir, dir), { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name);
+    } catch {
+      continue;
+    }
+
+    const indicators = subdirs.filter((s) => indicatorNames.has(s));
+    if (indicators.length > 0) {
+      // Use the first indicator dir for evidence (prefer src > app > lib)
+      const evidenceDir = indicators.includes("src")
+        ? "src"
+        : indicators.includes("app")
+          ? "app"
+          : indicators[0];
+      components.push({
+        name: dir,
+        path: [dir],
+        evidence: [
+          { stem: `${dir}/${evidenceDir}`, files: listCodeFiles(join(rootDir, dir, evidenceDir)) },
+        ],
+      });
+    }
+  }
+
+  return components.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // ── Effectful Functions ──
 
 /**
  * Detect conventional layer directories within rootDir.
  * Returns relative directory names that match known layer conventions.
  */
-export function detectLayerDirs(rootDir: string): string[] {
+export function detectLayerDirs(
+  rootDir: string,
+  config: DetectionConfig = DEFAULT_DETECTION_CONFIG,
+): string[] {
+  const layerNames = new Set(config.layerDirs);
   try {
     const entries = readdirSync(rootDir, { withFileTypes: true });
     return entries
-      .filter((e) => e.isDirectory() && DEFAULT_LAYER_NAMES.has(e.name))
+      .filter((e) => e.isDirectory() && layerNames.has(e.name))
       .map((e) => e.name)
       .sort();
   } catch {
@@ -129,8 +368,9 @@ export function detectLayerDirs(rootDir: string): string[] {
 export function detectDomainDirs(
   rootDir: string,
   layerNames?: Set<string>,
+  config: DetectionConfig = DEFAULT_DETECTION_CONFIG,
 ): { name: string; layers: string[] }[] {
-  const layers = layerNames ?? DEFAULT_LAYER_NAMES;
+  const layers = layerNames ?? new Set(config.layerDirs);
   const results: { name: string; layers: string[] }[] = [];
 
   let topDirs: string[];
@@ -192,11 +432,31 @@ export function suggestComponentsFromDomains(
 }
 
 /**
- * Scan a project's layer directories to suggest multi-path component groupings.
+ * Merge component arrays with dedup by name. Earlier arrays take priority.
+ */
+function mergeComponents(...sources: SuggestedComponent[][]): SuggestedComponent[] {
+  const seen = new Set<string>();
+  const merged: SuggestedComponent[] = [];
+
+  for (const components of sources) {
+    for (const comp of components) {
+      if (!seen.has(comp.name)) {
+        seen.add(comp.name);
+        merged.push(comp);
+      }
+    }
+  }
+
+  return merged.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Scan a project to suggest component groupings.
  * Supports three modes:
  * - "layers": files organized by layer dirs at root (controllers/, services/)
  * - "domains": domain dirs at root containing layer subdirs (auth/controllers/, auth/services/)
- * - "auto": run both and merge results (dedup by name)
+ * - "auto": run all strategies and merge (dedup by name, highest-confidence first):
+ *   workspace packages > container dirs > src-parent > layers > domains
  */
 export function suggestComponents(
   rootDir: string,
@@ -214,24 +474,19 @@ export function suggestComponents(
     return layerResult;
   }
 
-  // auto: merge both
+  // auto: run all strategies, highest confidence first
+  const workspaceComponents = detectWorkspacePackages(rootDir);
+  const containerComponents = detectContainerComponents(rootDir);
+  const srcComponents = detectSrcComponents(rootDir);
   const domainResult = suggestComponentsFromDomains(rootDir);
 
-  const seen = new Set<string>();
-  const merged: SuggestedComponent[] = [];
-
-  // Layer results take priority
-  for (const comp of layerResult.components) {
-    seen.add(comp.name);
-    merged.push(comp);
-  }
-  for (const comp of domainResult.components) {
-    if (!seen.has(comp.name)) {
-      merged.push(comp);
-    }
-  }
-
-  merged.sort((a, b) => a.name.localeCompare(b.name));
+  const merged = mergeComponents(
+    workspaceComponents,
+    containerComponents,
+    srcComponents,
+    layerResult.components,
+    domainResult.components,
+  );
 
   const allLayerDirs = new Set([
     ...layerResult.layer_dirs_scanned,
@@ -247,9 +502,10 @@ export function suggestComponents(
 function suggestComponentsFromLayers(
   rootDir: string,
   opts?: { layerDirs?: string[]; suffixes?: string[] },
+  config: DetectionConfig = DEFAULT_DETECTION_CONFIG,
 ): SuggestComponentsResult {
-  const suffixes = opts?.suffixes ?? DEFAULT_SUFFIXES;
-  const layerDirs = opts?.layerDirs ?? detectLayerDirs(rootDir);
+  const suffixes = opts?.suffixes ?? config.suffixes;
+  const layerDirs = opts?.layerDirs ?? detectLayerDirs(rootDir, config);
 
   const stemEntries: StemEntry[] = [];
 
@@ -283,11 +539,15 @@ function suggestComponentsFromLayers(
 }
 
 /** List code files in a directory (non-recursive). */
-function listCodeFiles(dirPath: string): string[] {
+function listCodeFiles(
+  dirPath: string,
+  config: DetectionConfig = DEFAULT_DETECTION_CONFIG,
+): string[] {
+  const codeExts = new Set(config.codeExtensions);
   try {
     return readdirSync(dirPath).filter((name) => {
       const ext = getExtension(name);
-      return CODE_EXTENSIONS.has(ext);
+      return codeExts.has(ext);
     });
   } catch {
     return [];

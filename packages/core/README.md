@@ -187,10 +187,15 @@ Given file paths that will be modified, suggests a `touches` declaration using o
 
 #### `varp_suggest_components`
 
-Analyzes a project directory to suggest multi-path component groupings. Supports three detection modes:
-- **layers**: Scans layer directories (controllers, services, etc.) for files with common name stems across 2+ layers
-- **domains**: Scans for domain directories containing 2+ layer subdirectories (e.g. `auth/controllers/`, `auth/services/`)
-- **auto** (default): Runs both modes and merges results, deduplicating by name (layer results take priority)
+Analyzes a project directory to suggest component groupings. In **auto** mode (default), runs five detection strategies in priority order, deduplicating by name:
+
+1. **Workspace packages** (highest confidence): Parses `package.json` `workspaces` field, one component per package
+2. **Container dirs**: Scans `packages/`, `apps/`, `modules/`, `libs/` for subdirectories with source files
+3. **Indicator dirs**: Directories containing `src/`, `app/`, `lib/`, `test/`, `tests/`, or `node_modules/` are treated as components
+4. **Layers**: Scans layer directories (controllers, services, etc.) for files with common name stems across 2+ layers
+5. **Domains**: Scans for domain directories containing 2+ layer subdirectories (e.g. `auth/controllers/`, `auth/services/`)
+
+Detection conventions are defined in `DEFAULT_DETECTION_CONFIG` (inspectable via `varp conventions`).
 
 **Parameters:** `{ root_dir: string, layer_dirs?: string[], suffixes?: string[], mode?: "layers" | "domains" | "auto" }`
 

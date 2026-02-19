@@ -63,4 +63,5 @@ audit:
 
 cli:
   path: ./packages/cli/src
+  deps: [core]
   stability: experimental

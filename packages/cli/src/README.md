@@ -12,6 +12,7 @@ Deterministic manifest tooling. Each subcommand wraps a `@varp/core/lib` functio
 | `freshness.ts` | `varp freshness` | `checkFreshness()` |
 | `validate.ts` | `varp validate` | `validatePlan()` |
 | `coupling.ts` | `varp coupling` | `couplingMatrix()` / `couplingHotspots()` |
+| `conventions.ts` | `varp conventions` | `DEFAULT_DETECTION_CONFIG` |
 
 ## Shared
 

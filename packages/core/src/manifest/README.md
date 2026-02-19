@@ -137,13 +137,15 @@ Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | 
 
 ## Suggest Components
 
-`varp_suggest_components` helps bootstrap a manifest for layer-organized or domain-organized codebases. Three detection modes:
+`varp_suggest_components` helps bootstrap a manifest by detecting components from project structure. In **auto** mode (default), five strategies run in priority order, deduplicating by name:
 
-- **layers** — Scans for conventional layer directories (`controllers`, `services`, etc.) at root. Extracts name stems (`.controller.ts` → `user`), groups stems appearing in 2+ layers into multi-path components.
-- **domains** — Scans for top-level directories containing 2+ layer subdirectories (e.g. `auth/controllers/`, `auth/services/`). Each domain directory becomes a component with multi-path entries.
-- **auto** (default) — Runs both modes and merges, deduplicating by name (layer results take priority).
+1. **Workspace packages** (highest confidence) — Parses `package.json` `workspaces` field, one component per package.
+2. **Container dirs** — Scans `packages/`, `apps/`, `modules/`, `libs/` for subdirectories with source files.
+3. **Indicator dirs** — Directories containing `src/`, `app/`, `lib/`, `test/`, `tests/`, or `node_modules/` are treated as components.
+4. **Layers** — Scans layer directories (controllers, services, etc.) for files with common name stems across 2+ layers.
+5. **Domains** — Scans for domain directories containing 2+ layer subdirectories (e.g. `auth/controllers/`, `auth/services/`).
 
-Use the output to scaffold `varp.yaml` components with `path: [...]` arrays.
+Detection conventions are defined in `DEFAULT_DETECTION_CONFIG` (inspectable via `varp conventions`). Use the output to scaffold `varp.yaml` components with `path: [...]` arrays.
 
 ## Render Graph
 

@@ -16,6 +16,7 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 | `bun run packages/cli/dist/cli.js graph` | Render dependency graph (ASCII, default) |
 | `bun run packages/cli/dist/cli.js freshness` | Check doc freshness |
 | `bun run packages/cli/dist/cli.js validate plan.xml` | Validate plan against manifest |
+| `bun run packages/cli/dist/cli.js conventions` | Show component detection conventions |
 
 ## Stack
 
@@ -48,7 +49,7 @@ packages/
     src/                  Orchestrator, agents, planner, report
     src/cli/              Audit CLI: audit command, auth, dashboard sync, formatters, github
     rulesets/             Audit rulesets (OWASP, etc.)
-  cli/                    Varp CLI (@varp/cli) — subcommands: init, lint, graph, freshness, validate, coupling
+  cli/                    Varp CLI (@varp/cli) — subcommands: init, lint, graph, freshness, validate, coupling, conventions
   plugin/                 Claude Code plugin distribution (@varp/plugin)
     .claude-plugin/       Plugin manifest (plugin.json, marketplace.json)
     skills/               5 prompt-based skills (init, status, plan, execute, review)

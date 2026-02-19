@@ -28,7 +28,11 @@ export { resolveDocs } from "./manifest/resolver.js";
 export { checkEnv } from "./manifest/env-check.js";
 export { scanLinks } from "./manifest/links.js";
 export type { LinkScanMode } from "./manifest/links.js";
-export { suggestComponents } from "./manifest/suggest-components.js";
+export {
+  suggestComponents,
+  DEFAULT_DETECTION_CONFIG,
+  type DetectionConfig,
+} from "./manifest/suggest-components.js";
 export { suggestTouches } from "./manifest/touches.js";
 export { watchFreshness } from "./manifest/watch.js";
 export { findScopedTests } from "./manifest/scoped-tests.js";

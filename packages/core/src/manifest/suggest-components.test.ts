@@ -9,6 +9,10 @@ import {
   detectDomainDirs,
   suggestComponentsFromDomains,
   suggestComponents,
+  resolveWorkspacePatterns,
+  detectWorkspacePackages,
+  detectContainerComponents,
+  detectSrcComponents,
   type StemEntry,
 } from "./suggest-components.js";
 
@@ -356,6 +360,294 @@ describe("suggestComponents with mode", () => {
     // Layer result should win — paths are layer dirs, not domain subdirs
     expect(authComponents[0].path).toEqual(["controllers", "services"]);
 
+    teardown();
+  });
+});
+
+// ── Workspace Detection ──
+
+describe("resolveWorkspacePatterns", () => {
+  test("resolves npm/bun array format", () => {
+    setup();
+    mkdirSync(join(TMP, "packages/core"), { recursive: true });
+    mkdirSync(join(TMP, "packages/cli"), { recursive: true });
+    mkdirSync(join(TMP, "packages/no-pkg"), { recursive: true });
+    writeFileSync(join(TMP, "packages/core/package.json"), "{}");
+    writeFileSync(join(TMP, "packages/cli/package.json"), "{}");
+    // no-pkg has no package.json — should be skipped
+
+    const result = resolveWorkspacePatterns(TMP, ["packages/*"]);
+    expect(result).toEqual(["packages/cli", "packages/core"]);
+    teardown();
+  });
+
+  test("resolves yarn object format", () => {
+    setup();
+    mkdirSync(join(TMP, "packages/core"), { recursive: true });
+    writeFileSync(join(TMP, "packages/core/package.json"), "{}");
+
+    const result = resolveWorkspacePatterns(TMP, { packages: ["packages/*"] });
+    expect(result).toEqual(["packages/core"]);
+    teardown();
+  });
+
+  test("resolves literal paths", () => {
+    setup();
+    mkdirSync(join(TMP, "tools/linter"), { recursive: true });
+    writeFileSync(join(TMP, "tools/linter/package.json"), "{}");
+
+    const result = resolveWorkspacePatterns(TMP, ["tools/linter"]);
+    expect(result).toEqual(["tools/linter"]);
+    teardown();
+  });
+
+  test("returns empty for invalid workspaces value", () => {
+    expect(resolveWorkspacePatterns(TMP, "invalid")).toEqual([]);
+    expect(resolveWorkspacePatterns(TMP, 42)).toEqual([]);
+    expect(resolveWorkspacePatterns(TMP, null)).toEqual([]);
+  });
+});
+
+describe("detectWorkspacePackages", () => {
+  test("detects packages from workspace config", () => {
+    setup();
+    writeFileSync(
+      join(TMP, "package.json"),
+      JSON.stringify({ name: "root", workspaces: ["packages/*"] }),
+    );
+    mkdirSync(join(TMP, "packages/core"), { recursive: true });
+    mkdirSync(join(TMP, "packages/cli"), { recursive: true });
+    writeFileSync(join(TMP, "packages/core/package.json"), JSON.stringify({ name: "@myorg/core" }));
+    writeFileSync(join(TMP, "packages/cli/package.json"), JSON.stringify({ name: "@myorg/cli" }));
+
+    const result = detectWorkspacePackages(TMP);
+    expect(result).toHaveLength(2);
+    expect(result.map((c) => c.name)).toEqual(["cli", "core"]);
+    expect(result[1].path).toEqual(["packages/core"]);
+    teardown();
+  });
+
+  test("strips npm scope from package name", () => {
+    setup();
+    writeFileSync(join(TMP, "package.json"), JSON.stringify({ workspaces: ["packages/*"] }));
+    mkdirSync(join(TMP, "packages/auth"), { recursive: true });
+    writeFileSync(join(TMP, "packages/auth/package.json"), JSON.stringify({ name: "@scope/auth" }));
+
+    const result = detectWorkspacePackages(TMP);
+    expect(result[0].name).toBe("auth");
+    teardown();
+  });
+
+  test("falls back to directory name when package has no name", () => {
+    setup();
+    writeFileSync(join(TMP, "package.json"), JSON.stringify({ workspaces: ["packages/*"] }));
+    mkdirSync(join(TMP, "packages/utils"), { recursive: true });
+    writeFileSync(join(TMP, "packages/utils/package.json"), "{}");
+
+    const result = detectWorkspacePackages(TMP);
+    expect(result[0].name).toBe("utils");
+    teardown();
+  });
+
+  test("returns empty when no package.json exists", () => {
+    setup();
+    expect(detectWorkspacePackages(TMP)).toEqual([]);
+    teardown();
+  });
+
+  test("returns empty when no workspaces field", () => {
+    setup();
+    writeFileSync(join(TMP, "package.json"), JSON.stringify({ name: "solo" }));
+    expect(detectWorkspacePackages(TMP)).toEqual([]);
+    teardown();
+  });
+});
+
+// ── Container Dir Detection ──
+
+describe("detectContainerComponents", () => {
+  test("detects subdirs in packages/ with package.json", () => {
+    setup();
+    mkdirSync(join(TMP, "packages/api"), { recursive: true });
+    mkdirSync(join(TMP, "packages/web"), { recursive: true });
+    writeFileSync(join(TMP, "packages/api/package.json"), "{}");
+    writeFileSync(join(TMP, "packages/web/package.json"), "{}");
+
+    const result = detectContainerComponents(TMP);
+    expect(result.map((c) => c.name)).toEqual(["api", "web"]);
+    expect(result[0].path).toEqual(["packages/api"]);
+    teardown();
+  });
+
+  test("detects subdirs in apps/ with src/", () => {
+    setup();
+    mkdirSync(join(TMP, "apps/dashboard/src"), { recursive: true });
+    mkdirSync(join(TMP, "apps/marketing/src"), { recursive: true });
+
+    const result = detectContainerComponents(TMP);
+    expect(result.map((c) => c.name)).toEqual(["dashboard", "marketing"]);
+    teardown();
+  });
+
+  test("detects subdirs with code files", () => {
+    setup();
+    mkdirSync(join(TMP, "packages/shared"), { recursive: true });
+    writeFileSync(join(TMP, "packages/shared/index.ts"), "export {}");
+
+    const result = detectContainerComponents(TMP);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("shared");
+    teardown();
+  });
+
+  test("skips empty subdirs", () => {
+    setup();
+    mkdirSync(join(TMP, "packages/empty"), { recursive: true });
+
+    const result = detectContainerComponents(TMP);
+    expect(result).toEqual([]);
+    teardown();
+  });
+
+  test("scans multiple container dirs", () => {
+    setup();
+    mkdirSync(join(TMP, "packages/lib/src"), { recursive: true });
+    mkdirSync(join(TMP, "apps/web/src"), { recursive: true });
+
+    const result = detectContainerComponents(TMP);
+    const names = result.map((c) => c.name);
+    expect(names).toContain("lib");
+    expect(names).toContain("web");
+    teardown();
+  });
+});
+
+// ── Src-Parent Detection ──
+
+describe("detectSrcComponents", () => {
+  test("detects dirs containing src/", () => {
+    setup();
+    mkdirSync(join(TMP, "server/src"), { recursive: true });
+    mkdirSync(join(TMP, "client/src"), { recursive: true });
+    writeFileSync(join(TMP, "server/src/index.ts"), "");
+    writeFileSync(join(TMP, "client/src/app.tsx"), "");
+
+    const result = detectSrcComponents(TMP);
+    expect(result.map((c) => c.name)).toEqual(["client", "server"]);
+    expect(result[0].path).toEqual(["client"]);
+    teardown();
+  });
+
+  test("skips container dirs (handled separately)", () => {
+    setup();
+    mkdirSync(join(TMP, "packages/core/src"), { recursive: true });
+    mkdirSync(join(TMP, "server/src"), { recursive: true });
+
+    const result = detectSrcComponents(TMP);
+    expect(result.map((c) => c.name)).toEqual(["server"]);
+    teardown();
+  });
+
+  test("skips dotdirs and node_modules", () => {
+    setup();
+    mkdirSync(join(TMP, ".hidden/src"), { recursive: true });
+    mkdirSync(join(TMP, "node_modules/src"), { recursive: true });
+    mkdirSync(join(TMP, "real/src"), { recursive: true });
+
+    const result = detectSrcComponents(TMP);
+    expect(result.map((c) => c.name)).toEqual(["real"]);
+    teardown();
+  });
+
+  test("detects dirs with app/ indicator (e.g. Next.js)", () => {
+    setup();
+    mkdirSync(join(TMP, "web/app"), { recursive: true });
+    writeFileSync(join(TMP, "web/app/page.tsx"), "");
+
+    const result = detectSrcComponents(TMP);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("web");
+    expect(result[0].evidence[0].stem).toBe("web/app");
+    teardown();
+  });
+
+  test("detects dirs with lib/ or test/ indicators", () => {
+    setup();
+    mkdirSync(join(TMP, "shared/lib"), { recursive: true });
+    mkdirSync(join(TMP, "core/test"), { recursive: true });
+
+    const result = detectSrcComponents(TMP);
+    expect(result.map((c) => c.name)).toEqual(["core", "shared"]);
+    teardown();
+  });
+
+  test("prefers src over other indicators for evidence", () => {
+    setup();
+    mkdirSync(join(TMP, "project/src"), { recursive: true });
+    mkdirSync(join(TMP, "project/app"), { recursive: true });
+    mkdirSync(join(TMP, "project/test"), { recursive: true });
+
+    const result = detectSrcComponents(TMP);
+    expect(result[0].evidence[0].stem).toBe("project/src");
+    teardown();
+  });
+
+  test("skips dirs without indicator subdirs", () => {
+    setup();
+    mkdirSync(join(TMP, "lib"), { recursive: true });
+    writeFileSync(join(TMP, "lib/index.ts"), "");
+
+    const result = detectSrcComponents(TMP);
+    expect(result).toEqual([]);
+    teardown();
+  });
+});
+
+// ── Auto Mode Integration ──
+
+describe("suggestComponents auto mode with new strategies", () => {
+  test("workspace packages detected in auto mode", () => {
+    setup();
+    writeFileSync(
+      join(TMP, "package.json"),
+      JSON.stringify({ name: "monorepo", workspaces: ["packages/*"] }),
+    );
+    mkdirSync(join(TMP, "packages/api"), { recursive: true });
+    mkdirSync(join(TMP, "packages/web"), { recursive: true });
+    writeFileSync(join(TMP, "packages/api/package.json"), JSON.stringify({ name: "@my/api" }));
+    writeFileSync(join(TMP, "packages/web/package.json"), JSON.stringify({ name: "@my/web" }));
+
+    const result = suggestComponents(TMP);
+    const names = result.components.map((c) => c.name);
+    expect(names).toContain("api");
+    expect(names).toContain("web");
+    teardown();
+  });
+
+  test("workspace wins over container for same name", () => {
+    setup();
+    writeFileSync(join(TMP, "package.json"), JSON.stringify({ workspaces: ["packages/*"] }));
+    mkdirSync(join(TMP, "packages/core"), { recursive: true });
+    writeFileSync(join(TMP, "packages/core/package.json"), JSON.stringify({ name: "@org/core" }));
+
+    const result = suggestComponents(TMP);
+    const core = result.components.find((c) => c.name === "core");
+    expect(core).toBeDefined();
+    // Workspace evidence uses package name
+    expect(core!.evidence[0].stem).toBe("@org/core");
+    teardown();
+  });
+
+  test("src-parent detected when no workspace or containers", () => {
+    setup();
+    mkdirSync(join(TMP, "backend/src"), { recursive: true });
+    mkdirSync(join(TMP, "frontend/src"), { recursive: true });
+    writeFileSync(join(TMP, "backend/src/app.ts"), "");
+
+    const result = suggestComponents(TMP);
+    const names = result.components.map((c) => c.name);
+    expect(names).toContain("backend");
+    expect(names).toContain("frontend");
     teardown();
   });
 });

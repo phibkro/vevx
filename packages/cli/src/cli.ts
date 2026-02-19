@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { generateCompletions } from "./completions.js";
+import { runConventionsCommand } from "./conventions.js";
 import { runCouplingCommand } from "./coupling.js";
 import { formatError } from "./errors.js";
 import { runFreshnessCommand } from "./freshness.js";
@@ -24,6 +25,7 @@ COMMANDS:
   freshness           Check doc freshness across components
   validate <plan.xml> Validate plan against manifest
   coupling            Analyze component coupling (co-change + imports)
+  conventions         Show component detection conventions
   completions [bash|zsh]  Generate shell completion script
 
 GRAPH OPTIONS:
@@ -86,6 +88,7 @@ async function main(): Promise<void> {
   }
 
   if (firstArg === "init") return run(() => runInitCommand());
+  if (firstArg === "conventions") return run(() => runConventionsCommand(restArgs));
   if (firstArg === "coupling") return run(() => runCouplingCommand(restArgs));
   if (firstArg === "lint") return run(() => runLintCommand(restArgs));
   if (firstArg === "graph") return run(() => runGraphCommand(restArgs));

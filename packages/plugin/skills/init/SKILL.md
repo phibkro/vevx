@@ -61,7 +61,7 @@ Resolve glob patterns to actual directories. Each resolved directory becomes a c
 
 If no workspace config found, fall back to filesystem scanning. Use Glob to find directories containing TypeScript or JavaScript source files. Check common patterns: `src/`, `packages/*`, `apps/*`, `lib/*`, and top-level directories with `*.ts` or `*.js` files. Each distinct source directory becomes a component.
 
-After initial scanning, call `varp_suggest_components` with `root_dir` set to the detected source root and `mode: "auto"` to detect both layer-organized projects (files like `user.controller.ts` across `controllers/`, `services/` dirs) and domain-organized projects (domains as top-level dirs with layer subdirs like `src/auth/controllers/`, `src/auth/services/`). Present suggestions to the user for confirmation before generating the manifest.
+After initial scanning, call `varp_suggest_components` with `root_dir` set to the detected source root and `mode: "auto"`. Auto mode runs five strategies in priority order: workspace packages, container dirs (`packages/`, `apps/`), indicator dirs (`src/`, `app/`, `node_modules/`), layer cross-matching, and domain detection. Present suggestions to the user for confirmation before generating the manifest.
 
 If suggestions are found, use `varp_render_graph` to visualize the suggested dependency graph before the user confirms.
 

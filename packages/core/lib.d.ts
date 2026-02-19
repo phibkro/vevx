@@ -429,6 +429,14 @@ export function checkEnv(
   env: Record<string, string | undefined>,
 ): EnvCheckResult;
 export function scanLinks(manifest: Manifest, mode: LinkScanMode): LinkScanResult;
+export interface DetectionConfig {
+  containerDirs: string[];
+  indicatorDirs: string[];
+  layerDirs: string[];
+  suffixes: string[];
+  codeExtensions: string[];
+}
+export const DEFAULT_DETECTION_CONFIG: DetectionConfig;
 export function suggestComponents(
   rootDir: string,
   opts?: {

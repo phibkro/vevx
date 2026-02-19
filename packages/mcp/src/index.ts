@@ -342,7 +342,7 @@ const tools: ToolDef[] = [
   {
     name: "varp_suggest_components",
     description:
-      "Analyze a project to suggest multi-path component groupings. Supports layer-organized (controllers/, services/), domain-organized (auth/controllers/, auth/services/), or auto (both) detection modes.",
+      "Analyze a project to suggest component groupings. Auto mode (default) runs five strategies in priority order: workspace packages, container dirs (packages/, apps/), indicator dirs (src/, app/, node_modules/), layer cross-matching, and domain detection. Conventions inspectable via DEFAULT_DETECTION_CONFIG.",
     inputSchema: {
       root_dir: z.string().describe("Root directory to scan for layer directories"),
       layer_dirs: z
