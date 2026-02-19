@@ -8,6 +8,7 @@ import { runFreshnessCommand } from "./freshness.js";
 import { runGraphCommand } from "./graph.js";
 import { runInitCommand } from "./init.js";
 import { runLintCommand } from "./lint.js";
+import { runSummaryCommand } from "./summary.js";
 import { runValidateCommand } from "./validate.js";
 
 const VERSION = "0.1.0";
@@ -25,6 +26,7 @@ COMMANDS:
   freshness           Check doc freshness across components
   validate <plan.xml> Validate plan against manifest
   coupling            Analyze component coupling (co-change + imports)
+  summary             Project health digest (coupling, freshness, stability)
   conventions         Show component detection conventions
   completions [bash|zsh]  Generate shell completion script
 
@@ -102,6 +104,7 @@ async function main(): Promise<void> {
   if (firstArg === "lint") return run(() => runLintCommand(restArgs));
   if (firstArg === "graph") return run(() => runGraphCommand(restArgs));
   if (firstArg === "freshness") return run(() => runFreshnessCommand(restArgs));
+  if (firstArg === "summary") return run(() => runSummaryCommand(restArgs));
   if (firstArg === "validate") return run(() => runValidateCommand(restArgs));
 
   console.error(`Unknown command: ${firstArg}`);

@@ -12,7 +12,7 @@ _varp_completions() {
 
   # Subcommands
   if [[ \${COMP_CWORD} -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "init graph lint freshness validate coupling conventions completions" -- \${cur}) )
+    COMPREPLY=( $(compgen -W "init graph lint freshness validate coupling summary conventions completions" -- \${cur}) )
     return 0
   fi
 
@@ -29,6 +29,13 @@ _varp_completions() {
       ;;
     lint|freshness|coupling)
       opts="--manifest"
+      ;;
+    summary)
+      opts="--manifest --format --json"
+      case "\${prev}" in
+        --format) COMPREPLY=( $(compgen -W "text json" -- \${cur}) ); return 0 ;;
+        --manifest) return 0 ;;
+      esac
       ;;
     validate)
       opts="--manifest"
@@ -72,6 +79,7 @@ _varp() {
     'freshness:Check doc freshness'
     'validate:Validate plan against manifest'
     'coupling:Analyze component coupling'
+    'summary:Project health digest'
     'conventions:Show component detection conventions'
     'completions:Generate shell completion script'
   )
@@ -98,6 +106,12 @@ _varp() {
           ;;
         lint|freshness|coupling)
           _arguments '--manifest[Path to varp.yaml]:file:_files'
+          ;;
+        summary)
+          _arguments \\
+            '--manifest[Path to varp.yaml]:file:_files' \\
+            '--format[Output format]:format:(text json)' \\
+            '--json[Shorthand for --format json]'
           ;;
         validate)
           _arguments \\
