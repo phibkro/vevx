@@ -15,8 +15,6 @@ Lifecycle hooks for varp-managed sessions. Hooks inject graph-derived structural
 
 Delegates to `varp summary` CLI for graph-aware project health. When the CLI is built, injects coupling hotspots (hidden coupling between components), freshness state (stale doc count), and component list. Falls back to basic `grep -c` component counting when CLI is unavailable.
 
-Also reports active plans and cost tracking status (statusline + OTel).
-
 Output example:
 ```
 Components (12): shared, analysis, mcp, manifest, plan, scheduler, enforcement, execution, skills, hooks, audit, cli
@@ -25,7 +23,6 @@ Hidden coupling (3):
   audit <-> cli  weight=5.28
   hooks <-> skills  weight=2.54
   plan <-> scheduler  weight=2.34
-Cost tracking: statusline ✓ | otel ✓ (otlp → localhost:4317)
 ```
 
 ## freshness-track.sh
