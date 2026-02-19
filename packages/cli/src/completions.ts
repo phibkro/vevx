@@ -3,8 +3,8 @@
  */
 
 export function generateBashCompletions(): string {
-  return `# code-audit bash completions
-_code_audit_completions() {
+  return `# varp bash completions
+_varp_completions() {
   local cur prev opts
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
@@ -12,25 +12,32 @@ _code_audit_completions() {
 
   # Subcommands
   if [[ \${COMP_CWORD} -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "login logout completions" -- \${cur}) )
+    COMPREPLY=( $(compgen -W "init graph lint freshness validate coupling completions" -- \${cur}) )
     return 0
   fi
 
-  # Options
-  opts="--output --format --model --max-tokens --no-parallel --watch --quiet --verbose --debug --version --help"
-
-  case "\${prev}" in
-    --format)
-      COMPREPLY=( $(compgen -W "text json markdown html" -- \${cur}) )
+  # Per-command options
+  local subcmd="\${COMP_WORDS[1]}"
+  case "\${subcmd}" in
+    graph)
+      opts="--manifest --format --tags --no-tags --no-color --no-stability --direction"
+      case "\${prev}" in
+        --format) COMPREPLY=( $(compgen -W "ascii mermaid" -- \${cur}) ); return 0 ;;
+        --direction) COMPREPLY=( $(compgen -W "TD LR" -- \${cur}) ); return 0 ;;
+        --manifest) return 0 ;;
+      esac
+      ;;
+    lint|freshness|coupling)
+      opts="--manifest"
+      ;;
+    validate)
+      opts="--manifest"
+      ;;
+    init)
       return 0
       ;;
-    --model)
-      COMPREPLY=( $(compgen -W "claude-sonnet-4-5-20250929 claude-opus-4-6" -- \${cur}) )
-      return 0
-      ;;
-    --output|--max-tokens)
-      # No completion for these
-      return 0
+    *)
+      opts="--version --help"
       ;;
   esac
 
@@ -43,59 +50,64 @@ _code_audit_completions() {
   COMPREPLY=( $(compgen -d -- \${cur}) )
 }
 
-complete -F _code_audit_completions code-audit
+complete -F _varp_completions varp
 `;
 }
 
 export function generateZshCompletions(): string {
-  return `#compdef code-audit
+  return `#compdef varp
 
-_code_audit() {
+_varp() {
   local -a commands
   commands=(
-    'login:Save API key for dashboard syncing'
-    'logout:Remove saved API key'
+    'init:Scaffold a varp.yaml manifest'
+    'graph:Render dependency graph'
+    'lint:Lint manifest for issues'
+    'freshness:Check doc freshness'
+    'validate:Validate plan against manifest'
+    'coupling:Analyze component coupling'
     'completions:Generate shell completion script'
   )
 
-  local -a options
-  options=(
-    '--output[Write report to file]:file:_files'
-    '--format[Output format]:format:(text json markdown html)'
-    '--model[Claude model to use]:model:(claude-sonnet-4-5-20250929 claude-opus-4-6)'
-    '--max-tokens[Maximum tokens per chunk]:number:'
-    '--no-parallel[Disable parallel processing]'
-    '--watch[Watch mode - re-run on file changes]'
-    '--quiet[Minimal output]'
-    '--verbose[Detailed output]'
-    '--debug[Debug output]'
-    '(-v --version)'{-v,--version}'[Show version number]'
-    '(-h --help)'{-h,--help}'[Show help message]'
-  )
-
-  _arguments -C \
-    "1: :->command" \
+  _arguments -C \\
+    "1: :->command" \\
     "*::arg:->args"
 
   case $state in
     command)
-      _describe -t commands 'code-audit commands' commands
-      _files -/
+      _describe -t commands 'varp commands' commands
       ;;
     args)
       case $words[1] in
-        login|logout|completions)
-          # No additional arguments
+        graph)
+          _arguments \\
+            '--manifest[Path to varp.yaml]:file:_files' \\
+            '--format[Output format]:format:(ascii mermaid)' \\
+            '--tags[Group-by-tag view]' \\
+            '--no-tags[Hide tag markers]' \\
+            '--no-color[Superscript markers instead of colors]' \\
+            '--no-stability[Hide stability badges]' \\
+            '--direction[Graph direction]:dir:(TD LR)'
           ;;
-        *)
-          _arguments $options
+        lint|freshness|coupling)
+          _arguments '--manifest[Path to varp.yaml]:file:_files'
+          ;;
+        validate)
+          _arguments \\
+            '--manifest[Path to varp.yaml]:file:_files' \\
+            ':plan file:_files -g "*.xml"'
+          ;;
+        completions)
+          _arguments ':shell:(bash zsh)'
+          ;;
+        init)
           ;;
       esac
       ;;
   esac
 }
 
-_code_audit "$@"
+_varp "$@"
 `;
 }
 

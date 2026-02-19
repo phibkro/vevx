@@ -1,6 +1,5 @@
-import type { AuditReport } from "@varp/audit";
-
-import { getApiKey } from "./auth";
+import type { AuditReport } from "../index.js";
+import { getApiKey } from "./auth.js";
 
 interface DashboardResponse {
   auditId: string;
@@ -87,15 +86,15 @@ export async function syncToDashboard(
       const error = await response.text();
 
       if (response.status === 401) {
-        console.error("\n✗ Dashboard sync failed: Invalid API key");
+        console.error("\nDashboard sync failed: Invalid API key");
         console.error("  Your CODE_AUDITOR_API_KEY is invalid or expired.");
-        console.error("  Run 'code-audit login' to reconfigure.\n");
+        console.error("  Run 'varp-audit login' to reconfigure.\n");
       } else if (response.status === 429) {
-        console.error("\n✗ Dashboard sync failed: Rate limit or monthly quota exceeded");
+        console.error("\nDashboard sync failed: Rate limit or monthly quota exceeded");
         console.error("  View your plan at: https://code-auditor.com/team");
         console.error("  Upgrade at: https://code-auditor.com/pricing\n");
       } else {
-        console.error(`\n✗ Dashboard sync failed: ${response.status} ${error}\n`);
+        console.error(`\nDashboard sync failed: ${response.status} ${error}\n`);
       }
 
       return null;

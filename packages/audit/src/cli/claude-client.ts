@@ -1,4 +1,4 @@
-import type { ModelCaller, ModelCallerResult } from "@varp/audit";
+import type { ModelCaller, ModelCallerResult } from "../index.js";
 
 /** Env vars needed by the claude CLI. Everything else is excluded. */
 const ALLOWED_ENV_KEYS = [

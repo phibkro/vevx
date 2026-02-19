@@ -7,6 +7,6 @@
     "noEmit": true
   },
   "include": ["src/**/*"],
-  "exclude": [],
+  "exclude": ["src/cli/github"],
   "files": ["../../node_modules/bun-types/test-globals.d.ts"]
 }

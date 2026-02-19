@@ -2,8 +2,9 @@ import { readFileSync, existsSync, writeFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
-import type { FileContent } from "@varp/audit";
-import type { AuditProgressEvent } from "@varp/audit";
+import { discoverFiles } from "../discovery.js";
+import type { FileContent } from "../index.js";
+import type { AuditProgressEvent } from "../index.js";
 import {
   parseRuleset,
   generatePlan,
@@ -15,12 +16,28 @@ import {
   printDriftReport,
   generateDriftMarkdown,
   generateDriftJson,
-} from "@varp/audit";
-import { discoverFiles } from "@varp/audit/src/discovery";
-import { getChangedFiles, filterToChanged } from "@varp/audit/src/planner/diff-filter";
+} from "../index.js";
+import { getChangedFiles, filterToChanged } from "../planner/diff-filter.js";
+import { callClaude } from "./claude-client.js";
 
-import { parseEnum, consumeOptionalFlag } from "./args.js";
-import { callClaude } from "./claude-client";
+// ── Arg helpers (inlined from @varp/cli args.ts) ──
+
+function parseEnum<T extends string>(value: string, valid: readonly T[], name: string): T {
+  if (valid.includes(value as T)) return value as T;
+  throw new Error(`Invalid ${name}: ${value}. Must be ${valid.join(" or ")}`);
+}
+
+function consumeOptionalFlag(
+  argv: string[],
+  i: number,
+  defaultValue: string,
+): [value: string, newIndex: number] {
+  const next = argv[i + 1];
+  if (next && !next.startsWith("-")) {
+    return [next, i + 1];
+  }
+  return [defaultValue, i];
+}
 
 // ── Arg parsing ──
 
@@ -85,7 +102,7 @@ export function parseAuditArgs(argv: string[]): AuditArgs {
 
   if (!path) {
     throw new Error(
-      "Path argument is required.\nUsage: varp audit <path> [--ruleset <name>] [--format text|json|markdown]",
+      "Path argument is required.\nUsage: varp-audit audit <path> [--ruleset <name>] [--format text|json|markdown]",
     );
   }
 
@@ -101,7 +118,7 @@ function resolveRuleset(name: string): string {
   }
 
   // 2. Check built-in rulesets
-  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../audit/rulesets");
+  const builtinDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../rulesets");
   const builtinPath = resolve(builtinDir, `${name}.md`);
   if (existsSync(builtinPath)) {
     return readFileSync(builtinPath, "utf-8");

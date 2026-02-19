@@ -115,7 +115,7 @@ export async function findExistingComment(
     });
 
     // Find comment that starts with our marker
-    const marker = "## 🤖 AI Code Auditor Report";
+    const marker = "## \uD83E\uDD16 AI Code Auditor Report";
     const existing = comments.find((comment) => comment.body?.startsWith(marker));
 
     return existing ? existing.id : null;

@@ -154,9 +154,9 @@ export async function login(): Promise<void> {
 
     writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
 
-    console.log(`\n✓ Successfully logged in!`);
+    console.log(`\nSuccessfully logged in!`);
     console.log(`  Config saved to: ${CONFIG_FILE}`);
-    console.log(`\nYou can now run code-audit without setting CODE_AUDITOR_API_KEY.\n`);
+    console.log(`\nYou can now run varp-audit without setting CODE_AUDITOR_API_KEY.\n`);
   } catch (error) {
     console.error(`Error saving config: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
@@ -170,7 +170,7 @@ export function logout(): void {
   try {
     if (existsSync(CONFIG_FILE)) {
       unlinkSync(CONFIG_FILE);
-      console.log("✓ Logged out successfully");
+      console.log("Logged out successfully");
       console.log(`  Removed config file: ${CONFIG_FILE}\n`);
     } else {
       console.log("Already logged out (no config file found)\n");

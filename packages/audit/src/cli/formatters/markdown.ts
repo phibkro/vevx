@@ -1,4 +1,4 @@
-import type { AuditReport } from "@varp/audit";
+import type { AuditReport } from "../../index.js";
 
 /**
  * Format audit report as Markdown for documentation
@@ -22,7 +22,7 @@ export function formatMarkdown(report: AuditReport): string {
   md += `|-------|-------|----------|\n`;
 
   for (const result of report.agentResults) {
-    const scoreBar = "█".repeat(Math.round(result.score));
+    const scoreBar = "\u2588".repeat(Math.round(result.score));
     md += `| ${result.agent} | ${scoreBar} ${result.score.toFixed(1)}/10 | ${result.findings.length} |\n`;
   }
 
@@ -46,10 +46,10 @@ export function formatMarkdown(report: AuditReport): string {
       for (const finding of result.findings) {
         const severityBadge =
           finding.severity === "critical"
-            ? "🔴 **CRITICAL**"
+            ? "\uD83D\uDD34 **CRITICAL**"
             : finding.severity === "warning"
-              ? "🟡 **WARNING**"
-              : "🔵 **INFO**";
+              ? "\uD83D\uDFE1 **WARNING**"
+              : "\uD83D\uDD35 **INFO**";
 
         md += `#### ${severityBadge}: ${finding.title}\n\n`;
         md += `**File:** \`${finding.file}\`${finding.line ? `:${finding.line}` : ""}\n\n`;

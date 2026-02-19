@@ -48,7 +48,7 @@ describe("auth module", () => {
 
     serialTest("returns null when no API key is configured", async () => {
       // Dynamic import to ensure clean module state
-      const { getApiKey } = await import("../auth.ts");
+      const { getApiKey } = await import("../cli/auth.ts");
       const result = getApiKey();
 
       // Should return null when neither env var nor config file has a key
@@ -59,7 +59,7 @@ describe("auth module", () => {
     serialTest("returns API key from environment variable", async () => {
       process.env.CODE_AUDITOR_API_KEY = "ca_test_env_key_1234567890abcdef";
 
-      const { getApiKey } = await import("../auth.ts");
+      const { getApiKey } = await import("../cli/auth.ts");
       const result = getApiKey();
 
       expect(result).not.toBeNull();
@@ -71,7 +71,7 @@ describe("auth module", () => {
       process.env.CODE_AUDITOR_API_KEY = "ca_test_key";
       process.env.CODE_AUDITOR_API_URL = "https://custom-url.com";
 
-      const { getApiKey } = await import("../auth.ts");
+      const { getApiKey } = await import("../cli/auth.ts");
       const result = getApiKey();
 
       expect(result).not.toBeNull();
@@ -82,7 +82,7 @@ describe("auth module", () => {
       process.env.CODE_AUDITOR_API_KEY = "ca_test_key";
       // CODE_AUDITOR_API_URL not set
 
-      const { getApiKey } = await import("../auth.ts");
+      const { getApiKey } = await import("../cli/auth.ts");
       const result = getApiKey();
 
       expect(result).not.toBeNull();
@@ -95,7 +95,7 @@ describe("auth module", () => {
       process.env.CODE_AUDITOR_API_KEY = "ca_env_priority_key";
       process.env.CODE_AUDITOR_API_URL = "https://env-priority.com";
 
-      const { getApiKey } = await import("../auth.ts");
+      const { getApiKey } = await import("../cli/auth.ts");
       const result = getApiKey();
 
       expect(result).not.toBeNull();
@@ -103,14 +103,4 @@ describe("auth module", () => {
       expect(result?.apiUrl).toBe("https://env-priority.com");
     });
   });
-
-  // Note: File-based config tests, login(), and logout() require:
-  // 1. Integration test environment (temp directories outside sandbox)
-  // 2. User interaction mocking (stdin prompts)
-  // 3. Network request mocking (API validation)
-  //
-  // These should be tested via:
-  // - Integration tests with temp directories
-  // - Manual testing
-  // - E2E tests
 });

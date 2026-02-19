@@ -1,4 +1,4 @@
-import type { AuditReport } from "@varp/audit";
+import type { AuditReport } from "../../index.js";
 
 /**
  * Format audit report as JSON for CI/CD integration

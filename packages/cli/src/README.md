@@ -1,46 +1,22 @@
-# CLI
+# CLI Source
 
-Command-line interface for Varp tools. Wraps the audit engine with progress display, watch mode, and compliance auditing.
+Deterministic manifest tooling. Each subcommand wraps a `@varp/core/lib` function with argument parsing and output formatting.
 
-## Usage
+## Subcommands
 
-### Generic Review
+| File | Command | Core function |
+|------|---------|---------------|
+| `init.ts` | `varp init` | `suggestComponents()` |
+| `graph.ts` | `varp graph` | `renderAsciiGraph()` / `renderGraph()` / `renderTagGroups()` |
+| `lint.ts` | `varp lint` | `lint()` |
+| `freshness.ts` | `varp freshness` | `checkFreshness()` |
+| `validate.ts` | `varp validate` | `validatePlan()` |
+| `coupling.ts` | `varp coupling` | `couplingMatrix()` / `couplingHotspots()` |
 
-```bash
-varp [path] [options]
-```
+## Shared
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--model` | `claude-sonnet-4-5-20250929` | Claude model to use |
-| `--max-tokens` | `8192` | Max tokens per API call |
-| `--format` | `text` | Output format (`text` or `json`) |
-| `--output` | — | Write report to file |
-| `--parallel` | — | Run agents in parallel |
-| `--watch` | — | Re-run on file changes |
-| `--verbosity` | `normal` | Output detail level |
-
-### Compliance Audit
-
-```bash
-varp audit <path> --ruleset <name> [options]
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--ruleset` | (required) | Ruleset name (e.g., `owasp-top-10`) or path to custom ruleset |
-| `--model` | `claude-sonnet-4-5-20250929` | Claude model to use |
-| `--concurrency` | `3` | Max parallel API calls |
-| `--format` | `text` | Output format (`text`, `json`, `markdown`) |
-| `--output` | — | Write report to file |
-| `--quiet` | — | Suppress progress output |
-| `--diff` | — | Incremental audit — only scan files changed since ref (default: `HEAD`) |
-
-## Architecture
-
-```
-parseCliArgs()  →  runAuditFlow()     →  @varp/audit orchestrator (generic review)
-                   runAuditCommand()  →  @varp/audit planner pipeline (compliance audit)
-```
-
-Auth is handled by Claude Code's own session — no API key required.
+| File | Purpose |
+|------|---------|
+| `args.ts` | `DEFAULT_MANIFEST`, `parseEnum()`, `consumeOptionalFlag()` |
+| `errors.ts` | `formatError()` — user-friendly error output |
+| `completions.ts` | Bash/zsh completion scripts |

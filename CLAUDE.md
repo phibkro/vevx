@@ -44,10 +44,11 @@ packages/
       plan/               Plan XML parsing, validation, diff
       scheduler/          Hazard detection, wave computation, critical path
       enforcement/        Capability verification, restart strategy
-  audit/                  Compliance audit engine (@varp/audit)
+  audit/                  Compliance audit engine + CLI (@varp/audit, varp-audit binary)
     src/                  Orchestrator, agents, planner, report
+    src/cli/              Audit CLI: audit command, auth, dashboard sync, formatters, github
     rulesets/             Audit rulesets (OWASP, etc.)
-  cli/                    Varp CLI (@varp/cli) — subcommands: audit, lint, graph, freshness, validate
+  cli/                    Varp CLI (@varp/cli) — subcommands: init, lint, graph, freshness, validate, coupling
   plugin/                 Claude Code plugin distribution (@varp/plugin)
     .claude-plugin/       Plugin manifest (plugin.json, marketplace.json)
     skills/               5 prompt-based skills (init, status, plan, execute, review)
