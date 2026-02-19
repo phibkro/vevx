@@ -581,11 +581,19 @@ export function componentCouplingProfile(
 
 // ── Hotspot analysis ──
 
+export type TrendDirection = "increasing" | "decreasing" | "stable";
+
+export type TrendInfo = {
+  direction: TrendDirection;
+  magnitude: number;
+};
+
 export type HotspotEntry = {
   file: string;
   changeFrequency: number;
   lineCount: number;
   score: number;
+  trend?: TrendInfo;
 };
 
 export type FileNeighbor = {
@@ -593,6 +601,12 @@ export type FileNeighbor = {
   coChangeWeight: number;
   coChangeCommits: number;
   hasImportRelation: boolean;
+};
+
+export type NumstatEntry = {
+  file: string;
+  additions: number;
+  deletions: number;
 };
 
 export function computeHotspots(
@@ -605,3 +619,13 @@ export function fileNeighborhood(
   edges: CoChangeEdge[],
   imports: ImportScanResult,
 ): FileNeighbor[];
+export function parseNumstatLog(raw: string): Array<{ sha: string; files: NumstatEntry[] }>;
+export function computeComplexityTrendsFromStats(
+  commits: Array<{ sha: string; files: NumstatEntry[] }>,
+  filePaths: string[],
+): Record<string, TrendInfo>;
+export function computeComplexityTrends(
+  repoDir: string,
+  filePaths: string[],
+  options?: { maxCommits?: number },
+): Record<string, TrendInfo>;

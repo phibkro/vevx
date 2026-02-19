@@ -67,8 +67,15 @@ export {
   findHiddenCoupling,
   componentCouplingProfile,
 } from "./analysis/matrix.js";
-export { computeHotspots, countLines, fileNeighborhood } from "./analysis/hotspots.js";
-export type { HotspotEntry, FileNeighbor } from "./analysis/hotspots.js";
+export {
+  computeComplexityTrends,
+  computeComplexityTrendsFromStats,
+  computeHotspots,
+  countLines,
+  fileNeighborhood,
+  parseNumstatLog,
+} from "./analysis/hotspots.js";
+export type { FileNeighbor, HotspotEntry, TrendDirection, TrendInfo } from "./analysis/hotspots.js";
 
 // Execution
 export { estimateTokens, createChunks, formatChunkSummary } from "./execution/chunker.js";

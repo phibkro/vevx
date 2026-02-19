@@ -43,6 +43,13 @@ COMMON OPTIONS:
 
 For compliance auditing: bun add @varp/audit && varp-audit --help
 
+COUPLING OPTIONS:
+  --files               Show file-level co-change edges with bar charts
+  --hotspots            Show hidden coupling hotspots only
+  --component <name>    Filter to specific component
+  --no-color            Disable ANSI colors
+  --format <type>       text (default) or json
+
 EXAMPLES:
   varp init                             # Scaffold varp.yaml
   varp graph                            # ASCII dependency graph
@@ -51,6 +58,8 @@ EXAMPLES:
   varp lint                             # Health check manifest
   varp validate plan.xml                # Validate plan
   varp coupling                         # Coupling analysis
+  varp coupling --files                 # File-level edge list
+  varp coupling --files --no-color      # Without ANSI colors
 `;
 
 async function run(fn: () => Promise<void>): Promise<never> {
