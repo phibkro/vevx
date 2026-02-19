@@ -43,7 +43,6 @@ fi
 # Parse components and their paths from flat varp.yaml
 # Top-level keys (except 'varp') with a 'path:' child are components
 current_key=""
-
 while IFS= read -r line; do
   # Top-level key (no leading space)
   if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
@@ -62,7 +61,31 @@ while IFS= read -r line; do
     file_check="${file_path_rel#./}"
     if echo "$file_check" | grep -q "^${current_path}"; then
       echo "Note: Modified file in component \"${current_key}\" scope."
-      exit 0
+      break
     fi
   fi
 done < "$MANIFEST"
+
+# ── Coupling awareness ──
+# Check .varp/summary.json for coupling hotspot data (written by varp summary)
+SUMMARY_CACHE=".varp/summary.json"
+if [ ! -f "$SUMMARY_CACHE" ]; then
+  exit 0
+fi
+
+# Look up the file in hotspot_files using grep (fast, no jq dependency)
+# summary.json has: "hotspot_files": { "path/to/file.ts": ["other.ts (0.72)", ...], ... }
+file_check="${file_path_rel#./}"
+
+# Escape dots and slashes for grep pattern
+file_pattern=$(printf '%s' "$file_check" | sed 's/[.[\\/]/\\&/g')
+
+# Extract coupling neighbors for this file from pretty-printed JSON
+# Uses sed to join the multi-line array into a single line, then grep for our key
+if neighbors=$(sed -n "/\"${file_pattern}\": \[/,/\]/p" "$SUMMARY_CACHE" 2>/dev/null); then
+  # Strip JSON syntax to get readable list
+  neighbor_list=$(echo "$neighbors" | grep -v "\"${file_pattern}\"" | sed 's/[]",[]//g' | xargs)
+  if [ -n "$neighbor_list" ]; then
+    echo "Coupling note: files that typically co-change: ${neighbor_list}"
+  fi
+fi
