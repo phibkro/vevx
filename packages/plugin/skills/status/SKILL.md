@@ -1,7 +1,7 @@
 ---
 name: status
 description: Generate a concise snapshot of the current Varp-managed project state
-allowed-tools: mcp__plugin_varp_varp__*
+allowed-tools: mcp__varp__*
 ---
 
 # /varp:status -- Project State Report
@@ -21,6 +21,12 @@ If the manifest fails to parse, report the error and stop.
 
 Call `varp_check_freshness` to get staleness status for all component docs.
 Note the `total_stale` count from `varp_watch_freshness` (no `since` param) for the summary line.
+
+### Step 2b: Check Coupling Health
+
+Call `varp_coupling_hotspots` to detect hidden coupling — component pairs that frequently co-change in git history but have no import relationship. These represent implicit dependencies worth investigating.
+
+If no edges are returned (empty repo or insufficient history), skip the coupling section silently.
 
 ### Step 3: Check for Active Plan
 
@@ -68,6 +74,16 @@ Output a structured report with these sections:
 |-----------|--------------|--------------|--------|
 | <name>    | <last_modified> | <last_modified> | <fresh/stale> |
 
+## Coupling Health
+
+<N hidden coupling hotspots>
+
+| Component Pair | Behavioral Weight | Action |
+|---------------|------------------|--------|
+| <A> ↔ <B>    | <weight>         | Consider adding `deps` or co-locating changes |
+
+(Omit this section if no hotspots found or insufficient git history.)
+
 ## Active Plan: <feature name> (if any)
 
 **Status:** in-progress | in-review | blocked
@@ -102,3 +118,4 @@ If there is no active plan, omit the Active Plan section and note "No active pla
 | `varp_parse_log` | Parse execution log for plan progress |
 | `varp_detect_hazards` | Identify RAW/WAR/WAW between tasks |
 | `varp_compute_critical_path` | Find longest dependency chain |
+| `varp_coupling_hotspots` | Detect hidden coupling between components |

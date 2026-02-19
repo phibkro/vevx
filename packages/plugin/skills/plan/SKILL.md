@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Decompose a feature into a concrete, verifiable Varp execution plan
-allowed-tools: mcp__plugin_varp_varp__*
+allowed-tools: mcp__varp__*
 ---
 
 # /varp:plan -- Planner Protocol
@@ -11,6 +11,14 @@ You are a planner agent. You decompose human intent into concrete plans scoped b
 ## Step 1: Load Manifest
 
 Call `varp_read_manifest`. Understand the component registry, dependency graph, and available docs. If any components have `stability: experimental`, note them — they need more discovery latitude.
+
+## Step 1b: Check Coupling Signals
+
+Call `varp_coupling_hotspots` to find component pairs with hidden coupling (high co-change, no import relationship). If the feature touches any of these pairs, flag them — they may need coordinated changes even though the manifest doesn't declare a dependency.
+
+Also call `varp_coupling_matrix` with `component` set to each component in the feature scope. This reveals whether related components are `explicit_module` (expected), `stable_interface` (safe boundary), or `hidden_coupling` (risk of implicit breakage).
+
+Skip this step if git history is insufficient (empty result).
 
 ## Step 2: Clarify Intent
 
@@ -90,6 +98,7 @@ Rules:
 - Tests are part of the task, not separate
 - Doc updates are part of the task
 - WAW (two tasks writing same component) is a plan smell — merge them
+- Hidden coupling pairs (from Step 1b) should be in the same wave or have explicit RAW dependencies to avoid implicit breakage
 
 ### Derive Touches
 
@@ -161,3 +170,5 @@ Call `varp_validate_plan`. Fix errors and revalidate.
 | `varp_suggest_touches` | Validate component scoping from file paths |
 | `varp_validate_plan` | Check plan.xml consistency (Full tier only) |
 | `varp_check_freshness` | Verify docs are current |
+| `varp_coupling_hotspots` | Find hidden coupling between components |
+| `varp_coupling_matrix` | Get coupling profile for components in scope |

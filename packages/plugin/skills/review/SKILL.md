@@ -1,7 +1,7 @@
 ---
 name: review
 description: Review execution results against plan expectations and surface decisions
-allowed-tools: mcp__plugin_varp_varp__*
+allowed-tools: mcp__varp__*
 ---
 
 # /varp:review -- Medium Loop Review

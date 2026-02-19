@@ -24,6 +24,7 @@ Components defined in `varp.yaml`:
 - `plan` (packages/core/src/plan/) — XML parser, validator, diff
 - `scheduler` (packages/core/src/scheduler/) — Hazards, waves, critical path
 - `enforcement` (packages/core/src/enforcement/) — Capabilities, restart strategy
+- `analysis` (packages/core/src/analysis/) — Co-change parser, coupling diagnostic matrix, incremental cache
 - `skills` (skills/) — 5 prompt-based SKILL.md files
 - `hooks` (hooks/) — 3 lifecycle shell scripts
 

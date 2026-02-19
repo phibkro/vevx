@@ -1,7 +1,7 @@
 ---
 name: init
 description: Scaffold a varp.yaml manifest for an existing project
-allowed-tools: mcp__plugin_varp_varp__*
+allowed-tools: mcp__varp__*
 ---
 
 # /varp:init -- Scaffold Manifest
