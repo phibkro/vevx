@@ -452,6 +452,10 @@ export function formatChunkSummary(chunks: Chunk[]): string;
 // ── Bun-dependent functions ──
 
 export function parseManifest(manifestPath: string): Manifest;
+export type LintSuppressions = Record<string, string>;
+export function issueKey(issue: LintIssue): string;
+export function loadSuppressions(manifestDir: string): LintSuppressions;
+export function saveSuppressions(manifestDir: string, suppressions: LintSuppressions): void;
 export function runLint(manifest: Manifest, manifestPath: string): Promise<LintReport>;
 export function checkFreshness(manifest: Manifest, manifestDir?: string): FreshnessReport;
 export function ackFreshness(

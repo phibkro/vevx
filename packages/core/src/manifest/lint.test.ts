@@ -2,7 +2,7 @@ import { describe, test, expect } from "bun:test";
 
 import type { Manifest, ImportScanResult, LinkScanResult, FreshnessReport } from "#shared/types.js";
 
-import { lint } from "./lint.js";
+import { issueKey, lint } from "./lint.js";
 
 const MANIFEST: Manifest = {
   varp: "0.1.0",
@@ -93,7 +93,42 @@ describe("lint", () => {
     expect(report.issues[0].component).toBe("auth");
   });
 
-  test("unused import deps produce warning when component has source files", () => {
+  // ── Composed unused-dep checks ──
+
+  test("unused dep warns only when both imports AND links agree", () => {
+    const report = lint(
+      MANIFEST,
+      makeImportResult({
+        extra_deps: [{ from: "api", to: "auth" }],
+        components_with_source: ["api"],
+      }),
+      makeLinkResult({
+        extra_deps: [{ from: "api", to: "auth" }],
+      }),
+      makeFreshnessReport(),
+    );
+    const depIssues = report.issues.filter((i) => i.category === "deps");
+    expect(depIssues).toHaveLength(1);
+    expect(depIssues[0].severity).toBe("warning");
+    expect(depIssues[0].message).toContain("no imports or links found");
+  });
+
+  test("unused dep suppressed when imports justify it (links extra only)", () => {
+    // links says extra, but imports does NOT list it as extra → dep is justified by imports
+    const report = lint(
+      MANIFEST,
+      makeImportResult({ components_with_source: ["api"] }),
+      makeLinkResult({
+        extra_deps: [{ from: "api", to: "auth" }],
+      }),
+      makeFreshnessReport(),
+    );
+    const depIssues = report.issues.filter((i) => i.category === "deps");
+    expect(depIssues).toHaveLength(0);
+  });
+
+  test("unused dep suppressed when links justify it (imports extra only)", () => {
+    // imports says extra, but links does NOT list it as extra → dep is justified by links
     const report = lint(
       MANIFEST,
       makeImportResult({
@@ -103,24 +138,25 @@ describe("lint", () => {
       makeLinkResult(),
       makeFreshnessReport(),
     );
-    expect(report.total_issues).toBe(1);
-    expect(report.issues[0].severity).toBe("warning");
-    expect(report.issues[0].category).toBe("imports");
-    expect(report.issues[0].component).toBe("api");
+    const depIssues = report.issues.filter((i) => i.category === "deps");
+    expect(depIssues).toHaveLength(0);
   });
 
   test("unused import deps suppressed when component has no source files", () => {
+    // Component has no source → import signal is absent → only link signal applies → no composed warning
     const report = lint(
       MANIFEST,
       makeImportResult({
         extra_deps: [{ from: "api", to: "auth" }],
         components_with_source: [],
       }),
-      makeLinkResult(),
+      makeLinkResult({
+        extra_deps: [{ from: "api", to: "auth" }],
+      }),
       makeFreshnessReport(),
     );
-    const importIssues = report.issues.filter((i) => i.category === "imports");
-    expect(importIssues).toHaveLength(0);
+    const depIssues = report.issues.filter((i) => i.category === "deps");
+    expect(depIssues).toHaveLength(0);
   });
 
   test("broken links produce error", () => {
@@ -159,20 +195,6 @@ describe("lint", () => {
             evidence: [{ source_doc: "/src/auth/README.md", link_target: "../api/README.md" }],
           },
         ],
-      }),
-      makeFreshnessReport(),
-    );
-    expect(report.total_issues).toBe(1);
-    expect(report.issues[0].severity).toBe("warning");
-    expect(report.issues[0].category).toBe("links");
-  });
-
-  test("unused link deps produce warning", () => {
-    const report = lint(
-      MANIFEST,
-      makeImportResult(),
-      makeLinkResult({
-        extra_deps: [{ from: "api", to: "auth" }],
       }),
       makeFreshnessReport(),
     );
@@ -279,7 +301,12 @@ describe("lint", () => {
         ],
         components_with_source: ["api", "auth"],
       }),
-      makeLinkResult(),
+      makeLinkResult({
+        extra_deps: [
+          { from: "api", to: "auth" },
+          { from: "auth", to: "api" },
+        ],
+      }),
       makeFreshnessReport(),
     );
     expect(report.total_issues).toBe(report.issues.length);
@@ -346,5 +373,61 @@ describe("lint", () => {
     const report = lint(cleanManifest, makeImportResult(), makeLinkResult(), makeFreshnessReport());
     const stabilityIssues = report.issues.filter((i) => i.category === "stability");
     expect(stabilityIssues).toHaveLength(0);
+  });
+
+  // ── Suppressions ──
+
+  test("suppressed warnings are filtered out", () => {
+    const report = lint(
+      MANIFEST,
+      makeImportResult(),
+      makeLinkResult(),
+      makeFreshnessReport({
+        components: {
+          auth: {
+            docs: {
+              README: {
+                path: "/project/src/auth/README.md",
+                last_modified: "2026-02-14T00:00:00.000Z",
+                stale: true,
+              },
+            },
+            source_last_modified: "2026-02-16T00:00:00.000Z",
+          },
+          api: {
+            docs: {},
+            source_last_modified: "2026-02-15T00:00:00.000Z",
+          },
+        },
+      }),
+      // Suppress the freshness warning by its key
+      {
+        'freshness:auth:Stale doc: "README" in component "auth" (last modified: *)':
+          "2026-02-19T00:00:00.000Z",
+      },
+    );
+    expect(report.total_issues).toBe(0);
+  });
+
+  test("suppressions do not filter errors", () => {
+    const importResult = makeImportResult({
+      missing_deps: [
+        {
+          from: "auth",
+          to: "api",
+          evidence: [{ source_file: "/src/auth/index.ts", import_specifier: "../api/client.js" }],
+        },
+      ],
+    });
+    // Generate the issue to get its key
+    const unsuppressed = lint(MANIFEST, importResult, makeLinkResult(), makeFreshnessReport());
+    const key = issueKey(unsuppressed.issues[0]);
+
+    const suppressed = lint(MANIFEST, importResult, makeLinkResult(), makeFreshnessReport(), {
+      [key]: "2026-02-19T00:00:00.000Z",
+    });
+    // Error should still be present
+    expect(suppressed.total_issues).toBe(1);
+    expect(suppressed.issues[0].severity).toBe("error");
   });
 });

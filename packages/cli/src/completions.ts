@@ -27,7 +27,14 @@ _varp_completions() {
         --manifest) return 0 ;;
       esac
       ;;
-    lint|freshness|coupling)
+    lint)
+      opts="--manifest --format --details --suppress"
+      case "\${prev}" in
+        --format) COMPREPLY=( $(compgen -W "text json" -- \${cur}) ); return 0 ;;
+        --manifest) return 0 ;;
+      esac
+      ;;
+    freshness|coupling)
       opts="--manifest"
       ;;
     summary)
@@ -104,7 +111,14 @@ _varp() {
             '--no-stability[Hide stability badges]' \\
             '--direction[Graph direction]:dir:(TD LR)'
           ;;
-        lint|freshness|coupling)
+        lint)
+          _arguments \
+            '--manifest[Path to varp.yaml]:file:_files' \
+            '--format[Output format]:format:(text json)' \
+            '--details[Show all warnings grouped by category]' \
+            '--suppress[Suppress current warnings]'
+          ;;
+        freshness|coupling)
           _arguments '--manifest[Path to varp.yaml]:file:_files'
           ;;
         summary)

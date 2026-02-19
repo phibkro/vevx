@@ -369,7 +369,13 @@ export type PlanDiff = z.infer<typeof PlanDiffSchema>;
 // ── Lint Report ──
 
 export const LintIssueSeveritySchema = z.enum(["error", "warning"]);
-export const LintIssueCategorySchema = z.enum(["imports", "links", "freshness", "stability"]);
+export const LintIssueCategorySchema = z.enum([
+  "imports",
+  "links",
+  "deps",
+  "freshness",
+  "stability",
+]);
 
 export const LintIssueSchema = z.object({
   severity: LintIssueSeveritySchema,

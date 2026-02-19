@@ -19,7 +19,9 @@ varp graph --tags           # Group components by tag
 varp graph --no-color       # Superscript tag markers (no ANSI)
 varp graph --no-tags        # Hide tag markers
 varp graph --no-stability   # Hide stability badges
-varp lint                   # Lint manifest (imports, links, freshness, stability)
+varp lint                   # Lint manifest (errors + warning summary)
+varp lint --details         # Show all warnings grouped by category
+varp lint --suppress        # Suppress current warnings
 varp freshness              # Check doc freshness across components
 varp validate <plan.xml>    # Validate plan against manifest
 varp coupling               # Analyze component coupling (co-change + imports)

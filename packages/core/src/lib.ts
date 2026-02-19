@@ -24,7 +24,8 @@ export { invalidationCascade, validateDependencyGraph } from "./manifest/graph.j
 
 // Manifest (Bun-dependent via Bun.YAML)
 export { parseManifest } from "./manifest/parser.js";
-export { runLint } from "./manifest/lint.js";
+export { issueKey, loadSuppressions, saveSuppressions, runLint } from "./manifest/lint.js";
+export type { LintSuppressions } from "./manifest/lint.js";
 export { ackFreshness, checkFreshness, checkWarmStaleness } from "./manifest/freshness.js";
 export { renderAsciiGraph, renderGraph, renderTagGroups } from "./manifest/render-graph.js";
 export type { AsciiGraphOptions } from "./manifest/render-graph.js";

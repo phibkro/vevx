@@ -6,11 +6,61 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 
 | File | Purpose | Pure? |
 |------|---------|-------|
-| `co-change.ts` | Git log parser, commit filtering, edge computation, `file_frequencies` | Pure pipeline + effectful `scanCoChanges` wrapper |
-| `cache.ts` | Incremental `.varp/` cache (strategy: full/incremental/current) | Pure strategy + effectful read/write/orchestrator |
-| `matrix.ts` | Coupling diagnostic matrix, classification, hotspot detection | Pure |
+| `co-change.ts` | Git log parsing, commit/file filtering, edge computation, file frequencies | Pure pipeline + effectful `scanCoChanges` wrapper |
+| `cache.ts` | Incremental `.varp/` cache with strategy selection (full/incremental/current) | Pure strategy + effectful read/write/orchestrator |
+| `matrix.ts` | Coupling diagnostic matrix, quadrant classification, hotspot detection, component profiles | Pure |
 | `graph.ts` | `buildCodebaseGraph()` — assembles a `CodebaseGraph` from manifest, co-change, imports, and optional coupling | Effectful (reads git history, filesystem) |
-| `hotspots.ts` | `computeHotspots()` scores files by change frequency × LOC; `fileNeighborhood()` finds co-change neighbors annotated with import relationships; `computeComplexityTrends()` tracks LOC trend direction per file over git history | Pure parsing + effectful `computeComplexityTrends` wrapper |
+| `hotspots.ts` | Hotspot scoring (frequency × LOC), file neighborhoods with import annotations, complexity trend tracking over git history | Pure parsing + effectful `computeComplexityTrends` wrapper |
+
+## Public API
+
+### co-change.ts
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `parseGitLog` | `(log: string) → Commit[]` | Parse `git log --numstat --name-only` output into structured commits |
+| `filterCommits` | `(commits, config) → Commit[]` | Apply skip-message-patterns filter |
+| `filterFiles` | `(commits, config) → Commit[]` | Apply max-commit-files and exclude-paths filters |
+| `computeFileFrequencies` | `(commits) → Record<string, number>` | Count per-file change frequency |
+| `computeCoChangeEdges` | `(commits) → CoChangeEdge[]` | Compute graduated-weight co-change edges from commit history |
+| `analyzeCoChanges` | `(commits) → CoChangeGraph` | Full pipeline: filter → edges + frequencies |
+| `scanCoChanges` | `(repoDir, config?, lastSha?) → CoChangeGraph` | **Effectful.** Run `git log` and analyze. Optional `lastSha` for incremental |
+
+### cache.ts
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `cacheStrategy` | `(cache, currentHead, config) → "full" \| "incremental" \| "current"` | Determine scan strategy based on cache state and config |
+| `readCache` | `(cacheDir) → CoChangeCache \| null` | Read `.varp/co-change.json` |
+| `writeCache` | `(cacheDir, cache) → void` | Write cache atomically |
+| `mergeEdges` | `(existing, new) → CoChangeEdge[]` | Merge edge arrays, summing weights for duplicate pairs |
+| `mergeFrequencies` | `(existing, new) → Record<string, number>` | Sum frequency counts |
+| `scanCoChangesWithCache` | `(repoDir, config?) → CoChangeGraph` | **Effectful.** Orchestrate cached scanning: read → strategy → scan → write → return |
+
+### matrix.ts
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `buildCouplingMatrix` | `(coChange, imports, manifest, options?) → CouplingMatrix` | Build coupling matrix from co-change + import signals. Auto-calibrates thresholds. |
+| `findHiddenCoupling` | `(matrix) → CouplingEntry[]` | Extract hidden coupling entries (high co-change, no imports), sorted by weight |
+| `componentCouplingProfile` | `(matrix, component) → CouplingEntry[]` | Get all coupling entries for a specific component |
+
+### hotspots.ts
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `computeHotspots` | `(fileFrequencies, lineCounts) → HotspotEntry[]` | Score files by change frequency × LOC. Sorted descending. |
+| `fileNeighborhood` | `(file, edges, imports) → FileNeighbor[]` | Find co-changing files, annotated with whether an import relationship exists |
+| `computeComplexityTrends` | `(repoDir, filePaths, options?) → Record<string, TrendInfo>` | **Effectful.** Track LOC trend direction per file over git history |
+| `parseNumstatLog` | `(log) → NumstatEntry[]` | Parse `git log --numstat` output into structured add/delete counts |
+| `computeComplexityTrendsFromStats` | `(stats, options?) → Record<string, TrendInfo>` | Pure trend computation from pre-parsed numstat entries |
+| `countLines` | `(filePath) → number` | **Effectful.** Count lines in a file |
+
+### graph.ts
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `buildCodebaseGraph` | `(manifestPath, options?) → CodebaseGraph` | **Effectful.** Assemble full `CodebaseGraph` from manifest, co-change, imports, and optional coupling |
 
 ## Key Concepts
 

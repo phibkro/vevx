@@ -124,12 +124,17 @@ Use `varp_read_manifest` to parse and validate. The response includes `dependenc
 
 `varp_lint` runs all manifest health checks in a single pass and returns a unified report:
 
-- **Import deps** — scans source files for static imports (including tsconfig `paths` aliases like `#shared/*`, follows `extends` chains), flags undeclared dependencies (error) and unused declared dependencies (warning). Warnings are suppressed for components with no source files (e.g. prompt-only or shell-script components).
-- **Link integrity** — scans component docs for markdown links, flags broken links (error) and undeclared link-inferred dependencies (warning)
+- **Import deps** — scans source files for static imports (including tsconfig `paths` aliases like `#shared/*`, follows `extends` chains), flags undeclared dependencies (error).
+- **Link integrity** — scans component docs for markdown links, flags broken links (error) and undeclared link-inferred dependencies (warning).
+- **Unused deps** (composed) — a declared dependency is only warned as unused when *both* import scanning and link scanning agree it's extra. If either signal justifies the dep, no warning. This eliminates noise from deps that are structurally real but only evidenced by one signal. Category: `deps`.
 - **Doc freshness** — compares doc mtimes against source file mtimes (excluding doc files and test files from the source scan), flags stale docs (warning). A 5-second tolerance threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other. Freshness acks (via `varp_ack_freshness`) are also considered — if a doc was acknowledged more recently than the source change, it is not flagged stale.
-- **Stability** — warns when a `stable` component has no explicit `test` command (relies on auto-discovery) and when an `experimental` component is depended on by a `stable` component
+- **Stability** — warns when a `stable` component has no explicit `test` command (relies on auto-discovery) and when an `experimental` component is depended on by a `stable` component.
 
-Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | `links` | `freshness` | `stability`), `message`, and optional `component` name. The pure `lint()` function accepts pre-computed `ImportScanResult`, `LinkScanResult`, and `FreshnessReport` — no I/O, fully testable with synthetic data. The `runLint()` wrapper performs the scans and delegates to `lint()`.
+Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | `links` | `deps` | `freshness` | `stability`), `message`, and optional `component` name. The pure `lint()` function accepts pre-computed `ImportScanResult`, `LinkScanResult`, `FreshnessReport`, and optional `LintSuppressions` — no I/O, fully testable with synthetic data. The `runLint()` wrapper performs the scans, loads suppressions from `.varp/lint-suppressions.json`, and delegates to `lint()`.
+
+### Suppressions
+
+Warnings can be suppressed via `varp lint --suppress`, which writes issue keys to `.varp/lint-suppressions.json`. Suppressed warnings are filtered from future lint runs. Only warnings are suppressible — errors always surface. The suppressions file can be committed (team-wide) or gitignored (per-developer). To reset, delete the file.
 
 ## Scoped Tests
 
