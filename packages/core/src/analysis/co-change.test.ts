@@ -119,6 +119,29 @@ describe("computeCoChangeEdges", () => {
     const commits = [{ sha: SHA1, subject: "a", files: ["x.ts"] }];
     expect(computeCoChangeEdges(commits)).toEqual([]);
   });
+
+  test("applies type multipliers to edge weights", () => {
+    const commits = [
+      { sha: SHA1, subject: "feat: add login", files: ["a.ts", "b.ts"] },
+      { sha: SHA2, subject: "chore: update deps", files: ["a.ts", "c.ts"] },
+    ];
+    const multipliers = { feat: 1.0, chore: 0.2 };
+    const edges = computeCoChangeEdges(commits, multipliers);
+
+    const ab = edges.find((e) => e.files.includes("a.ts") && e.files.includes("b.ts"));
+    const ac = edges.find((e) => e.files.includes("a.ts") && e.files.includes("c.ts"));
+
+    expect(ab?.weight).toBe(1.0); // feat: 1.0 * 1/(2-1) = 1.0
+    expect(ac?.weight).toBe(0.2); // chore: 0.2 * 1/(2-1) = 0.2
+  });
+
+  test("uses base weight when no type match", () => {
+    const commits = [{ sha: SHA1, subject: "random message", files: ["a.ts", "b.ts"] }];
+    const multipliers = { feat: 1.0 };
+    const edges = computeCoChangeEdges(commits, multipliers);
+
+    expect(edges[0].weight).toBe(1.0); // no match → 1.0 * 1/(2-1)
+  });
 });
 
 describe("computeFileFrequencies", () => {

@@ -9,6 +9,8 @@ interface Commit {
   files: string[];
 }
 
+const CONVENTIONAL_COMMIT_RE = /^(\w+)(?:\(.+?\))?!?:\s/;
+
 // ── Pure functions ──
 
 /**
@@ -102,14 +104,25 @@ export function filterFiles(commits: Commit[], excludePatterns: string[]): Commi
  * Compute co-change edges from filtered commits.
  * Each pair of files in a commit gets weight 1/(n-1) where n = file count.
  */
-export function computeCoChangeEdges(commits: Commit[]): CoChangeEdge[] {
+export function computeCoChangeEdges(
+  commits: Commit[],
+  typeMultipliers?: Record<string, number>,
+): CoChangeEdge[] {
   const edgeMap = new Map<string, { weight: number; count: number }>();
 
   for (const commit of commits) {
     const files = commit.files;
     if (files.length < 2) continue;
 
-    const w = 1 / (files.length - 1);
+    const baseWeight = 1 / (files.length - 1);
+    let multiplier = 1.0;
+    if (typeMultipliers) {
+      const match = commit.subject.match(CONVENTIONAL_COMMIT_RE);
+      if (match && match[1] in typeMultipliers) {
+        multiplier = typeMultipliers[match[1]];
+      }
+    }
+    const w = multiplier * baseWeight;
 
     for (let i = 0; i < files.length; i++) {
       for (let j = i + 1; j < files.length; j++) {
@@ -148,12 +161,16 @@ export function computeFileFrequencies(commits: Commit[]): Record<string, number
 /**
  * Full pure pipeline: parse → filter commits → filter files → compute edges.
  */
-export function analyzeCoChanges(raw: string, config?: Partial<FilterConfig>): CoChangeGraph {
+export function analyzeCoChanges(
+  raw: string,
+  config?: Partial<FilterConfig>,
+  typeMultipliers?: Record<string, number>,
+): CoChangeGraph {
   const resolvedConfig = FilterConfigSchema.parse(config ?? {});
   const commits = parseGitLog(raw);
   const { kept, filtered } = filterCommits(commits, resolvedConfig);
   const cleaned = filterFiles(kept, resolvedConfig.exclude_paths);
-  const edges = computeCoChangeEdges(cleaned);
+  const edges = computeCoChangeEdges(cleaned, typeMultipliers);
   const fileFrequencies = computeFileFrequencies(cleaned);
   const lastSha = commits[0]?.sha;
 
