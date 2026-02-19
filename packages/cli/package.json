@@ -23,7 +23,5 @@
     "chokidar": "^5.0.0",
     "ora": "^9.3.0"
   },
-  "devDependencies": {
-    "typescript": "^6.0.0-dev.20260218"
-  }
+  "devDependencies": {}
 }
