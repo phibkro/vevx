@@ -23,6 +23,7 @@ varp lint                   # Lint manifest (imports, links, freshness, stabilit
 varp freshness              # Check doc freshness across components
 varp validate <plan.xml>    # Validate plan against manifest
 varp coupling               # Analyze component coupling (co-change + imports)
+varp conventions            # Show component detection conventions
 ```
 
 Each accepts `--manifest <path>` (default: `./varp.yaml`).

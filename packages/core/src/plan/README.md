@@ -227,9 +227,10 @@ The `/varp:execute` skill writes execution metrics to `log.xml` alongside the pl
 ```xml
 <log>
   <session started="ISO-8601" mode="single-scope|sequential|parallel" />
+  <cost total_cost_usd="0.45" total_input_tokens="125000" total_output_tokens="18000" />
   <tasks>
     <task id="1" status="COMPLETE|PARTIAL|BLOCKED|NEEDS_REPLAN">
-      <metrics tokens="25000" minutes="8" tools="42" />
+      <metrics tokens="25000" minutes="8" tools="42" cost_usd="0.12" />
       <files_modified>
         <file>src/auth/login.ts</file>
       </files_modified>
@@ -252,7 +253,7 @@ The `/varp:execute` skill writes execution metrics to `log.xml` alongside the pl
 </log>
 ```
 
-Key structure: `<session>` is self-closing metadata. `<tasks>`, `<invariant_checks>`, and `<waves>` are sibling containers under `<log>`. Invariant check descriptions are text content (not attributes). Wave-level checks are nested under their wave element.
+Key structure: `<session>` is self-closing metadata. `<cost>` is an optional self-closing element with plan-level cost aggregates. `<tasks>`, `<invariant_checks>`, and `<waves>` are sibling containers under `<log>`. Per-task `cost_usd` on `<metrics>` is optional. Invariant check descriptions are text content (not attributes). Wave-level checks are nested under their wave element.
 
 ## File Location
 

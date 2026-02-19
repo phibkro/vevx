@@ -339,10 +339,11 @@ V1 delivers the co-change parser and the structural-vs-behavioral diagnostic mat
 Node-level properties that piggyback on the git history walk. Low marginal cost over V1 infrastructure, but distinct deliverables.
 
 **In scope:**
-- Hotspot score: change frequency × lines of code
+- ~~Hotspot score: change frequency × lines of code~~ — Implemented: `computeHotspots()` in `analysis/hotspots.ts`
 - Complexity trend direction
 - Sorted edge list visualization (terminal, ANSI colors)
-- Per-file neighborhood query
+- ~~Per-file neighborhood query~~ — Implemented: `fileNeighborhood()` in `analysis/hotspots.ts`
+- ~~Per-file change frequency~~ — Implemented: `computeFileFrequencies()` in `analysis/co-change.ts`, `file_frequencies` field on `CoChangeGraph`
 
 **Out of scope (future):**
 - Clustering algorithms (Louvain, spectral) for component inference

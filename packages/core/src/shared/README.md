@@ -6,10 +6,13 @@ Shared types, utilities, and test helpers used across all core domain components
 
 | Export | File | Purpose |
 |--------|------|---------|
-| Zod schemas + inferred types | `types.ts` | All domain types: manifest, plan, scheduler, enforcement, warm staleness |
+| Zod schemas + inferred types | `types.ts` | All domain types: manifest, plan, scheduler, enforcement, analysis, warm staleness |
+| `TaskDefinitionSchema` | `types.ts` | Scheduler input contract: `id`, `touches`, optional `mutexes` (no execution fields) |
+| `CodebaseGraphSchema` | `types.ts` | Analysis output contract: composition of manifest + co-change + imports + optional coupling |
 | `buildComponentPaths()` | `ownership.ts` | Builds sorted component path map from manifest |
 | `findOwningComponent()` | `ownership.ts` | Longest-prefix match to find which component owns a file |
 | `makeTask()` | `test-helpers.ts` | Factory for test tasks with touches and optional mutexes |
+| `makeTaskDef()` | `test-helpers.ts` | Factory for `TaskDefinition` (scheduler-only, no execution fields) |
 | `makePlan()` | `test-helpers.ts` | Factory for test plans |
 
 ## Type Convention
