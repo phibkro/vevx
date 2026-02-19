@@ -1,5 +1,3 @@
-import { dirname, resolve } from "node:path";
-
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -35,8 +33,9 @@ import {
   validatePlan,
   verifyCapabilities,
   watchFreshness,
-  TouchesSchema,
+  TaskDefinitionSchema,
 } from "@varp/core/lib";
+import { dirname, resolve } from "node:path";
 import { z } from "zod";
 
 import { registerTools, type ToolDef } from "./tool-registry.js";
@@ -47,22 +46,8 @@ const DEFAULT_MANIFEST_PATH = "./varp.yaml";
 
 const manifestPath = z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)");
 
-const mutexesSchema = z.array(z.string()).optional().describe("Named mutexes for mutual exclusion");
-
-const taskRefSchema = z.object({ id: z.string(), touches: TouchesSchema, mutexes: mutexesSchema });
-
-const schedulableTaskSchema = z.object({
-  id: z.string(),
-  touches: TouchesSchema,
-  mutexes: mutexesSchema,
-});
-
-const hazardTasksInput = {
-  tasks: z.array(taskRefSchema).describe("Tasks with touches declarations"),
-};
-
 const schedulerTasksInput = {
-  tasks: z.array(schedulableTaskSchema).describe("Tasks with touches declarations"),
+  tasks: z.array(TaskDefinitionSchema).describe("Tasks with touches declarations"),
 };
 
 // ── Tool Definitions ──
@@ -160,7 +145,8 @@ const tools: ToolDef[] = [
       const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const plan = parsePlanFile(plan_path);
       const manifest = parseManifest(mp);
-      const hazards = detectHazards(plan.tasks);
+      const taskDefs = plan.tasks.map(({ id, touches, mutexes }) => ({ id, touches, mutexes }));
+      const hazards = detectHazards(taskDefs);
       const { import_deps } = scanImports(manifest, dirname(resolve(mp)));
       return validatePlan(plan, manifest, hazards, import_deps);
     },
@@ -177,7 +163,7 @@ const tools: ToolDef[] = [
   {
     name: "varp_detect_hazards",
     description: "Return all data hazards (RAW/WAR/WAW) and mutex conflicts (MUTEX) between tasks.",
-    inputSchema: hazardTasksInput,
+    inputSchema: schedulerTasksInput,
     handler: async ({ tasks }) => detectHazards(tasks),
   },
   {
@@ -256,8 +242,8 @@ const tools: ToolDef[] = [
     description:
       "Given a failed task and execution state, derive restart strategy: isolated_retry, cascade_restart, or escalate.",
     inputSchema: {
-      failed_task: taskRefSchema.describe("The task that failed"),
-      all_tasks: z.array(taskRefSchema).describe("All tasks in the plan"),
+      failed_task: TaskDefinitionSchema.describe("The task that failed"),
+      all_tasks: z.array(TaskDefinitionSchema).describe("All tasks in the plan"),
       completed_task_ids: z.array(z.string()).describe("IDs of completed tasks"),
       dispatched_task_ids: z.array(z.string()).describe("IDs of currently dispatched tasks"),
     },
