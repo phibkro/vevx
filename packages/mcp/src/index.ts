@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   type LinkScanMode,
   ackFreshness,
+  buildCodebaseGraph,
   buildCouplingMatrix,
   checkEnv,
   checkFreshness,
@@ -498,6 +499,26 @@ const tools: ToolDef[] = [
       });
       const hotspots = findHiddenCoupling(matrix);
       return { hotspots: hotspots.slice(0, limit ?? 20), total: hotspots.length };
+    },
+  },
+
+  // Codebase Graph
+  {
+    name: "varp_build_codebase_graph",
+    description:
+      "Build a complete CodebaseGraph combining manifest, co-change analysis, import scanning, and optional coupling matrix. Returns the unified analysis layer output.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      with_coupling: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe("Include coupling matrix in the graph"),
+    },
+    handler: async ({ manifest_path, with_coupling }) => {
+      return buildCodebaseGraph(manifest_path ?? DEFAULT_MANIFEST_PATH, {
+        withCoupling: with_coupling,
+      });
     },
   },
 

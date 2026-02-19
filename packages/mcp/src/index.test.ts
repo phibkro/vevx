@@ -1,9 +1,8 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { createServer } from "./index.js";
 
@@ -89,6 +88,7 @@ describe("MCP server integration", () => {
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "varp_ack_freshness",
+      "varp_build_codebase_graph",
       "varp_check_env",
       "varp_check_freshness",
       "varp_check_warm_staleness",
