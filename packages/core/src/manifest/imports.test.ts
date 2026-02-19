@@ -642,6 +642,36 @@ describe("loadTsconfigPaths", () => {
     expect(result).not.toBeNull();
   });
 
+  test("loads #shared/* alias from packages/core/tsconfig.json", () => {
+    // Integration: verify the real tsconfig is parseable and has the expected alias
+    const coreDir = join(import.meta.dir, "../..");
+    const result = loadTsconfigPaths(coreDir);
+    expect(result).not.toBeNull();
+    const sharedMapping = result!.mappings.find((m) => m.pattern === "#shared/*");
+    expect(sharedMapping).toBeDefined();
+    expect(sharedMapping!.targets).toEqual(["./src/shared/*"]);
+  });
+
+  test("preserves /* inside string values during comment stripping", () => {
+    // Regression: stripJsonComments treated /* inside JSON strings as block comment starts,
+    // corrupting path patterns like "#shared/*": ["./src/shared/*"]
+    const dir = join(tmpDir, "glob-paths");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "tsconfig.json"),
+      `{
+        "compilerOptions": {
+          "paths": { "#shared/*": ["./src/shared/*"] }
+        }
+      }`,
+    );
+    const result = loadTsconfigPaths(dir);
+    expect(result).not.toBeNull();
+    expect(result!.mappings).toHaveLength(1);
+    expect(result!.mappings[0].pattern).toBe("#shared/*");
+    expect(result!.mappings[0].targets).toEqual(["./src/shared/*"]);
+  });
+
   test("returns null when extends target is missing", () => {
     const dir = join(tmpDir, "extends-missing");
     mkdirSync(dir, { recursive: true });

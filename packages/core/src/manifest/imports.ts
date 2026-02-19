@@ -1,5 +1,5 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { resolve, dirname, join } from "node:path";
+import { resolve, dirname, join, parse as parsePath } from "node:path";
 
 export type ResolveFn = (specifier: string, fromDir: string) => string | null;
 
@@ -33,9 +33,13 @@ export interface PathAliases {
 
 /**
  * Strip JSON comments (// and block comments) for tsconfig parsing.
+ * Respects quoted strings — comment markers inside strings are preserved.
  */
 function stripJsonComments(text: string): string {
-  return text.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  // Match strings, line comments, or block comments. Replace only comments.
+  return text.replace(/"(?:[^"\\]|\\.)*"|\/\/.*$|\/\*[\s\S]*?\*\//gm, (match) =>
+    match.startsWith('"') ? match : "",
+  );
 }
 
 interface TsconfigCompilerOptions {
@@ -360,13 +364,76 @@ function isSourceFile(name: string): boolean {
 }
 
 /**
+ * Walk up from `startDir` looking for the nearest tsconfig.json.
+ * Returns the directory containing it, or null if none found (stops at filesystem root).
+ */
+function findNearestTsconfigDir(startDir: string): string | null {
+  let dir = resolve(startDir);
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (existsSync(join(dir, "tsconfig.json"))) return dir;
+    const parent = parsePath(dir).dir;
+    if (parent === dir) return null; // reached root
+    dir = parent;
+  }
+}
+
+/**
+ * Collect all path aliases from tsconfigs nearest to each component directory.
+ * Different components may live under different tsconfigs (e.g. packages/core vs packages/audit).
+ * Deduplicates by tsconfig directory so each tsconfig is loaded at most once.
+ * Merges all discovered mappings into a single PathAliases (baseDir per-mapping via pre-resolved targets).
+ */
+function collectComponentAliases(manifest: Manifest): PathAliases | null {
+  const seen = new Set<string>();
+  const allMappings: PathMapping[] = [];
+  let baseDir: string | null = null;
+
+  for (const comp of Object.values(manifest.components)) {
+    for (const compPath of componentPaths(comp)) {
+      const tsconfigDir = findNearestTsconfigDir(compPath);
+      if (!tsconfigDir || seen.has(tsconfigDir)) continue;
+      seen.add(tsconfigDir);
+
+      const aliases = loadTsconfigPaths(tsconfigDir);
+      if (!aliases) continue;
+
+      // Use the first discovered baseDir. If multiple tsconfigs define different baseDirs,
+      // the mappings still resolve correctly because we resolve targets relative to each baseDir.
+      if (baseDir === null) {
+        baseDir = aliases.baseDir;
+        allMappings.push(...aliases.mappings);
+      } else if (aliases.baseDir === baseDir) {
+        // Same baseDir — just merge mappings
+        allMappings.push(...aliases.mappings);
+      } else {
+        // Different baseDir — pre-resolve targets to absolute paths so baseDir doesn't matter
+        for (const mapping of aliases.mappings) {
+          allMappings.push({
+            pattern: mapping.pattern,
+            targets: mapping.targets.map((t) => {
+              const stripped = t.endsWith("/*") ? t.slice(0, -2) : t;
+              const abs = resolve(aliases.baseDir, stripped);
+              return t.endsWith("/*") ? abs + "/*" : abs;
+            }),
+          });
+        }
+      }
+    }
+  }
+
+  if (allMappings.length === 0 || baseDir === null) return null;
+  return { mappings: allMappings, baseDir };
+}
+
+/**
  * Scan all component source files for import statements.
  * Loads files from disk, then delegates to pure analyzeImports().
- * Automatically loads tsconfig.json paths from the manifest directory.
+ * Discovers tsconfig.json path aliases by walking up from each component directory.
  */
-export function scanImports(manifest: Manifest, manifestDir?: string): ImportScanResult {
-  // Load tsconfig path aliases from manifest directory
-  const aliases = manifestDir ? loadTsconfigPaths(manifestDir) : null;
+export function scanImports(manifest: Manifest, _manifestDir?: string): ImportScanResult {
+  // Discover tsconfig path aliases from component directories
+  const aliases = collectComponentAliases(manifest);
 
   const files: SourceFile[] = [];
 
