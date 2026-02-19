@@ -2,34 +2,41 @@ import { dirname, resolve } from "node:path";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  type LinkScanMode,
+  ackFreshness,
+  buildCouplingMatrix,
+  checkEnv,
+  checkFreshness,
+  checkWarmStaleness,
+  componentCouplingProfile,
+  computeCriticalPath,
+  computeWaves,
+  deriveRestartStrategy,
+  detectHazards,
+  diffPlans,
+  findHiddenCoupling,
+  findScopedTests,
+  invalidationCascade,
+  parseLogFile,
+  parseManifest,
+  parsePlanFile,
+  renderGraph,
+  resolveDocs,
+  runLint,
+  scanCoChangesWithCache,
+  scanImports,
+  scanLinks,
+  suggestComponents,
+  suggestTouches,
+  validateDependencyGraph,
+  validatePlan,
+  verifyCapabilities,
+  watchFreshness,
+  TouchesSchema,
+} from "@varp/core/lib";
 import { z } from "zod";
 
-import { TouchesSchema } from "#shared/types.js";
-
-import { scanCoChangesWithCache } from "./analysis/cache.js";
-import { buildCouplingMatrix, findHiddenCoupling } from "./analysis/matrix.js";
-import { verifyCapabilities } from "./enforcement/capabilities.js";
-import { deriveRestartStrategy } from "./enforcement/restart.js";
-import { checkEnv } from "./manifest/env-check.js";
-import { ackFreshness, checkFreshness, checkWarmStaleness } from "./manifest/freshness.js";
-import { invalidationCascade, validateDependencyGraph } from "./manifest/graph.js";
-import { scanImports } from "./manifest/imports.js";
-import { scanLinks, type LinkScanMode } from "./manifest/links.js";
-import { runLint } from "./manifest/lint.js";
-import { parseManifest } from "./manifest/parser.js";
-import { renderGraph } from "./manifest/render-graph.js";
-import { resolveDocs } from "./manifest/resolver.js";
-import { findScopedTests } from "./manifest/scoped-tests.js";
-import { suggestComponents } from "./manifest/suggest-components.js";
-import { suggestTouches } from "./manifest/touches.js";
-import { watchFreshness } from "./manifest/watch.js";
-import { diffPlans } from "./plan/diff.js";
-import { parseLogFile } from "./plan/log-parser.js";
-import { parsePlanFile } from "./plan/parser.js";
-import { validatePlan } from "./plan/validator.js";
-import { computeCriticalPath } from "./scheduler/critical-path.js";
-import { detectHazards } from "./scheduler/hazards.js";
-import { computeWaves } from "./scheduler/waves.js";
 import { registerTools, type ToolDef } from "./tool-registry.js";
 
 // ── Shared Schemas ──
@@ -452,7 +459,6 @@ const tools: ToolDef[] = [
         behavioral_threshold,
       });
       if (component) {
-        const { componentCouplingProfile } = await import("./analysis/matrix.js");
         return { ...matrix, entries: componentCouplingProfile(matrix, component) };
       }
       return matrix;

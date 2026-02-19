@@ -16,9 +16,9 @@ describe("parseManifest", () => {
     expect(manifest.components.shared).toBeDefined();
     expect(manifest.components.shared.path).toBe(resolve(PROJECT_ROOT, "packages/core/src/shared"));
     expect(manifest.components.shared.stability).toBe("stable");
-    expect(manifest.components.server).toBeDefined();
-    expect(manifest.components.server.path).toBe(resolve(PROJECT_ROOT, "packages/core/src"));
-    expect(manifest.components.server.deps).toEqual([
+    expect(manifest.components.mcp).toBeDefined();
+    expect(manifest.components.mcp.path).toBe(resolve(PROJECT_ROOT, "packages/mcp/src"));
+    expect(manifest.components.mcp.deps).toEqual([
       "shared",
       "manifest",
       "plan",
@@ -70,7 +70,7 @@ describe("parseManifest", () => {
 
     // Should have components directly from top-level keys
     expect(manifest.components.shared).toBeDefined();
-    expect(manifest.components.server).toBeDefined();
+    expect(manifest.components.mcp).toBeDefined();
     expect(manifest.components.skills).toBeDefined();
     expect(manifest.components.hooks).toBeDefined();
     // Should not have 'name' on manifest

@@ -38,8 +38,16 @@
       "name": "@varp/core",
       "version": "0.1.0",
       "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.26.0",
         "fast-xml-parser": "^4.5.0",
+        "zod": "^3.24.0",
+      },
+    },
+    "packages/mcp": {
+      "name": "@varp/mcp",
+      "version": "0.1.0",
+      "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.26.0",
+        "@varp/core": "workspace:*",
         "zod": "^3.24.0",
       },
     },
@@ -146,6 +154,8 @@
     "@varp/cli": ["@varp/cli@workspace:packages/cli"],
 
     "@varp/core": ["@varp/core@workspace:packages/core"],
+
+    "@varp/mcp": ["@varp/mcp@workspace:packages/mcp"],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 

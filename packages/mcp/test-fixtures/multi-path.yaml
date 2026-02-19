@@ -1,0 +1,14 @@
+varp: 0.1.0
+
+auth:
+  path:
+    - ./src/controllers/auth
+    - ./src/services/auth
+    - ./src/repositories/auth
+  deps: [shared]
+
+shared:
+  path: ./src/shared
+
+single:
+  path: ./src/single

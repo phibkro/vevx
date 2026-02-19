@@ -11,16 +11,11 @@ analysis:
   tags: [core]
   stability: experimental
 
-server:
-  path: ./packages/core/src
+mcp:
+  path: ./packages/mcp/src
   deps: [shared, manifest, plan, scheduler, enforcement, analysis]
   tags: [core]
   stability: stable
-  docs:
-    - ./docs/core/design-architecture.md
-    - ./docs/core/design-principles.md
-    - ./docs/core/design-notes.md
-    - ./docs/core/implementation-status.md
 
 manifest:
   path: ./packages/core/src/manifest

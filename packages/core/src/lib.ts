@@ -6,9 +6,9 @@
  * can resolve types without core's tsconfig paths.
  */
 
-// Types
-export { componentPaths } from "./shared/types.js";
-export type { Manifest, Component, Stability } from "./shared/types.js";
+// Types + Schemas
+export { componentPaths, TouchesSchema } from "./shared/types.js";
+export type { Manifest, Component, Stability, Touches } from "./shared/types.js";
 
 // Ownership
 export { findOwningComponent, buildComponentPaths } from "./shared/ownership.js";
@@ -20,16 +20,32 @@ export { invalidationCascade, validateDependencyGraph } from "./manifest/graph.j
 // Manifest (Bun-dependent via Bun.YAML)
 export { parseManifest } from "./manifest/parser.js";
 export { runLint } from "./manifest/lint.js";
-export { ackFreshness, checkFreshness } from "./manifest/freshness.js";
+export { ackFreshness, checkFreshness, checkWarmStaleness } from "./manifest/freshness.js";
 export { renderGraph } from "./manifest/render-graph.js";
 export { scanImports } from "./manifest/imports.js";
+export { resolveDocs } from "./manifest/resolver.js";
+export { checkEnv } from "./manifest/env-check.js";
+export { scanLinks } from "./manifest/links.js";
+export type { LinkScanMode } from "./manifest/links.js";
+export { suggestComponents } from "./manifest/suggest-components.js";
+export { suggestTouches } from "./manifest/touches.js";
+export { watchFreshness } from "./manifest/watch.js";
+export { findScopedTests } from "./manifest/scoped-tests.js";
 
 // Plan (Bun-dependent via file reads)
 export { parsePlanFile } from "./plan/parser.js";
 export { validatePlan } from "./plan/validator.js";
+export { diffPlans } from "./plan/diff.js";
+export { parseLogFile } from "./plan/log-parser.js";
 
 // Scheduler
 export { detectHazards } from "./scheduler/hazards.js";
+export { computeWaves } from "./scheduler/waves.js";
+export { computeCriticalPath } from "./scheduler/critical-path.js";
+
+// Enforcement
+export { verifyCapabilities } from "./enforcement/capabilities.js";
+export { deriveRestartStrategy } from "./enforcement/restart.js";
 
 // Analysis
 export { analyzeCoChanges, scanCoChanges } from "./analysis/co-change.js";
@@ -60,4 +76,34 @@ export type {
   CouplingMatrix,
   CouplingEntry,
   CouplingClassification,
+  ResolvedDoc,
+  ResolvedDocs,
+  EnvCheckResult,
+  WarmStalenessResult,
+  StaleComponent,
+  LinkScanResult,
+  BrokenLink,
+  InferredDep,
+  SuggestedComponent,
+  SuggestComponentsResult,
+  ScopedTestResult,
+  CapabilityReport,
+  Violation,
+  RestartStrategy,
+  Wave,
+  CriticalPath,
+  PlanDiff,
+  MetadataChange,
+  ContractChange,
+  TaskChange,
+  TaskFieldChange,
+  ExecutionLog,
+  TaskLog,
+  TaskMetrics,
+  PostconditionCheck,
+  InvariantCheck,
+  WaveLog,
+  ExecutionLogCost,
+  WatchFreshnessResult,
+  FreshnessChange,
 } from "./shared/types.js";

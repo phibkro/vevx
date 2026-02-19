@@ -1,0 +1,5 @@
+varp: 0.1.0
+
+bad:
+  path: ./src
+  stability: unknown
