@@ -7,7 +7,12 @@
  */
 
 // Types + Schemas
-export { componentPaths, TouchesSchema } from "./shared/types.js";
+export {
+  componentPaths,
+  TouchesSchema,
+  TaskDefinitionSchema,
+  CodebaseGraphSchema,
+} from "./shared/types.js";
 export type { Manifest, Component, Stability, Touches } from "./shared/types.js";
 
 // Ownership
@@ -95,6 +100,8 @@ export type {
   CapabilityReport,
   Violation,
   RestartStrategy,
+  TaskDefinition,
+  CodebaseGraph,
   Wave,
   CriticalPath,
   PlanDiff,

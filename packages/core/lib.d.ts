@@ -3,7 +3,7 @@
  * Hand-maintained to avoid requiring consumers to resolve core's internal path aliases.
  */
 
-import type { ZodObject, ZodOptional, ZodArray, ZodString, ZodTypeAny } from "zod";
+import type { ZodObject, ZodOptional, ZodArray, ZodString, ZodType, ZodTypeAny } from "zod";
 
 // ── Types from shared/types.ts ──
 
@@ -41,6 +41,9 @@ export declare const TouchesSchema: ZodObject<
   Touches,
   Touches
 >;
+
+export declare const TaskDefinitionSchema: ZodType<TaskDefinition>;
+export declare const CodebaseGraphSchema: ZodType<CodebaseGraph>;
 
 // ── Ownership from shared/ownership.ts ──
 
@@ -310,9 +313,15 @@ export type Hazard = {
   component: string;
 };
 
+export type TaskDefinition = {
+  id: string;
+  touches: Touches;
+  mutexes?: string[];
+};
+
 export type Wave = {
   id: number;
-  tasks: Plan["tasks"];
+  tasks: TaskDefinition[];
 };
 
 export type CriticalPath = {
@@ -396,6 +405,13 @@ export type CouplingMatrix = {
   behavioral_threshold: number;
 };
 
+export type CodebaseGraph = {
+  manifest: Manifest;
+  coChange: CoChangeGraph;
+  imports: ImportScanResult;
+  coupling?: CouplingMatrix;
+};
+
 // ── Bun-dependent functions ──
 
 export function parseManifest(manifestPath: string): Manifest;
@@ -468,16 +484,9 @@ export function validatePlan(
   hazards?: Hazard[],
   importDeps?: ImportDep[],
 ): ValidationResult;
-export function detectHazards(
-  tasks: Array<{ id: string; touches: { reads: string[]; writes: string[] } }>,
-): Hazard[];
-export function computeWaves(
-  tasks: Array<{ id: string; touches: Touches; mutexes?: string[] }>,
-): Wave[];
-export function computeCriticalPath(
-  tasks: Array<{ id: string; touches: Touches }>,
-  hazards?: Hazard[],
-): CriticalPath;
+export function detectHazards(tasks: TaskDefinition[]): Hazard[];
+export function computeWaves(tasks: TaskDefinition[]): Wave[];
+export function computeCriticalPath(tasks: TaskDefinition[], hazards?: Hazard[]): CriticalPath;
 export function verifyCapabilities(
   manifest: Manifest,
   touches: Touches,
