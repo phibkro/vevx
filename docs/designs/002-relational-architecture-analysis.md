@@ -231,6 +231,62 @@ This means the expensive initial analysis runs once; subsequent runs process onl
 
 ---
 
+## Analysis Configuration
+
+Analysis tuning lives in `.varp/config.json`, not in the manifest. The manifest (`varp.yaml`) describes *what the project looks like* — components, paths, dependencies, tags. Analysis config describes *how varp analyzes the project* — weighting formulas, thresholds, noise filters. Different audiences, different change cadences. A developer reading the manifest to understand component topology shouldn't encounter engine tuning knobs.
+
+### Sparse Defaults
+
+If `.varp/config.json` doesn't exist, all parameters use hardcoded defaults. If it exists, only specified fields override defaults. No generated config files full of default values — defaults live in code (`AnalysisConfigSchema` in `analysis/config.ts`), surfaced as Zod `.default()` calls.
+
+**Design principle:** Every number in the analysis pipeline is a named constant with a default, exposed in config. Not because users will tune them — most won't — but because it forces every assumption to be explicit. Defaults must produce good diagnostics on most codebases without any configuration. Configuration is for the edges, not the center.
+
+### Schema
+
+```json
+{
+  "cochange": {
+    "commit_size_ceiling": 50,
+    "type_multipliers": {
+      "feat": 1.0,
+      "fix": 1.0,
+      "refactor": 0.7,
+      "test": 0.5,
+      "docs": 0.3,
+      "chore": 0.2,
+      "style": 0.1,
+      "ci": 0.1
+    },
+    "message_excludes": ["chore", "style", "format", "lint", "merge", "rebase"],
+    "file_excludes": ["**/package-lock.json", "**/bun.lock", "**/bun.lockb", "**/*.d.ts", "**/.varp/**"]
+  },
+  "hotspots": {
+    "max_commits": 500,
+    "trend_threshold": 1
+  }
+}
+```
+
+All fields are optional. Omitted fields use the defaults shown.
+
+### Conventional Commit Integration
+
+When `type_multipliers` is configured, commit type prefixes become a signal dimension. Each commit type gets a multiplier applied to the base graduated weighting:
+
+```
+edge_weight = type_multiplier × (1 / (n - 1))
+```
+
+The type is extracted from the conventional commit pattern (`type(scope): message`). Commits that don't match the pattern use a multiplier of `1.0` — no penalty, no boost.
+
+This is opt-in enhanced signal, not a requirement. Projects without conventional commits or without `type_multipliers` configured use the base formula unchanged.
+
+### Relationship to FilterConfig
+
+The existing `FilterConfig` type (used by `scanCoChanges`, `analyzeCoChanges`) maps directly to a subset of the analysis config. A `toFilterConfig()` bridge converts between them, so existing function signatures are unchanged. New code should prefer `AnalysisConfig`; `FilterConfig` remains for backward compatibility.
+
+---
+
 ## Relationship to varp Core
 
 This lives within varp's analysis layer as a new `analysis` submodule (`packages/core/src/analysis/`). It extends existing analysis primitives:
@@ -371,6 +427,6 @@ Key differences from CodeScene's approach:
 ## Open Questions
 
 - What clustering algorithm best fits the gradual declaration model (where some nodes have explicit assignments)?
-- What's the right default commit size ceiling?
-- What commit message patterns should the default noise filter include?
+- ~~What's the right default commit size ceiling?~~ Resolved: 50 files. See Analysis Configuration section.
+- ~~What commit message patterns should the default noise filter include?~~ Resolved: `["chore", "style", "format", "lint", "merge", "rebase"]`. See Analysis Configuration section.
 - ~~How does the `CodebaseGraph` schema look?~~ Resolved: composition of existing types (`ManifestSchema + CoChangeGraphSchema + ImportScanResultSchema + CouplingMatrixSchema?`). See `packages/core/src/shared/types.ts`.

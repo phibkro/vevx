@@ -575,6 +575,25 @@ export function deriveRestartStrategy(
 export function diffPlans(planA: Plan, planB: Plan): PlanDiff;
 export function parseLogFile(path: string): ExecutionLog;
 
+// ── Analysis config ──
+
+export type AnalysisConfig = {
+  cochange: {
+    commit_size_ceiling: number;
+    message_excludes: string[];
+    file_excludes: string[];
+    type_multipliers?: Record<string, number>;
+  };
+  hotspots: {
+    max_commits: number;
+    trend_threshold: number;
+  };
+};
+
+export declare const AnalysisConfigSchema: ZodType<AnalysisConfig>;
+export function loadAnalysisConfig(repoDir: string): AnalysisConfig;
+export function toFilterConfig(config: AnalysisConfig): FilterConfig;
+
 // ── Analysis functions ──
 
 export interface BuildGraphOptions {

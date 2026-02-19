@@ -1,8 +1,9 @@
-import type { FilterConfig } from "#shared/types.js";
-
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
 import { z } from "zod";
+
+import type { FilterConfig } from "#shared/types.js";
 
 export const CoChangeConfigSchema = z.object({
   commit_size_ceiling: z.number().int().positive().default(50),

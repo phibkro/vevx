@@ -1,9 +1,10 @@
-import type { CoChangeGraph, FilterConfig } from "#shared/types.js";
-
-import { FilterConfigSchema } from "#shared/types.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+
 import { z } from "zod";
+
+import type { CoChangeGraph, FilterConfig } from "#shared/types.js";
+import { FilterConfigSchema } from "#shared/types.js";
 
 import { scanCoChanges } from "./co-change.js";
 import { loadAnalysisConfig, toFilterConfig } from "./config.js";
