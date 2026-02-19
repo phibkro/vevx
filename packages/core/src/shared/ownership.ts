@@ -44,3 +44,33 @@ export function findOwningComponent(
 
   return null;
 }
+
+/**
+ * Resolve an array of component references (names or tags) to component names.
+ * Component names take priority over tags. Throws on unknown references.
+ */
+export function resolveComponentRefs(manifest: Manifest, refs: string[]): string[] {
+  const tagMap = new Map<string, string[]>();
+  for (const [name, comp] of Object.entries(manifest.components)) {
+    for (const tag of comp.tags ?? []) {
+      const list = tagMap.get(tag) ?? [];
+      list.push(name);
+      tagMap.set(tag, list);
+    }
+  }
+
+  const componentNames = new Set(Object.keys(manifest.components));
+  const resolved = new Set<string>();
+
+  for (const ref of refs) {
+    if (componentNames.has(ref)) {
+      resolved.add(ref);
+    } else if (tagMap.has(ref)) {
+      for (const name of tagMap.get(ref)!) resolved.add(name);
+    } else {
+      throw new Error(`Unknown component or tag: "${ref}"`);
+    }
+  }
+
+  return [...resolved];
+}

@@ -16,7 +16,11 @@ export {
 export type { Manifest, Component, Stability, Touches } from "./shared/types.js";
 
 // Ownership
-export { findOwningComponent, buildComponentPaths } from "./shared/ownership.js";
+export {
+  findOwningComponent,
+  buildComponentPaths,
+  resolveComponentRefs,
+} from "./shared/ownership.js";
 export type { ComponentPathEntry } from "./shared/ownership.js";
 
 // Dependency graph

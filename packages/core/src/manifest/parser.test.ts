@@ -31,6 +31,15 @@ describe("parseManifest", () => {
       resolve(PROJECT_ROOT, "packages/core/src/manifest"),
     );
     expect(manifest.components.manifest.deps).toEqual(["shared"]);
+
+    // cli depends on tag "core" — should expand to all core-tagged components
+    const cliDeps = manifest.components.cli.deps!;
+    expect(cliDeps).toContain("shared");
+    expect(cliDeps).toContain("manifest");
+    expect(cliDeps).toContain("mcp");
+    expect(cliDeps).toContain("analysis");
+    expect(cliDeps).not.toContain("cli"); // self-exclusion
+    expect(cliDeps).not.toContain("core"); // tag itself should not appear
   });
 
   test("parses manifest with dependencies", () => {
@@ -130,5 +139,121 @@ describe("parseManifest", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("tag-based deps", () => {
+  let counter = 0;
+  function parseInline(yaml: string) {
+    const tmpDir = join("/tmp/claude", `tag-deps-test-${process.pid}-${counter++}`);
+    rmSync(tmpDir, { recursive: true, force: true });
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(join(tmpDir, "varp.yaml"), yaml);
+    try {
+      return parseManifest(join(tmpDir, "varp.yaml"));
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  test("tag dep expands to all tagged components", () => {
+    const m = parseInline(`varp: 0.1.0
+a:
+  path: ./a
+  tags: [backend]
+b:
+  path: ./b
+  tags: [backend]
+c:
+  path: ./c
+  deps: [backend]
+`);
+    expect(m.components.c.deps!.sort()).toEqual(["a", "b"]);
+  });
+
+  test("component name dep is unchanged", () => {
+    const m = parseInline(`varp: 0.1.0
+a:
+  path: ./a
+b:
+  path: ./b
+  deps: [a]
+`);
+    expect(m.components.b.deps).toEqual(["a"]);
+  });
+
+  test("mixed component + tag deps both resolve", () => {
+    const m = parseInline(`varp: 0.1.0
+a:
+  path: ./a
+  tags: [lib]
+b:
+  path: ./b
+  tags: [lib]
+c:
+  path: ./c
+d:
+  path: ./d
+  deps: [c, lib]
+`);
+    expect(m.components.d.deps!.sort()).toEqual(["a", "b", "c"]);
+  });
+
+  test("self-exclusion: tagged component depending on own tag", () => {
+    const m = parseInline(`varp: 0.1.0
+a:
+  path: ./a
+  tags: [core]
+b:
+  path: ./b
+  tags: [core]
+  deps: [core]
+`);
+    // b depends on tag "core" but should not depend on itself
+    expect(m.components.b.deps).toEqual(["a"]);
+  });
+
+  test("unknown dep throws", () => {
+    expect(() =>
+      parseInline(`varp: 0.1.0
+a:
+  path: ./a
+  deps: [nonexistent]
+`),
+    ).toThrow('unknown dep "nonexistent"');
+  });
+
+  test("component name takes priority over same-named tag", () => {
+    // If a component and a tag share the same name, the component wins
+    const m = parseInline(`varp: 0.1.0
+lib:
+  path: ./lib
+a:
+  path: ./a
+  tags: [lib]
+b:
+  path: ./b
+  deps: [lib]
+`);
+    // "lib" matches the component name, not the tag
+    expect(m.components.b.deps).toEqual(["lib"]);
+  });
+
+  test("deduplication when tag expands to already-listed component", () => {
+    const m = parseInline(`varp: 0.1.0
+a:
+  path: ./a
+  tags: [lib]
+b:
+  path: ./b
+  tags: [lib]
+c:
+  path: ./c
+  deps: [a, lib]
+`);
+    // "a" is listed explicitly AND via tag "lib" — should appear once
+    const deps = m.components.c.deps!;
+    expect(deps.filter((d) => d === "a")).toHaveLength(1);
+    expect(deps.sort()).toEqual(["a", "b"]);
   });
 });

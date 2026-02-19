@@ -25,6 +25,7 @@ import {
   renderAsciiGraph,
   renderGraph,
   renderTagGroups,
+  resolveComponentRefs,
   resolveDocs,
   runLint,
   scanCoChangesWithCache,
@@ -77,12 +78,15 @@ const tools: ToolDef[] = [
       "Given a task's touches declaration, returns doc paths to load. Auto-discovers README.md (public) and docs/*.md (private) within component paths. Reads load public docs only. Writes load all docs.",
     inputSchema: {
       manifest_path: manifestPath,
-      reads: z.array(z.string()).optional().describe("Components this task reads from"),
-      writes: z.array(z.string()).optional().describe("Components this task writes to"),
+      reads: z.array(z.string()).optional().describe("Components or tags this task reads from"),
+      writes: z.array(z.string()).optional().describe("Components or tags this task writes to"),
     },
     handler: async ({ manifest_path, reads, writes }) => {
       const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return resolveDocs(manifest, { reads, writes });
+      return resolveDocs(manifest, {
+        reads: reads ? resolveComponentRefs(manifest, reads) : undefined,
+        writes: writes ? resolveComponentRefs(manifest, writes) : undefined,
+      });
     },
   },
   {
@@ -91,11 +95,11 @@ const tools: ToolDef[] = [
       "Given changed components, walks deps to return all transitively affected components.",
     inputSchema: {
       manifest_path: manifestPath,
-      changed: z.array(z.string()).describe("Component names whose interface docs changed"),
+      changed: z.array(z.string()).describe("Component names or tags whose interface docs changed"),
     },
     handler: async ({ manifest_path, changed }) => {
       const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return { affected: invalidationCascade(manifest, changed) };
+      return { affected: invalidationCascade(manifest, resolveComponentRefs(manifest, changed)) };
     },
   },
   {
@@ -115,7 +119,7 @@ const tools: ToolDef[] = [
       "Acknowledge component docs as reviewed and still accurate. Records current timestamp so docs are no longer flagged stale until source changes again.",
     inputSchema: {
       manifest_path: manifestPath,
-      components: z.array(z.string()).describe("Component names whose docs to acknowledge"),
+      components: z.array(z.string()).describe("Component names or tags whose docs to acknowledge"),
       doc: z
         .string()
         .optional()
@@ -124,7 +128,12 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path, components, doc }) => {
       const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const manifest = parseManifest(mp);
-      return ackFreshness(manifest, dirname(resolve(mp)), components, doc);
+      return ackFreshness(
+        manifest,
+        dirname(resolve(mp)),
+        resolveComponentRefs(manifest, components),
+        doc,
+      );
     },
   },
 
@@ -230,13 +239,20 @@ const tools: ToolDef[] = [
       "Check that file modifications fall within the declared touches write set. Returns violations for out-of-scope writes.",
     inputSchema: {
       manifest_path: manifestPath,
-      reads: z.array(z.string()).optional().describe("Components declared as reads"),
-      writes: z.array(z.string()).optional().describe("Components declared as writes"),
+      reads: z.array(z.string()).optional().describe("Components or tags declared as reads"),
+      writes: z.array(z.string()).optional().describe("Components or tags declared as writes"),
       diff_paths: z.array(z.string()).describe("File paths that were modified"),
     },
     handler: async ({ manifest_path, reads, writes, diff_paths }) => {
       const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return verifyCapabilities(manifest, { reads, writes }, diff_paths);
+      return verifyCapabilities(
+        manifest,
+        {
+          reads: reads ? resolveComponentRefs(manifest, reads) : undefined,
+          writes: writes ? resolveComponentRefs(manifest, writes) : undefined,
+        },
+        diff_paths,
+      );
     },
   },
   {
@@ -318,11 +334,11 @@ const tools: ToolDef[] = [
       "Check environment variables required by components. Returns which are set and which are missing.",
     inputSchema: {
       manifest_path: manifestPath,
-      components: z.array(z.string()).describe("Component names to check env vars for"),
+      components: z.array(z.string()).describe("Component names or tags to check env vars for"),
     },
     handler: async ({ manifest_path, components }) => {
       const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return checkEnv(manifest, components, process.env);
+      return checkEnv(manifest, resolveComponentRefs(manifest, components), process.env);
     },
   },
 
@@ -550,12 +566,18 @@ const tools: ToolDef[] = [
       "Check whether components have been modified since a warm agent was last active. Returns whether it is safe to resume the agent or if components are stale.",
     inputSchema: {
       manifest_path: manifestPath,
-      components: z.array(z.string()).describe("Components the warm agent has context about"),
+      components: z
+        .array(z.string())
+        .describe("Components or tags the warm agent has context about"),
       since: z.string().describe("ISO timestamp when the agent was last active"),
     },
     handler: async ({ manifest_path, components, since }) => {
       const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return checkWarmStaleness(manifest, components, new Date(since));
+      return checkWarmStaleness(
+        manifest,
+        resolveComponentRefs(manifest, components),
+        new Date(since),
+      );
     },
   },
 ];

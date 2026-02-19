@@ -12,6 +12,40 @@ const manifestCache = new Map<string, { mtimeMs: number; manifest: Manifest }>()
  * all other top-level keys are component names. Resolves relative paths to
  * absolute paths relative to the manifest file's directory.
  */
+
+function resolveDeps(components: Record<string, ReturnType<typeof ComponentSchema.parse>>): void {
+  // Build tag → component names map
+  const tagMap = new Map<string, string[]>();
+  for (const [name, comp] of Object.entries(components)) {
+    for (const tag of comp.tags ?? []) {
+      const list = tagMap.get(tag) ?? [];
+      list.push(name);
+      tagMap.set(tag, list);
+    }
+  }
+
+  const componentNames = new Set(Object.keys(components));
+
+  for (const [name, comp] of Object.entries(components)) {
+    if (!comp.deps?.length) continue;
+
+    const resolved = new Set<string>();
+    for (const dep of comp.deps) {
+      if (componentNames.has(dep)) {
+        resolved.add(dep);
+      } else if (tagMap.has(dep)) {
+        for (const tagged of tagMap.get(dep)!) {
+          if (tagged !== name) resolved.add(tagged);
+        }
+      } else {
+        throw new Error(`Component "${name}": unknown dep "${dep}" (not a component name or tag)`);
+      }
+    }
+
+    comp.deps = [...resolved];
+  }
+}
+
 export function parseManifest(manifestPath: string): Manifest {
   const absolutePath = resolve(manifestPath);
   const baseDir = dirname(absolutePath);
@@ -65,6 +99,8 @@ export function parseManifest(manifestPath: string): Manifest {
 
     components[name] = component;
   }
+
+  resolveDeps(components);
 
   const manifest: Manifest = { varp, components };
   manifestCache.set(absolutePath, { mtimeMs: fileStat.mtimeMs, manifest });

@@ -55,6 +55,7 @@ export function findOwningComponent(
   manifest: Manifest,
   componentPaths?: ComponentPathEntry[],
 ): string | null;
+export function resolveComponentRefs(manifest: Manifest, refs: string[]): string[];
 
 // ── Graph from manifest/graph.ts ──
 
