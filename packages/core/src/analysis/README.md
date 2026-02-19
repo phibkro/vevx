@@ -11,7 +11,9 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 | `matrix.ts` | Coupling diagnostic matrix, quadrant classification, hotspot detection, component profiles | Pure |
 | `graph.ts` | `buildCodebaseGraph()` — assembles a `CodebaseGraph` from manifest, co-change, imports, and optional coupling | Effectful (reads git history, filesystem) |
 | `hotspots.ts` | Hotspot scoring (frequency × LOC), file neighborhoods with import annotations, complexity trend tracking over git history | Pure parsing + effectful `computeComplexityTrends` wrapper |
-| `config.ts` | Analysis configuration schema (`.varp/config.json`), config loading, FilterConfig bridge | Pure schema + effectful `loadAnalysisConfig` |
+
+
+Configuration schema and loading lives in `shared/config.ts` (cross-cutting concern).
 
 ## Public API
 
@@ -62,15 +64,6 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `buildCodebaseGraph` | `(manifestPath, options?) → CodebaseGraph` | **Effectful.** Assemble full `CodebaseGraph` from manifest, co-change, imports, and optional coupling |
-
-### config.ts
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `loadAnalysisConfig` | `(repoDir) → AnalysisConfig` | **Effectful.** Load `.varp/config.json`, returns full defaults if missing |
-| `toFilterConfig` | `(config) → FilterConfig` | Bridge AnalysisConfig → FilterConfig for backward compatibility |
-
-Schemas: `CoChangeConfigSchema`, `HotspotsConfigSchema`, `FreshnessConfigSchema`, `AnalysisConfigSchema`. All fields have Zod defaults — an empty config file uses sensible defaults.
 
 ## Key Concepts
 

@@ -3,11 +3,11 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
+import { loadConfig, toFilterConfig } from "#shared/config.js";
 import type { CoChangeGraph, FilterConfig } from "#shared/types.js";
 import { FilterConfigSchema } from "#shared/types.js";
 
 import { scanCoChanges } from "./co-change.js";
-import { loadAnalysisConfig, toFilterConfig } from "./config.js";
 
 // ── Cache schema ──
 
@@ -145,7 +145,7 @@ export function scanCoChangesWithCache(
   repoDir: string,
   config?: Partial<FilterConfig>,
 ): CoChangeGraph {
-  const defaultConfig = config ? {} : toFilterConfig(loadAnalysisConfig(repoDir));
+  const defaultConfig = config ? {} : toFilterConfig(loadConfig(repoDir));
   const resolvedConfig = FilterConfigSchema.parse(config ?? defaultConfig);
   const varpDir = join(repoDir, ".varp");
   const cache = readCache(varpDir);

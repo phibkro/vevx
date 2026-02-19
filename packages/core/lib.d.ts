@@ -575,9 +575,9 @@ export function deriveRestartStrategy(
 export function diffPlans(planA: Plan, planB: Plan): PlanDiff;
 export function parseLogFile(path: string): ExecutionLog;
 
-// ── Analysis config ──
+// ── Project config (.varp/config.json) ──
 
-export type AnalysisConfig = {
+export type VarpConfig = {
   cochange: {
     commit_size_ceiling: number;
     message_excludes: string[];
@@ -594,9 +594,17 @@ export type AnalysisConfig = {
   };
 };
 
-export declare const AnalysisConfigSchema: ZodType<AnalysisConfig>;
-export function loadAnalysisConfig(repoDir: string): AnalysisConfig;
-export function toFilterConfig(config: AnalysisConfig): FilterConfig;
+/** @deprecated Use VarpConfig */
+export type AnalysisConfig = VarpConfig;
+
+export declare const VarpConfigSchema: ZodType<VarpConfig>;
+/** @deprecated Use VarpConfigSchema */
+export declare const AnalysisConfigSchema: ZodType<VarpConfig>;
+export declare const FreshnessConfigSchema: ZodType<VarpConfig["freshness"]>;
+export function loadConfig(repoDir: string): VarpConfig;
+/** @deprecated Use loadConfig */
+export function loadAnalysisConfig(repoDir: string): VarpConfig;
+export function toFilterConfig(config: VarpConfig): FilterConfig;
 
 // ── Analysis functions ──
 

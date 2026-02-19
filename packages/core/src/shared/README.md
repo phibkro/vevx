@@ -14,6 +14,9 @@ Shared types, utilities, and test helpers used across all core domain components
 | `makeTask()` | `test-helpers.ts` | Factory for test tasks with touches and optional mutexes |
 | `makeTaskDef()` | `test-helpers.ts` | Factory for `TaskDefinition` (scheduler-only, no execution fields) |
 | `makePlan()` | `test-helpers.ts` | Factory for test plans |
+| `VarpConfigSchema` | `config.ts` | Project config schema for `.varp/config.json` (cochange, hotspots, freshness) |
+| `loadConfig()` | `config.ts` | Load `.varp/config.json` with sparse defaults |
+| `toFilterConfig()` | `config.ts` | Bridge VarpConfig → FilterConfig for backward compatibility |
 
 ## Type Convention
 

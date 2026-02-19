@@ -58,14 +58,18 @@ export { computeCriticalPath } from "./scheduler/critical-path.js";
 export { verifyCapabilities } from "./enforcement/capabilities.js";
 export { deriveRestartStrategy } from "./enforcement/restart.js";
 
-// Analysis
+// Config (cross-cutting, lives in shared/)
 export {
+  VarpConfigSchema,
   AnalysisConfigSchema,
   FreshnessConfigSchema,
+  loadConfig,
   loadAnalysisConfig,
   toFilterConfig,
-} from "./analysis/config.js";
-export type { AnalysisConfig } from "./analysis/config.js";
+} from "./shared/config.js";
+export type { VarpConfig, AnalysisConfig } from "./shared/config.js";
+
+// Analysis
 export { analyzeCoChanges, computeFileFrequencies, scanCoChanges } from "./analysis/co-change.js";
 export { scanCoChangesWithCache } from "./analysis/cache.js";
 export { buildCodebaseGraph } from "./analysis/graph.js";
