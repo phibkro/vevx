@@ -66,7 +66,7 @@ export function validateDependencyGraph(
 // ── Lint types ──
 
 export type LintIssueSeverity = "error" | "warning";
-export type LintIssueCategory = "imports" | "links" | "freshness" | "stability";
+export type LintIssueCategory = "imports" | "links" | "deps" | "freshness" | "stability";
 
 export type LintIssue = {
   severity: LintIssueSeverity;
@@ -444,6 +444,39 @@ export type ModelCaller = (
 export declare const FileContentSchema: ZodType<FileContent>;
 export declare const ChunkSchema: ZodType<Chunk>;
 export declare const ModelCallerResultSchema: ZodType<ModelCallerResult>;
+
+// ── Task Result types ──
+
+export type TaskResultMetrics = {
+  tokens_used: number;
+  duration_ms: number;
+  cost_usd?: number;
+};
+
+export type TaskResult = {
+  status: "COMPLETE" | "PARTIAL" | "BLOCKED" | "NEEDS_REPLAN";
+  metrics?: TaskResultMetrics;
+  files_modified: string[];
+  observations: string[];
+  error?: string;
+};
+
+export declare const TaskResultMetricsSchema: ZodType<TaskResultMetrics>;
+export declare const TaskResultSchema: ZodType<TaskResult>;
+
+// ── Concurrency ──
+
+export interface ConcurrencyCallbacks<TTask, TResult> {
+  onResult?: (task: TTask, result: TResult) => void;
+  onError?: (task: TTask, error: Error) => void;
+}
+
+export function runWithConcurrency<TTask, TResult>(
+  tasks: TTask[],
+  run: (task: TTask) => Promise<TResult>,
+  concurrency: number,
+  callbacks?: ConcurrencyCallbacks<TTask, TResult>,
+): Promise<TResult[]>;
 
 export function estimateTokens(text: string): number;
 export function createChunks(files: FileContent[], maxTokensPerChunk: number): Chunk[];

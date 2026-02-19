@@ -82,8 +82,19 @@ export type { FileNeighbor, HotspotEntry, TrendDirection, TrendInfo } from "./an
 export { estimateTokens, createChunks, formatChunkSummary } from "./execution/chunker.js";
 export { FileContentSchema, ChunkSchema } from "./execution/chunker.js";
 export type { FileContent, Chunk } from "./execution/chunker.js";
-export { ModelCallerResultSchema } from "./execution/types.js";
-export type { ModelCaller, ModelCallerResult } from "./execution/types.js";
+export {
+  ModelCallerResultSchema,
+  TaskResultSchema,
+  TaskResultMetricsSchema,
+} from "./execution/types.js";
+export type {
+  ModelCaller,
+  ModelCallerResult,
+  TaskResult,
+  TaskResultMetrics,
+} from "./execution/types.js";
+export { runWithConcurrency } from "./execution/concurrency.js";
+export type { ConcurrencyCallbacks } from "./execution/concurrency.js";
 
 // Types needed by consumers
 export type {

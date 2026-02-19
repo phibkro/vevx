@@ -6,7 +6,7 @@ describe("runWithConcurrency", () => {
   it("runs all tasks and returns results", async () => {
     const tasks = [1, 2, 3];
     const results = await runWithConcurrency(tasks, async (n) => n * 10, 2);
-    expect(results.sort()).toEqual([10, 20, 30]);
+    expect(results.sort((a, b) => a - b)).toEqual([10, 20, 30]);
   });
 
   it("respects concurrency limit", async () => {
@@ -54,7 +54,7 @@ describe("runWithConcurrency", () => {
       { onError: (task, error) => errors.push({ task, error }) },
     );
 
-    expect(results.sort()).toEqual([10, 30]);
+    expect(results.sort((a, b) => a - b)).toEqual([10, 30]);
     expect(errors).toHaveLength(1);
     expect(errors[0].error.message).toBe("boom");
   });

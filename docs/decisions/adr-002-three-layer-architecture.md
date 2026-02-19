@@ -113,7 +113,7 @@ This separation can be gradual. The internal module boundaries (`manifest/`, `sc
 1. ~~Define the interface schemas (`CodebaseGraph`, `TaskDefinition`, `Wave`, `TaskResult`) as Zod schemas~~ **DONE** — `TaskDefinitionSchema` and `CodebaseGraphSchema` in `shared/types.ts`
 2. ~~Ensure existing modules conform to layer boundaries (no analysis module importing scheduling concepts)~~ **DONE** — `buildCodebaseGraph()` in `analysis/graph.ts`, exposed via `varp_build_codebase_graph` MCP tool
 3. ~~Extract chunking and token estimation from audit into an execution-layer module~~ **DONE** — `execution/chunker.ts` and `execution/types.ts` in core; audit re-exports from `@varp/core/lib`
-4. Define `TaskResult` schema and wire it through the execution layer — deferred until executor adapters stabilize
+4. ~~Define `TaskResult` schema and wire it through the execution layer~~ **DONE** — `TaskResultSchema` in `execution/types.ts`, `runWithConcurrency` in `execution/concurrency.ts`; audit migrated to use core's implementation
 
 ## Relationship to Existing Architecture
 

@@ -1,3 +1,5 @@
+import { runWithConcurrency } from "@varp/core/lib";
+
 import type { FileContent } from "../agents/types";
 import type { AuditTaskResult, ComplianceReport, CoverageEntry } from "./findings";
 import { deduplicateFindings, summarizeFindings } from "./findings";
@@ -87,43 +89,6 @@ async function executeTask(
     durationMs,
     result.structured,
   );
-}
-
-/**
- * Run tasks with bounded concurrency.
- * Returns results in completion order, calling onResult for each.
- */
-async function runWithConcurrency(
-  tasks: AuditTask[],
-  run: (task: AuditTask) => Promise<AuditTaskResult>,
-  concurrency: number,
-  onResult?: (task: AuditTask, result: AuditTaskResult) => void,
-  onError?: (task: AuditTask, error: Error) => void,
-): Promise<AuditTaskResult[]> {
-  const results: AuditTaskResult[] = [];
-  const errors: { task: AuditTask; error: Error }[] = [];
-  let index = 0;
-
-  async function worker() {
-    while (index < tasks.length) {
-      const taskIndex = index++;
-      const task = tasks[taskIndex];
-      try {
-        const result = await run(task);
-        results.push(result);
-        onResult?.(task, result);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        errors.push({ task, error });
-        onError?.(task, error);
-      }
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker());
-  await Promise.all(workers);
-
-  return results;
 }
 
 // ── Coverage computation ──
@@ -250,11 +215,13 @@ export async function executeAuditPlan(
         return executeTask(task, resolveFiles(task), ruleset, caller, callOptions);
       },
       concurrency,
-      (task, result) => onProgress?.({ type: "task-complete", task, result }),
-      (task, error) => {
-        tasksFailed++;
-        failedTaskIds.add(task.id);
-        onProgress?.({ type: "task-error", task, error });
+      {
+        onResult: (task, result) => onProgress?.({ type: "task-complete", task, result }),
+        onError: (task, error) => {
+          tasksFailed++;
+          failedTaskIds.add(task.id);
+          onProgress?.({ type: "task-error", task, error });
+        },
       },
     );
 
@@ -274,11 +241,13 @@ export async function executeAuditPlan(
         return executeTask(task, resolveFiles(task), ruleset, caller, callOptions);
       },
       concurrency,
-      (task, result) => onProgress?.({ type: "task-complete", task, result }),
-      (task, error) => {
-        tasksFailed++;
-        failedTaskIds.add(task.id);
-        onProgress?.({ type: "task-error", task, error });
+      {
+        onResult: (task, result) => onProgress?.({ type: "task-complete", task, result }),
+        onError: (task, error) => {
+          tasksFailed++;
+          failedTaskIds.add(task.id);
+          onProgress?.({ type: "task-error", task, error });
+        },
       },
     );
 
