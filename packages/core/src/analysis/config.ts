@@ -19,11 +19,17 @@ export const CoChangeConfigSchema = z.object({
 export const HotspotsConfigSchema = z.object({
   max_commits: z.number().int().positive().default(500),
   trend_threshold: z.number().nonnegative().default(1),
+  trend_min_commits: z.number().int().positive().default(2),
+});
+
+export const FreshnessConfigSchema = z.object({
+  staleness_threshold_ms: z.number().int().positive().default(5000),
 });
 
 export const AnalysisConfigSchema = z.object({
   cochange: CoChangeConfigSchema.default({}),
   hotspots: HotspotsConfigSchema.default({}),
+  freshness: FreshnessConfigSchema.default({}),
 });
 
 export type AnalysisConfig = z.infer<typeof AnalysisConfigSchema>;

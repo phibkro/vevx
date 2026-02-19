@@ -55,14 +55,14 @@ function getFileMtime(filePath: string): Date | null {
 
 export type DocTimestamp = { path: string; mtime: Date | null };
 
-/** Tolerance in milliseconds — mtime differences below this are not considered stale. */
-const STALENESS_THRESHOLD_MS = 5000;
+/** Default tolerance in milliseconds — mtime differences below this are not considered stale. */
+const DEFAULT_STALENESS_THRESHOLD_MS = 5000;
 
 /**
  * Compute staleness for a set of docs against a source mtime.
  * Pure function — no I/O, fully testable with synthetic data.
  *
- * A doc is stale when its mtime is more than STALENESS_THRESHOLD_MS behind
+ * A doc is stale when its mtime is more than the staleness threshold behind
  * the source mtime. This avoids false positives from batch edits where
  * source and docs are updated within seconds of each other.
  */
@@ -71,6 +71,7 @@ export function computeStaleness(
   docs: DocTimestamp[],
   componentPath: string,
   acks?: Record<string, string>,
+  stalenessThresholdMs?: number,
 ): Record<string, { path: string; last_modified: string; stale: boolean }> {
   const result: Record<string, { path: string; last_modified: string; stale: boolean }> = {};
 
@@ -89,7 +90,8 @@ export function computeStaleness(
     const stale =
       !effectiveTime ||
       !sourceMtime ||
-      sourceMtime.getTime() - effectiveTime > STALENESS_THRESHOLD_MS;
+      sourceMtime.getTime() - effectiveTime >
+        (stalenessThresholdMs ?? DEFAULT_STALENESS_THRESHOLD_MS);
     result[docKey] = {
       path: doc.path,
       last_modified: doc.mtime?.toISOString() ?? "N/A",

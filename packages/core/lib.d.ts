@@ -587,6 +587,10 @@ export type AnalysisConfig = {
   hotspots: {
     max_commits: number;
     trend_threshold: number;
+    trend_min_commits: number;
+  };
+  freshness: {
+    staleness_threshold_ms: number;
   };
 };
 
@@ -679,9 +683,10 @@ export function parseNumstatLog(raw: string): Array<{ sha: string; files: Numsta
 export function computeComplexityTrendsFromStats(
   commits: Array<{ sha: string; files: NumstatEntry[] }>,
   filePaths: string[],
+  options?: { trendThreshold?: number; minCommits?: number },
 ): Record<string, TrendInfo>;
 export function computeComplexityTrends(
   repoDir: string,
   filePaths: string[],
-  options?: { maxCommits?: number },
+  options?: { maxCommits?: number; trendThreshold?: number; minCommits?: number },
 ): Record<string, TrendInfo>;

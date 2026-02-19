@@ -59,7 +59,12 @@ export { verifyCapabilities } from "./enforcement/capabilities.js";
 export { deriveRestartStrategy } from "./enforcement/restart.js";
 
 // Analysis
-export { AnalysisConfigSchema, loadAnalysisConfig, toFilterConfig } from "./analysis/config.js";
+export {
+  AnalysisConfigSchema,
+  FreshnessConfigSchema,
+  loadAnalysisConfig,
+  toFilterConfig,
+} from "./analysis/config.js";
 export type { AnalysisConfig } from "./analysis/config.js";
 export { analyzeCoChanges, computeFileFrequencies, scanCoChanges } from "./analysis/co-change.js";
 export { scanCoChangesWithCache } from "./analysis/cache.js";

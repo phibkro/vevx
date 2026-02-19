@@ -11,6 +11,7 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 | `matrix.ts` | Coupling diagnostic matrix, quadrant classification, hotspot detection, component profiles | Pure |
 | `graph.ts` | `buildCodebaseGraph()` — assembles a `CodebaseGraph` from manifest, co-change, imports, and optional coupling | Effectful (reads git history, filesystem) |
 | `hotspots.ts` | Hotspot scoring (frequency × LOC), file neighborhoods with import annotations, complexity trend tracking over git history | Pure parsing + effectful `computeComplexityTrends` wrapper |
+| `config.ts` | Analysis configuration schema (`.varp/config.json`), config loading, FilterConfig bridge | Pure schema + effectful `loadAnalysisConfig` |
 
 ## Public API
 
@@ -22,7 +23,7 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 | `filterCommits` | `(commits, config) → Commit[]` | Apply skip-message-patterns filter |
 | `filterFiles` | `(commits, config) → Commit[]` | Apply max-commit-files and exclude-paths filters |
 | `computeFileFrequencies` | `(commits) → Record<string, number>` | Count per-file change frequency |
-| `computeCoChangeEdges` | `(commits) → CoChangeEdge[]` | Compute graduated-weight co-change edges from commit history |
+| `computeCoChangeEdges` | `(commits, typeMultipliers?) → CoChangeEdge[]` | Compute graduated-weight co-change edges. Optional type multipliers for conventional commits. |
 | `analyzeCoChanges` | `(commits) → CoChangeGraph` | Full pipeline: filter → edges + frequencies |
 | `scanCoChanges` | `(repoDir, config?, lastSha?) → CoChangeGraph` | **Effectful.** Run `git log` and analyze. Optional `lastSha` for incremental |
 
@@ -51,9 +52,9 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 |----------|-----------|-------------|
 | `computeHotspots` | `(fileFrequencies, lineCounts) → HotspotEntry[]` | Score files by change frequency × LOC. Sorted descending. |
 | `fileNeighborhood` | `(file, edges, imports) → FileNeighbor[]` | Find co-changing files, annotated with whether an import relationship exists |
-| `computeComplexityTrends` | `(repoDir, filePaths, options?) → Record<string, TrendInfo>` | **Effectful.** Track LOC trend direction per file over git history |
+| `computeComplexityTrends` | `(repoDir, filePaths, options?) → Record<string, TrendInfo>` | **Effectful.** Track LOC trend direction per file. Options: `maxCommits`, `trendThreshold`, `minCommits`. |
 | `parseNumstatLog` | `(log) → NumstatEntry[]` | Parse `git log --numstat` output into structured add/delete counts |
-| `computeComplexityTrendsFromStats` | `(stats, options?) → Record<string, TrendInfo>` | Pure trend computation from pre-parsed numstat entries |
+| `computeComplexityTrendsFromStats` | `(stats, filePaths, options?) → Record<string, TrendInfo>` | Pure trend computation. Options: `trendThreshold`, `minCommits`. |
 | `countLines` | `(filePath) → number` | **Effectful.** Count lines in a file |
 
 ### graph.ts
@@ -62,9 +63,18 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 |----------|-----------|-------------|
 | `buildCodebaseGraph` | `(manifestPath, options?) → CodebaseGraph` | **Effectful.** Assemble full `CodebaseGraph` from manifest, co-change, imports, and optional coupling |
 
+### config.ts
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `loadAnalysisConfig` | `(repoDir) → AnalysisConfig` | **Effectful.** Load `.varp/config.json`, returns full defaults if missing |
+| `toFilterConfig` | `(config) → FilterConfig` | Bridge AnalysisConfig → FilterConfig for backward compatibility |
+
+Schemas: `CoChangeConfigSchema`, `HotspotsConfigSchema`, `FreshnessConfigSchema`, `AnalysisConfigSchema`. All fields have Zod defaults — an empty config file uses sensible defaults.
+
 ## Key Concepts
 
-**Graduated weighting:** Each file pair in a commit gets edge weight `1/(n-1)`. Small focused commits dominate; large commits contribute proportionally less.
+**Graduated weighting:** Each file pair in a commit gets edge weight `1/(n-1)`. Small focused commits dominate; large commits contribute proportionally less. When `type_multipliers` are configured and conventional commits are detected, weight becomes `multiplier × 1/(n-1)`.
 
 **Diagnostic matrix:** Structural (imports) vs behavioral (co-change) signals classified into quadrants:
 
