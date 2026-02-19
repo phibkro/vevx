@@ -31,3 +31,27 @@ export type ModelCaller = (
   userPrompt: string,
   options: { model: string; maxTokens?: number; jsonSchema?: Record<string, unknown> },
 ) => Promise<ModelCallerResult>;
+
+// ── Task Result ──
+
+export const TaskResultMetricsSchema = z.object({
+  tokens_used: z.number(),
+  duration_ms: z.number(),
+  cost_usd: z.number().optional(),
+});
+
+export const TaskResultSchema = z.object({
+  /** Exit status of the task. */
+  status: z.enum(["COMPLETE", "PARTIAL", "BLOCKED", "NEEDS_REPLAN"]),
+  /** Resource usage metrics. */
+  metrics: TaskResultMetricsSchema.optional(),
+  /** Files modified during execution. */
+  files_modified: z.array(z.string()).default([]),
+  /** Free-text observations from the executor. */
+  observations: z.array(z.string()).default([]),
+  /** Error message when status is BLOCKED or NEEDS_REPLAN. */
+  error: z.string().optional(),
+});
+
+export type TaskResultMetrics = z.infer<typeof TaskResultMetricsSchema>;
+export type TaskResult = z.infer<typeof TaskResultSchema>;
