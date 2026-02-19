@@ -374,9 +374,15 @@ interface Task {
   touches: Touches
 }
 
+interface TaskDefinition {
+  id: string
+  touches: { reads?: string[]; writes?: string[] }
+  mutexes?: string[]
+}
+
 interface Wave {
   id: number
-  tasks: Task[]  // ordered by critical path priority
+  tasks: TaskDefinition[]  // ordered by critical path priority
 }
 
 interface Hazard {
@@ -487,6 +493,13 @@ interface SuggestedComponent {
   name: string
   path: string[]            // layer directory names
   evidence: { stem: string; files: string[] }[]
+}
+
+interface CodebaseGraph {
+  manifest: Manifest
+  coChange: CoChangeGraph
+  imports: ImportScanResult
+  coupling?: CouplingMatrix
 }
 
 interface SuggestComponentsResult {

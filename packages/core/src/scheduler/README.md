@@ -20,4 +20,4 @@ Deterministic scheduling algorithms for task dependency analysis and parallel ex
 
 ## Data Flow
 
-All three functions accept a task array with `touches` (reads/writes) and optional `mutexes` declarations. Input comes from a parsed `plan.xml`. Output is pure JSON — no side effects.
+All three functions accept `TaskDefinition[]` — the minimal scheduling-relevant shape (`id`, `touches`, optional `mutexes`). The scheduler has no dependency on plan parsing. Callers extract task definitions from plans, CLI input, or any other source. Output is pure JSON — no side effects.

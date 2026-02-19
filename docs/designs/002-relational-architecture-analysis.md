@@ -372,4 +372,4 @@ Key differences from CodeScene's approach:
 - What clustering algorithm best fits the gradual declaration model (where some nodes have explicit assignments)?
 - What's the right default commit size ceiling?
 - What commit message patterns should the default noise filter include?
-- How does the `CodebaseGraph` schema look — what's the right shape for the interface contract between analysis and its consumers?
+- ~~How does the `CodebaseGraph` schema look?~~ Resolved: composition of existing types (`ManifestSchema + CoChangeGraphSchema + ImportScanResultSchema + CouplingMatrixSchema?`). See `packages/core/src/shared/types.ts`.
