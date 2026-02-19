@@ -1,44 +1,64 @@
 # Hooks
 
-Lifecycle hooks for varp-managed sessions.
+Lifecycle hooks for varp-managed sessions. Hooks inject graph-derived structural awareness into the session lifecycle.
 
 | Hook | Event | Purpose |
 |------|-------|---------|
-| `session-start.sh` | SessionStart | Inject project state summary and cost tracking status into session context |
-| `freshness-track.sh` | PostToolUse (Write/Edit) | Report which component a modified file belongs to |
+| `session-start.sh` | SessionStart | Inject graph context: coupling hotspots, freshness state, component health |
+| `freshness-track.sh` | PostToolUse (Write/Edit) | Report owning component + coupling neighborhood for modified files |
 | `auto-format.sh` | PostToolUse (Write/Edit) | Run oxfmt + oxlint --fix on modified `.ts` files |
 | `subagent-context.sh` | SubagentStart | Inject project conventions into subagent context |
+| `session-stop.sh` | Stop | Summarize session impact: modified components, coupling warnings, file count |
 | *(prompt hook)* | Stop | Run `varp_lint` to check for stale docs, broken links, missing deps |
 
 ## session-start.sh
 
-Parses `varp.yaml` to display project version, component list, stale docs, broken links, and active plans. Also reports cost tracking status — detects both the statusline cost file (`/tmp/claude/varp-cost.json`) and OpenTelemetry configuration (`CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_METRICS_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`).
+Delegates to `varp summary` CLI for graph-aware project health. When the CLI is built, injects coupling hotspots (hidden coupling between components), freshness state (stale doc count), and component list. Falls back to basic `grep -c` component counting when CLI is unavailable.
+
+Also reports active plans and cost tracking status (statusline + OTel).
 
 Output example:
 ```
-Varp project: v0.3
-Components: shared, server, manifest, plan, scheduler, enforcement
+Components (12): shared, analysis, mcp, manifest, plan, scheduler, enforcement, execution, skills, hooks, audit, cli
+Docs: 4/12 stale
+Hidden coupling (3):
+  audit <-> cli  weight=5.28
+  hooks <-> skills  weight=2.54
+  plan <-> scheduler  weight=2.34
 Cost tracking: statusline ✓ | otel ✓ (otlp → localhost:4317)
 ```
 
 ## freshness-track.sh
 
-Lightweight component detection. When a Write or Edit touches a source file within a component's path, reports the component name. Skips `.md` files (doc edits don't trigger freshness concerns). No filesystem scanning — just YAML parse + prefix match.
+Reports which component a modified file belongs to. When `.varp/summary.json` exists (written by `varp summary` at session start), also checks if the file is in a coupling hotspot and notes co-changing files.
 
 Output example:
 ```
-Varp: modified component "manifest"
+Note: Modified file in component "audit" scope.
+Coupling note: files that typically co-change: packages/audit/src/planner/index.ts (0.37)
 ```
 
-Exits silently when the file is outside any component or is a markdown file.
+Exits silently when the file is outside any component, is a markdown file, or has no coupling data.
+
+## session-stop.sh
+
+Summarizes session impact at session end. Maps modified files (staged + unstaged) to components, reports which components were touched, and checks `.varp/summary.json` for coupling warnings involving modified components.
+
+Output example:
+```
+Session impact: modified components: hooks, cli
+Coupling warning: modified components with hidden coupling: cli
+Consider running /varp:coupling to check for needed coordinated changes.
+Files modified: 5
+```
 
 ## auto-format.sh
 
-Runs `oxfmt --write` and `oxlint --fix` on TypeScript files after Write/Edit. Extracts the file path from the JSON context on stdin, filters for `.ts` extension, and checks file existence before formatting. Errors from formatters are silently swallowed (`|| true`) — formatting is best-effort, not blocking.
+Runs `oxfmt --write` and `oxlint --fix` on TypeScript files after Write/Edit. Errors are silently swallowed — formatting is best-effort, not blocking.
 
 ## Conventions
 
 - No runtime dependencies (no jq/python) — parse with grep/sed/awk and bash parameter expansion
 - Exit 0 when `varp.yaml` is missing (graceful degradation)
-- Hook JSON output via `hooks.json` using nested `hooks` array format
 - All scripts pass `shellcheck` (enforced by `bun run check`)
+- Graph data comes from `.varp/summary.json` cache (written by CLI, read by hooks)

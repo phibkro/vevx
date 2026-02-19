@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+
 import {
   buildCouplingMatrix,
   checkFreshness,
@@ -6,8 +9,6 @@ import {
   scanCoChangesWithCache,
   scanImports,
 } from "@varp/core/lib";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
 
 import { DEFAULT_MANIFEST, parseEnum } from "./args.js";
 

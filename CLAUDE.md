@@ -1,6 +1,6 @@
 # Varp
 
-Monorepo for manifest-aware agent orchestration: MCP server (core), compliance audit engine, skills, and hooks.
+Graph-aware project analysis and manifest-driven agent orchestration. Provides structural awareness (coupling diagnostics, scope enforcement, contract verification) as a companion to workflow plugins like superpowers. See ADR-003.
 
 ## Quick Reference
 
@@ -12,6 +12,7 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 | `turbo typecheck` | Type-check all packages via oxlint --type-check |
 | `bun test packages/core/src/index.test.ts` | MCP integration tests only |
 | `bun test packages/core/src/scheduler/` | Scheduler tests only |
+| `bun run packages/cli/dist/cli.js summary` | Project health digest (coupling, freshness) |
 | `bun run packages/cli/dist/cli.js lint` | Lint manifest for issues |
 | `bun run packages/cli/dist/cli.js graph` | Render dependency graph (ASCII, default) |
 | `bun run packages/cli/dist/cli.js freshness` | Check doc freshness |

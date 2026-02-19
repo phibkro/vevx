@@ -1,5 +1,5 @@
 {
   "name": "varp",
   "version": "0.1.0",
-  "description": "Manifest-aware context management for agent orchestration"
+  "description": "Graph-aware project analysis: coupling diagnostics, dependency tracking, scope enforcement, and architectural drift detection"
 }
