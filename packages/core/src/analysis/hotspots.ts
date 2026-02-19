@@ -166,6 +166,7 @@ export function parseNumstatLog(raw: string): Array<{ sha: string; files: Numsta
 export function computeComplexityTrendsFromStats(
   commits: Array<{ sha: string; files: NumstatEntry[] }>,
   filePaths: string[],
+  options?: { trendThreshold?: number },
 ): Record<string, TrendInfo> {
   // Collect per-file net changes in chronological order (commits are newest-first from git log)
   const fileChanges = new Map<string, number[]>();
@@ -198,10 +199,10 @@ export function computeComplexityTrendsFromStats(
     const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
     const diff = avgSecond - avgFirst;
 
-    // Threshold: consider stable if difference is less than 1 line on average
     const magnitude = Math.abs(diff);
+    const threshold = options?.trendThreshold ?? 1;
     let direction: TrendDirection;
-    if (magnitude < 1) {
+    if (magnitude < threshold) {
       direction = "stable";
     } else if (diff > 0) {
       direction = "increasing";
@@ -221,7 +222,7 @@ export function computeComplexityTrendsFromStats(
 export function computeComplexityTrends(
   repoDir: string,
   filePaths: string[],
-  options?: { maxCommits?: number },
+  options?: { maxCommits?: number; trendThreshold?: number },
 ): Record<string, TrendInfo> {
   if (filePaths.length === 0) return {};
 
@@ -248,5 +249,7 @@ export function computeComplexityTrends(
   }
 
   const commits = parseNumstatLog(result.stdout.toString());
-  return computeComplexityTrendsFromStats(commits, filePaths);
+  return computeComplexityTrendsFromStats(commits, filePaths, {
+    trendThreshold: options?.trendThreshold,
+  });
 }
