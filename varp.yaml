@@ -9,7 +9,7 @@ analysis:
   path: ./packages/core/src/analysis
   deps: [shared, manifest]
   tags: [core]
-  stability: experimental
+  stability: stable
 
 mcp:
   path: ./packages/mcp/src
