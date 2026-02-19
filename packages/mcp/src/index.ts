@@ -1,3 +1,5 @@
+import { dirname, resolve } from "node:path";
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -35,7 +37,6 @@ import {
   watchFreshness,
   TaskDefinitionSchema,
 } from "@varp/core/lib";
-import { dirname, resolve } from "node:path";
 import { z } from "zod";
 
 import { registerTools, type ToolDef } from "./tool-registry.js";
