@@ -1,6 +1,6 @@
 #!/bin/bash
 # Varp session-start hook
-# Outputs project summary when varp.yaml is present
+# Injects project health summary and graph context into session
 
 set -euo pipefail
 
@@ -11,181 +11,48 @@ if [ ! -f "$MANIFEST" ]; then
   exit 0
 fi
 
-# Parse version
-project_version=$(grep '^varp:' "$MANIFEST" | sed 's/^varp:[[:space:]]*//')
+# ── Graph-aware summary ──
+# Try the built CLI first (fast, includes coupling diagnostics)
+# Fall back to basic manifest parsing if CLI not available
 
-# Parse component names (top-level keys that aren't 'varp')
-# In flat format, components are top-level keys with a 'path:' child
-components=()
-current_key=""
-while IFS= read -r line; do
-  # Top-level key (no leading space, has colon)
-  if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
-    current_key="${line%%:*}"
-    # Skip the 'varp' key
-    if [ "$current_key" = "varp" ]; then
-      current_key=""
-    fi
-    continue
+CLI_PATH="packages/cli/dist/cli.js"
+if [ -x "$(command -v bun)" ] && [ -f "$CLI_PATH" ]; then
+  if summary=$(bun run "$CLI_PATH" summary 2>/dev/null); then
+    echo "$summary"
+  else
+    # CLI failed — fall back to basic info
+    comp_count=$(grep -cE '^[a-zA-Z_][a-zA-Z0-9_-]*:' "$MANIFEST" 2>/dev/null || echo 0)
+    comp_count=$((comp_count - 1))  # subtract 'varp:' key
+    echo "Varp project: ${comp_count} components (run 'turbo build' for graph context)"
   fi
-  # If we're in a top-level key and see 'path:', it's a component
-  if [ -n "$current_key" ] && echo "$line" | grep -qE '^  path:'; then
-    components+=("$current_key")
-    current_key=""
-  fi
-done < "$MANIFEST"
-
-comp_count=${#components[@]}
-comp_list=$(IFS=', '; echo "${components[*]}")
-
-echo "Varp project: v${project_version}"
-echo "Components: ${comp_list} (${comp_count})"
-
-# Check for stale docs
-stale_docs=()
-current_comp=""
-current_path=""
-in_docs=false
-while IFS= read -r line; do
-  # Top-level key
-  if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
-    key="${line%%:*}"
-    if [ "$key" != "varp" ]; then
-      current_comp="$key"
-      current_path=""
-      in_docs=false
-    fi
-    continue
-  fi
-  # Component path
-  if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  path:'; then
-    current_path="${line#  path:}"
-    current_path="${current_path#"${current_path%%[! ]*}"}"
-  fi
-  # Docs array start
-  if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  docs:'; then
-    in_docs=true
-    continue
-  fi
-  # Doc entry (list item: "    - ./path/to/doc.md")
-  if $in_docs && echo "$line" | grep -qE '^    - '; then
-    doc_path="${line#    - }"
-    doc_path="${doc_path#"${doc_path%%[! ]*}"}"
-    if [ -n "$current_path" ] && [ -f "$doc_path" ]; then
-      # Find most recently modified source file in component path
-      newest_source=$(find "$current_path" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.py' -o -name '*.go' -o -name '*.rs' \) -newer "$doc_path" 2>/dev/null | head -1)
-      if [ -n "$newest_source" ]; then
-        doc_basename=$(basename "$doc_path")
-        stale_docs+=("${current_comp}/${doc_basename}")
-      fi
-    fi
-    continue
-  fi
-  # Any non-list-item line after docs ends the docs block
-  if $in_docs && ! echo "$line" | grep -qE '^    - |^$'; then
-    in_docs=false
-  fi
-done < "$MANIFEST"
-
-if [ ${#stale_docs[@]} -gt 0 ]; then
-  stale_list=$(IFS=', '; echo "${stale_docs[*]}")
-  echo "Stale docs: ${stale_list}"
+else
+  comp_count=$(grep -cE '^[a-zA-Z_][a-zA-Z0-9_-]*:' "$MANIFEST" 2>/dev/null || echo 0)
+  comp_count=$((comp_count - 1))
+  echo "Varp project: ${comp_count} components (build CLI for graph context)"
 fi
 
-# Check for broken markdown links in component docs
-broken_links=()
-current_comp=""
-current_path=""
-while IFS= read -r line; do
-  # Top-level key
-  if echo "$line" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*:'; then
-    key="${line%%:*}"
-    if [ "$key" != "varp" ]; then
-      current_comp="$key"
-      current_path=""
-    fi
-    continue
-  fi
-  # Component path
-  if [ -n "$current_comp" ] && echo "$line" | grep -qE '^  path:'; then
-    current_path="${line#  path:}"
-    current_path="${current_path#"${current_path%%[! ]*}"}"
-  fi
-done < "$MANIFEST"
-
-# For each component, scan README.md and docs/*.md for broken relative links
-while IFS= read -r comp_entry; do
-  [ "$comp_entry" = "varp" ] && continue
-  comp_path=$(awk "/^${comp_entry}:/{found=1; next} found && /^  path:/{print \$2; exit}" "$MANIFEST")
-  [ -z "$comp_path" ] && continue
-
-  # Collect doc files: README.md and docs/*.md
-  doc_files=()
-  [ -f "${comp_path}/README.md" ] && doc_files+=("${comp_path}/README.md")
-  if [ -d "${comp_path}/docs" ]; then
-    for f in "${comp_path}/docs/"*.md; do
-      [ -f "$f" ] && doc_files+=("$f")
-    done
-  fi
-
-  for doc_file in "${doc_files[@]}"; do
-    # Extract relative markdown links (skip http and fragment-only)
-    while IFS= read -r link_target; do
-      [ -z "$link_target" ] && continue
-      # Strip #anchor
-      clean_target="${link_target%%#*}"
-      [ -z "$clean_target" ] && continue
-      # Resolve relative to doc's directory
-      doc_dir=$(dirname "$doc_file")
-      resolved="${doc_dir}/${clean_target}"
-      if [ ! -e "$resolved" ]; then
-        doc_basename=$(basename "$doc_file")
-        broken_links+=("${comp_entry}/${doc_basename}→${link_target}")
-      fi
-    done < <(grep -oE '\[[^]]*\]\([^)]+\)' "$doc_file" 2>/dev/null | sed 's/.*](\(.*\))/\1/' | grep -v '^https\?://' | grep -v '^#')
-  done
-done < <(grep -E '^[a-zA-Z_][a-zA-Z0-9_-]*:' "$MANIFEST" | sed 's/:.*//')
-
-if [ ${#broken_links[@]} -gt 0 ]; then
-  echo "Broken links: ${#broken_links[@]} found"
-  for bl in "${broken_links[@]}"; do
-    echo "  - ${bl}"
-  done
-fi
-
-# Check for active plans in Claude Code project memory
-# Convention: ~/.claude/projects/-<pwd-with-slashes-replaced>}/memory/plans/
+# ── Active plans ──
 project_key="${PWD//\//-}"
 plans_dir="$HOME/.claude/projects/${project_key}/memory/plans"
 if [ -d "$plans_dir" ]; then
-  active_plans=()
   for plan_dir in "$plans_dir"/*/; do
     if [ -d "$plan_dir" ] && [ -f "${plan_dir}plan.xml" ]; then
-      plan_name=$(basename "$plan_dir")
-      active_plans+=("$plan_name")
+      echo "Active plan: $(basename "$plan_dir")"
     fi
   done
-  if [ ${#active_plans[@]} -gt 0 ]; then
-    for plan in "${active_plans[@]}"; do
-      echo "Active plan: ${plan}"
-    done
-  fi
 fi
 
-# Cost tracking status
+# ── Cost tracking status ──
 statusline_status="✗"
 otel_status="✗"
 otel_detail=""
 
-# Check statusline cost file
 if [ -f "/tmp/claude/varp-cost.json" ]; then
   statusline_status="✓"
 fi
 
-# Check OTel configuration
 if [ "${CLAUDE_CODE_ENABLE_TELEMETRY:-0}" = "1" ]; then
   otel_status="✓"
-  # Determine exporter details
   exporter="${OTEL_METRICS_EXPORTER:-otlp}"
   endpoint="${OTEL_EXPORTER_OTLP_ENDPOINT:-}"
   if [ -n "$endpoint" ]; then
