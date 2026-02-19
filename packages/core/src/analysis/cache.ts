@@ -1,12 +1,12 @@
+import type { CoChangeGraph, FilterConfig } from "#shared/types.js";
+
+import { FilterConfigSchema } from "#shared/types.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
 import { z } from "zod";
 
-import type { CoChangeGraph, FilterConfig } from "#shared/types.js";
-import { FilterConfigSchema } from "#shared/types.js";
-
 import { scanCoChanges } from "./co-change.js";
+import { loadAnalysisConfig, toFilterConfig } from "./config.js";
 
 // ── Cache schema ──
 
@@ -144,7 +144,8 @@ export function scanCoChangesWithCache(
   repoDir: string,
   config?: Partial<FilterConfig>,
 ): CoChangeGraph {
-  const resolvedConfig = FilterConfigSchema.parse(config ?? {});
+  const defaultConfig = config ? {} : toFilterConfig(loadAnalysisConfig(repoDir));
+  const resolvedConfig = FilterConfigSchema.parse(config ?? defaultConfig);
   const varpDir = join(repoDir, ".varp");
   const cache = readCache(varpDir);
   const currentHead = getCurrentHead(repoDir);
