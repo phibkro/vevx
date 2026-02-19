@@ -70,9 +70,14 @@ export const FreshnessReportSchema = z.object({
   components: z.record(z.string(), ComponentFreshnessSchema),
 });
 
+export const AckFreshnessResultSchema = z.object({
+  acked: z.array(z.string()),
+});
+
 export type DocFreshness = z.infer<typeof DocFreshnessSchema>;
 export type ComponentFreshness = z.infer<typeof ComponentFreshnessSchema>;
 export type FreshnessReport = z.infer<typeof FreshnessReportSchema>;
+export type AckFreshnessResult = z.infer<typeof AckFreshnessResultSchema>;
 
 // ── Plan ──
 

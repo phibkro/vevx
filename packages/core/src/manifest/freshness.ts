@@ -1,4 +1,4 @@
-import { statSync, readdirSync } from "node:fs";
+import { statSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, basename } from "node:path";
 
 import {
@@ -70,16 +70,26 @@ export function computeStaleness(
   sourceMtime: Date | null,
   docs: DocTimestamp[],
   componentPath: string,
+  acks?: Record<string, string>,
 ): Record<string, { path: string; last_modified: string; stale: boolean }> {
   const result: Record<string, { path: string; last_modified: string; stale: boolean }> = {};
 
   for (const doc of docs) {
     const rel = relative(componentPath, doc.path);
     const docKey = rel.startsWith("..") ? basename(doc.path, ".md") : rel.replace(/\.md$/, "");
+
+    // Use the latest of doc mtime and ack time for staleness comparison
+    let effectiveTime = doc.mtime?.getTime() ?? 0;
+    const ackIso = acks?.[doc.path];
+    if (ackIso) {
+      const ackTime = new Date(ackIso).getTime();
+      if (ackTime > effectiveTime) effectiveTime = ackTime;
+    }
+
     const stale =
-      !doc.mtime ||
+      !effectiveTime ||
       !sourceMtime ||
-      sourceMtime.getTime() - doc.mtime.getTime() > STALENESS_THRESHOLD_MS;
+      sourceMtime.getTime() - effectiveTime > STALENESS_THRESHOLD_MS;
     result[docKey] = {
       path: doc.path,
       last_modified: doc.mtime?.toISOString() ?? "N/A",
@@ -90,9 +100,26 @@ export function computeStaleness(
   return result;
 }
 
+// ── Ack sidecar I/O ──
+
+const ACK_FILENAME = ".varp-freshness.json";
+
+export function loadAcks(manifestDir: string): Record<string, string> {
+  try {
+    return JSON.parse(readFileSync(join(manifestDir, ACK_FILENAME), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+export function saveAcks(manifestDir: string, acks: Record<string, string>): void {
+  writeFileSync(join(manifestDir, ACK_FILENAME), JSON.stringify(acks, null, 2) + "\n");
+}
+
 // ── Effectful wrapper ──
 
-export function checkFreshness(manifest: Manifest): FreshnessReport {
+export function checkFreshness(manifest: Manifest, manifestDir?: string): FreshnessReport {
+  const acks = manifestDir ? loadAcks(manifestDir) : undefined;
   const components: FreshnessReport["components"] = {};
 
   for (const [name, component] of Object.entries(manifest.components)) {
@@ -112,12 +139,45 @@ export function checkFreshness(manifest: Manifest): FreshnessReport {
     const docTimestamps: DocTimestamp[] = allDocs.map((p) => ({ path: p, mtime: getFileMtime(p) }));
 
     components[name] = {
-      docs: computeStaleness(sourceMtime, docTimestamps, paths[0]),
+      docs: computeStaleness(sourceMtime, docTimestamps, paths[0], acks),
       source_last_modified: sourceMtime?.toISOString() ?? "N/A",
     };
   }
 
   return { components };
+}
+
+/** Acknowledge docs as reviewed. Records current timestamp in sidecar file. */
+export function ackFreshness(
+  manifest: Manifest,
+  manifestDir: string,
+  components: string[],
+  doc?: string,
+): { acked: string[] } {
+  const acks = loadAcks(manifestDir);
+  const now = new Date().toISOString();
+  const acked: string[] = [];
+
+  for (const name of components) {
+    const component = manifest.components[name];
+    if (!component) continue;
+
+    const allDocs = discoverDocs(component);
+    for (const docPath of allDocs) {
+      if (doc) {
+        // Filter by doc key — match against basename without .md or relative path key
+        const paths = componentPaths(component);
+        const rel = relative(paths[0], docPath);
+        const docKey = rel.startsWith("..") ? basename(docPath, ".md") : rel.replace(/\.md$/, "");
+        if (docKey !== doc) continue;
+      }
+      acks[docPath] = now;
+      acked.push(docPath);
+    }
+  }
+
+  saveAcks(manifestDir, acks);
+  return { acked };
 }
 
 /** Check whether components have been modified since a baseline timestamp. */

@@ -6,8 +6,12 @@ import { checkFreshness } from "./freshness.js";
  * Check freshness and filter to changes since a baseline timestamp.
  * If `since` is omitted, returns the full freshness snapshot.
  */
-export function watchFreshness(manifest: Manifest, since?: string): WatchFreshnessResult {
-  const report = checkFreshness(manifest);
+export function watchFreshness(
+  manifest: Manifest,
+  since?: string,
+  manifestDir?: string,
+): WatchFreshnessResult {
+  const report = checkFreshness(manifest, manifestDir);
   const snapshotTime = new Date().toISOString();
   const sinceDate = since ? new Date(since) : null;
 

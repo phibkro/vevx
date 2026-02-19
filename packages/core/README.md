@@ -56,11 +56,19 @@ Given a list of components whose docs changed, walks `deps` to return all transi
 
 #### `varp_check_freshness`
 
-Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Doc files and test files (`*.test.ts`, `*.spec.ts`, etc.) are excluded from the source mtime scan — doc edits would inflate source mtime, and test changes don't affect interfaces that docs describe. A 5-second tolerance threshold eliminates false positives from batch edits. Used by `/status` and by the orchestrator before dispatching tasks.
+Returns freshness status for all component docs — last modified timestamps, staleness relative to source code changes. Doc files and test files (`*.test.ts`, `*.spec.ts`, etc.) are excluded from the source mtime scan — doc edits would inflate source mtime, and test changes don't affect interfaces that docs describe. A 5-second tolerance threshold eliminates false positives from batch edits. Freshness acks (via `varp_ack_freshness`) are also considered. Used by `/status` and by the orchestrator before dispatching tasks.
 
 **Parameters:** `{ manifest_path?: string }`
 
 **Returns:** `FreshnessReport`
+
+#### `varp_ack_freshness`
+
+Acknowledges component docs as reviewed and still accurate. Records the current timestamp in `.varp-freshness.json` so docs are no longer flagged stale until source changes again. Use after internal refactors that don't affect documented behavior.
+
+**Parameters:** `{ manifest_path?: string, components: string[], doc?: string }`
+
+**Returns:** `{ acked: string[] }`
 
 #### `varp_check_warm_staleness`
 

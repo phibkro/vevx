@@ -2,7 +2,14 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, utimesSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import { checkFreshness, checkWarmStaleness, computeStaleness } from "./freshness.js";
+import {
+  ackFreshness,
+  checkFreshness,
+  checkWarmStaleness,
+  computeStaleness,
+  loadAcks,
+  saveAcks,
+} from "./freshness.js";
 
 const PROJECT_ROOT = resolve(import.meta.dir, "../..");
 const TMP_DIR = join(PROJECT_ROOT, "test-fixtures", "freshness-tmp");
@@ -178,6 +185,102 @@ describe("checkFreshness", () => {
       const result = computeStaleness(source, [{ path: "/comp/README.md", mtime: null }], "/comp");
       expect(result["README"].stale).toBe(true);
     });
+  });
+
+  describe("ack support", () => {
+    test("ack newer than source overrides staleness", () => {
+      const source = new Date("2026-02-17T12:00:10.000Z");
+      const doc = new Date("2026-02-17T12:00:00.000Z"); // 10s behind — stale without ack
+      const acks = { "/comp/README.md": "2026-02-17T12:00:12.000Z" }; // ack after source
+      const result = computeStaleness(
+        source,
+        [{ path: "/comp/README.md", mtime: doc }],
+        "/comp",
+        acks,
+      );
+      expect(result["README"].stale).toBe(false);
+    });
+
+    test("ack older than source does not override staleness", () => {
+      const source = new Date("2026-02-17T12:00:10.000Z");
+      const doc = new Date("2026-02-17T12:00:00.000Z"); // 10s behind
+      const acks = { "/comp/README.md": "2026-02-17T12:00:03.000Z" }; // ack before source
+      const result = computeStaleness(
+        source,
+        [{ path: "/comp/README.md", mtime: doc }],
+        "/comp",
+        acks,
+      );
+      expect(result["README"].stale).toBe(true);
+    });
+
+    test("ack on missing doc prevents staleness", () => {
+      const source = new Date("2026-02-17T12:00:10.000Z");
+      const acks = { "/comp/README.md": "2026-02-17T12:00:12.000Z" };
+      const result = computeStaleness(
+        source,
+        [{ path: "/comp/README.md", mtime: null }],
+        "/comp",
+        acks,
+      );
+      expect(result["README"].stale).toBe(false);
+      expect(result["README"].last_modified).toBe("N/A"); // doc mtime still N/A
+    });
+  });
+});
+
+describe("ack sidecar", () => {
+  const ACK_TMP = join(PROJECT_ROOT, "test-fixtures", "ack-tmp");
+
+  beforeAll(() => {
+    mkdirSync(ACK_TMP, { recursive: true });
+  });
+
+  afterAll(() => {
+    try {
+      rmSync(ACK_TMP, { recursive: true });
+    } catch {}
+  });
+
+  test("loadAcks returns empty object when file missing", () => {
+    expect(loadAcks(join(ACK_TMP, "nonexistent"))).toEqual({});
+  });
+
+  test("saveAcks/loadAcks round-trip", () => {
+    const acks = { "/path/to/README.md": "2026-02-19T00:00:00.000Z" };
+    saveAcks(ACK_TMP, acks);
+    expect(loadAcks(ACK_TMP)).toEqual(acks);
+  });
+
+  test("ackFreshness records timestamps and clears staleness", () => {
+    // Create component with stale doc
+    const compDir = join(ACK_TMP, "comp");
+    mkdirSync(compDir, { recursive: true });
+    writeFileSync(join(compDir, "source.ts"), "export const x = 1;");
+    writeFileSync(join(compDir, "README.md"), "# Docs");
+    // Source newer than doc
+    const docTime = new Date("2026-01-01T00:00:00Z");
+    utimesSync(join(compDir, "README.md"), docTime, docTime);
+    const sourceTime = new Date("2026-02-01T00:00:00Z");
+    utimesSync(join(compDir, "source.ts"), sourceTime, sourceTime);
+
+    const manifest = {
+      varp: "0.1.0",
+      components: { comp: { path: compDir, docs: [] } },
+    };
+
+    // Verify stale before ack
+    const before = checkFreshness(manifest, ACK_TMP);
+    expect(before.components.comp.docs["README"].stale).toBe(true);
+
+    // Ack
+    const result = ackFreshness(manifest, ACK_TMP, ["comp"]);
+    expect(result.acked).toHaveLength(1);
+    expect(result.acked[0]).toContain("README.md");
+
+    // Verify fresh after ack
+    const after = checkFreshness(manifest, ACK_TMP);
+    expect(after.components.comp.docs["README"].stale).toBe(false);
   });
 });
 

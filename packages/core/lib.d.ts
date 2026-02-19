@@ -198,7 +198,13 @@ export function componentCouplingProfile(
 
 export function parseManifest(manifestPath: string): Manifest;
 export function runLint(manifest: Manifest, manifestPath: string): Promise<LintReport>;
-export function checkFreshness(manifest: Manifest): FreshnessReport;
+export function checkFreshness(manifest: Manifest, manifestDir?: string): FreshnessReport;
+export function ackFreshness(
+  manifest: Manifest,
+  manifestDir: string,
+  components: string[],
+  doc?: string,
+): { acked: string[] };
 export function renderGraph(manifest: Manifest, opts?: { direction?: "TD" | "LR" }): string;
 export function scanImports(manifest: Manifest, manifestDir?: string): ImportScanResult;
 export function parsePlanFile(path: string): Plan;

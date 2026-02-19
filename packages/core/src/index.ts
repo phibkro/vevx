@@ -11,7 +11,7 @@ import { buildCouplingMatrix, findHiddenCoupling } from "./analysis/matrix.js";
 import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
 import { checkEnv } from "./manifest/env-check.js";
-import { checkFreshness, checkWarmStaleness } from "./manifest/freshness.js";
+import { ackFreshness, checkFreshness, checkWarmStaleness } from "./manifest/freshness.js";
 import { invalidationCascade, validateDependencyGraph } from "./manifest/graph.js";
 import { scanImports } from "./manifest/imports.js";
 import { scanLinks, type LinkScanMode } from "./manifest/links.js";
@@ -108,8 +108,27 @@ const tools: ToolDef[] = [
       "Returns freshness status for all component docs — last modified timestamps, staleness relative to source.",
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
-      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return checkFreshness(manifest);
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
+      const manifest = parseManifest(mp);
+      return checkFreshness(manifest, dirname(resolve(mp)));
+    },
+  },
+  {
+    name: "varp_ack_freshness",
+    description:
+      "Acknowledge component docs as reviewed and still accurate. Records current timestamp so docs are no longer flagged stale until source changes again.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      components: z.array(z.string()).describe("Component names whose docs to acknowledge"),
+      doc: z
+        .string()
+        .optional()
+        .describe("Specific doc key to ack (e.g. 'README'). Omit to ack all docs."),
+    },
+    handler: async ({ manifest_path, components, doc }) => {
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
+      const manifest = parseManifest(mp);
+      return ackFreshness(manifest, dirname(resolve(mp)), components, doc);
     },
   },
 
@@ -476,8 +495,9 @@ const tools: ToolDef[] = [
         ),
     },
     handler: async ({ manifest_path, since }) => {
-      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return watchFreshness(manifest, since);
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
+      const manifest = parseManifest(mp);
+      return watchFreshness(manifest, since, dirname(resolve(mp)));
     },
   },
 

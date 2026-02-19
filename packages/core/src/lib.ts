@@ -20,7 +20,7 @@ export { invalidationCascade, validateDependencyGraph } from "./manifest/graph.j
 // Manifest (Bun-dependent via Bun.YAML)
 export { parseManifest } from "./manifest/parser.js";
 export { runLint } from "./manifest/lint.js";
-export { checkFreshness } from "./manifest/freshness.js";
+export { ackFreshness, checkFreshness } from "./manifest/freshness.js";
 export { renderGraph } from "./manifest/render-graph.js";
 export { scanImports } from "./manifest/imports.js";
 

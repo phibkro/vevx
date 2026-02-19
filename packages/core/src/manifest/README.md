@@ -126,7 +126,7 @@ Use `varp_read_manifest` to parse and validate. The response includes `dependenc
 
 - **Import deps** — scans source files for static imports (including tsconfig `paths` aliases like `#shared/*`, follows `extends` chains), flags undeclared dependencies (error) and unused declared dependencies (warning). Warnings are suppressed for components with no source files (e.g. prompt-only or shell-script components).
 - **Link integrity** — scans component docs for markdown links, flags broken links (error) and undeclared link-inferred dependencies (warning)
-- **Doc freshness** — compares doc mtimes against source file mtimes (excluding doc files and test files from the source scan), flags stale docs (warning). A 5-second tolerance threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other.
+- **Doc freshness** — compares doc mtimes against source file mtimes (excluding doc files and test files from the source scan), flags stale docs (warning). A 5-second tolerance threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other. Freshness acks (via `varp_ack_freshness`) are also considered — if a doc was acknowledged more recently than the source change, it is not flagged stale.
 - **Stability** — warns when a `stable` component has no explicit `test` command (relies on auto-discovery) and when an `experimental` component is depended on by a `stable` component
 
 Each issue includes a `severity` (`error` | `warning`), `category` (`imports` | `links` | `freshness` | `stability`), `message`, and optional `component` name. The pure `lint()` function accepts pre-computed `ImportScanResult`, `LinkScanResult`, and `FreshnessReport` — no I/O, fully testable with synthetic data. The `runLint()` wrapper performs the scans and delegates to `lint()`.
@@ -152,6 +152,21 @@ Use the output to scaffold `varp.yaml` components with `path: [...]` arrays.
 ## Warm Staleness
 
 `varp_check_warm_staleness` checks whether components have been modified since a warm agent was last dispatched. For each requested component, it gets the latest source file mtime (excluding doc files, same exclusion set as freshness) and compares against the baseline timestamp. Components whose source was modified after the baseline are reported as stale. Returns `safe_to_resume`, the list of stale components, and a human-readable `summary` suitable for injection into a resumed agent's prompt.
+
+## Ack Freshness
+
+`varp_ack_freshness` records that component docs have been reviewed and are still accurate, without modifying the doc files themselves. This eliminates false-positive staleness warnings after internal refactors that don't change documented behavior.
+
+Acks are stored in `.varp-freshness.json` in the manifest directory — a sidecar file mapping absolute doc paths to ISO timestamps. When checking freshness, the effective time for each doc is `max(doc_mtime, ack_time)`. If the effective time is within the staleness threshold of the source mtime, the doc is considered fresh.
+
+**Parameters:** `{ manifest_path?: string, components: string[], doc?: string }`
+
+- `components` — component names whose docs to acknowledge
+- `doc` — optional doc key (e.g. `"README"`) to ack a specific doc; omit to ack all docs for the listed components
+
+**Returns:** `{ acked: string[] }` — absolute paths of acknowledged docs
+
+The `.varp-freshness.json` file can be committed (team-wide acks) or gitignored (per-developer). Acks expire naturally — when source files change after the ack timestamp, the doc becomes stale again.
 
 ## Watch Freshness
 
