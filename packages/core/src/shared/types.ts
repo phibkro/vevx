@@ -227,6 +227,58 @@ export type ImportEvidence = z.infer<typeof ImportEvidenceSchema>;
 export type ImportDep = z.infer<typeof ImportDepSchema>;
 export type ImportScanResult = z.infer<typeof ImportScanResultSchema>;
 
+// ── Co-Change Analysis ──
+
+export const FilterConfigSchema = z.object({
+  max_commit_files: z.number().default(50),
+  skip_message_patterns: z
+    .array(z.string())
+    .default(["chore", "style", "format", "lint", "merge", "rebase"]),
+  exclude_paths: z
+    .array(z.string())
+    .default(["**/package-lock.json", "**/bun.lock", "**/bun.lockb", "**/*.d.ts", "**/.varp/**"]),
+});
+
+export const CoChangeEdgeSchema = z.object({
+  files: z.tuple([z.string(), z.string()]),
+  weight: z.number(),
+  commit_count: z.number(),
+});
+
+export const CoChangeGraphSchema = z.object({
+  edges: z.array(CoChangeEdgeSchema),
+  total_commits_analyzed: z.number(),
+  total_commits_filtered: z.number(),
+  last_sha: z.string().optional(),
+});
+
+export const CouplingClassificationSchema = z.enum([
+  "explicit_module",
+  "stable_interface",
+  "hidden_coupling",
+  "unrelated",
+]);
+
+export const CouplingEntrySchema = z.object({
+  pair: z.tuple([z.string(), z.string()]),
+  structural_weight: z.number(),
+  behavioral_weight: z.number(),
+  classification: CouplingClassificationSchema,
+});
+
+export const CouplingMatrixSchema = z.object({
+  entries: z.array(CouplingEntrySchema),
+  structural_threshold: z.number(),
+  behavioral_threshold: z.number(),
+});
+
+export type FilterConfig = z.infer<typeof FilterConfigSchema>;
+export type CoChangeEdge = z.infer<typeof CoChangeEdgeSchema>;
+export type CoChangeGraph = z.infer<typeof CoChangeGraphSchema>;
+export type CouplingClassification = z.infer<typeof CouplingClassificationSchema>;
+export type CouplingEntry = z.infer<typeof CouplingEntrySchema>;
+export type CouplingMatrix = z.infer<typeof CouplingMatrixSchema>;
+
 // ── Validation ──
 
 export const ValidationResultSchema = z.object({

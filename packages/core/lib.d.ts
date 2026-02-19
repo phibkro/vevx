@@ -126,6 +126,74 @@ export type ImportScanResult = {
   components_with_source: string[];
 };
 
+// ── Co-Change Analysis types ──
+
+export type FilterConfig = {
+  max_commit_files: number;
+  skip_message_patterns: string[];
+  exclude_paths: string[];
+};
+
+export type CoChangeEdge = {
+  files: [string, string];
+  weight: number;
+  commit_count: number;
+};
+
+export type CoChangeGraph = {
+  edges: CoChangeEdge[];
+  total_commits_analyzed: number;
+  total_commits_filtered: number;
+  last_sha?: string;
+};
+
+export type CouplingClassification =
+  | "explicit_module"
+  | "stable_interface"
+  | "hidden_coupling"
+  | "unrelated";
+
+export type CouplingEntry = {
+  pair: [string, string];
+  structural_weight: number;
+  behavioral_weight: number;
+  classification: CouplingClassification;
+};
+
+export type CouplingMatrix = {
+  entries: CouplingEntry[];
+  structural_threshold: number;
+  behavioral_threshold: number;
+};
+
+// ── Analysis functions ──
+
+export function analyzeCoChanges(raw: string, config?: Partial<FilterConfig>): CoChangeGraph;
+export function scanCoChanges(
+  repoDir: string,
+  config?: Partial<FilterConfig>,
+  lastSha?: string,
+): CoChangeGraph;
+export function scanCoChangesWithCache(
+  repoDir: string,
+  config?: Partial<FilterConfig>,
+): CoChangeGraph;
+export function buildCouplingMatrix(
+  coChange: CoChangeGraph,
+  imports: ImportScanResult,
+  manifest: Manifest,
+  options?: {
+    structural_threshold?: number;
+    behavioral_threshold?: number;
+    repo_dir?: string;
+  },
+): CouplingMatrix;
+export function findHiddenCoupling(matrix: CouplingMatrix): CouplingEntry[];
+export function componentCouplingProfile(
+  matrix: CouplingMatrix,
+  component: string,
+): CouplingEntry[];
+
 // ── Bun-dependent functions ──
 
 export function parseManifest(manifestPath: string): Manifest;

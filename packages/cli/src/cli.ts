@@ -26,6 +26,7 @@ import {
   type OutputFormat,
   type VerbosityLevel,
 } from "./config";
+import { runCouplingCommand } from "./coupling";
 import { syncToDashboard } from "./dashboard-sync";
 import { formatError } from "./errors";
 import { formatHtml } from "./formatters/html";
@@ -68,6 +69,7 @@ COMMANDS:
   lint                Lint manifest for issues (imports, links, freshness)
   graph               Render dependency graph as Mermaid diagram
   freshness           Check doc freshness across components
+  coupling            Analyze component coupling (co-change + imports)
   validate <plan.xml> Validate plan against manifest
   login               Save API key for dashboard syncing
   logout              Remove saved API key
@@ -334,6 +336,7 @@ async function main(): Promise<void> {
   }
 
   if (firstArg === "audit") return run(() => runAuditCommand(restArgs));
+  if (firstArg === "coupling") return run(() => runCouplingCommand(restArgs));
   if (firstArg === "lint") return run(() => runLintCommand(restArgs));
   if (firstArg === "graph") return run(() => runGraphCommand(restArgs));
   if (firstArg === "freshness") return run(() => runFreshnessCommand(restArgs));

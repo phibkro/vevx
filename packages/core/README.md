@@ -122,6 +122,37 @@ Within each wave, tasks are safe to run in parallel. Waves execute sequentially.
 
 ### Analysis
 
+#### `varp_scan_co_changes`
+
+Scans git history for file co-change patterns. Computes weighted edges where `weight = 1/(n-1)` for each file pair in a commit (n = files in commit). Filters by commit size ceiling, message patterns, and file path exclusions. Results are cached in `.varp/co-change.json` with incremental updates — only new commits since the last scan are processed.
+
+**Parameters:** `{ manifest_path?: string, max_commit_files?: number, skip_message_patterns?: string[], exclude_paths?: string[] }`
+
+**Returns:** `CoChangeGraph`
+
+#### `varp_coupling_matrix`
+
+Builds a coupling matrix combining co-change (behavioral) and import (structural) signals. Maps file-level co-change edges to component pairs via ownership, aggregates to component-level weights, then classifies each pair into quadrants:
+
+|  | **High Co-Change** | **Low Co-Change** |
+|--|--|--|
+| **High Import Coupling** | explicit_module | stable_interface |
+| **Low Import Coupling** | hidden_coupling | unrelated |
+
+Thresholds auto-calibrate to median of non-zero values, or can be set manually.
+
+**Parameters:** `{ manifest_path?: string, structural_threshold?: number, behavioral_threshold?: number, component?: string }`
+
+**Returns:** `CouplingMatrix`
+
+#### `varp_coupling_hotspots`
+
+Finds hidden coupling hotspots — component pairs that frequently co-change but have no import relationship. These represent implicit dependencies through shared DB schemas, API contracts, or conventions invisible to static analysis. Sorted by behavioral weight descending.
+
+**Parameters:** `{ manifest_path?: string, limit?: number }`
+
+**Returns:** `{ hotspots: CouplingEntry[], total: number }`
+
 #### `varp_scan_links`
 
 Scans component docs for markdown links. Infers cross-component dependencies from links, detects broken links, and compares against declared `deps` in the manifest.

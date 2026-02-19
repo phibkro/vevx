@@ -36,7 +36,7 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 ```
 packages/
   core/                   Varp MCP server (@varp/core)
-    src/                  shared, server, manifest, plan, scheduler, enforcement
+    src/                  shared, server, manifest, plan, scheduler, enforcement, analysis
       shared/             Shared types + utilities (types.ts, ownership.ts)
       lib.ts              Library entry point for external consumers (@varp/core/lib)
     lib.d.ts              Hand-maintained declarations for @varp/core/lib

@@ -4,7 +4,7 @@ Implementation details for the Varp MCP server. For the public API surface, see 
 
 ## Module Map
 
-Components: `shared` (types, ownership), `server` (MCP wiring), `manifest/`, `plan/`, `scheduler/`, `enforcement/` (domain tools), `skills/`, `hooks/`. Domain components depend on `shared` via `#shared/*` import alias. `server` depends on all domain components (hub pattern). Skills and hooks depend on manifest.
+Components: `shared` (types, ownership), `server` (MCP wiring), `manifest/`, `plan/`, `scheduler/`, `enforcement/`, `analysis/` (domain tools), `skills/`, `hooks/`. Domain components depend on `shared` via `#shared/*` import alias. `server` depends on all domain components (hub pattern). Skills and hooks depend on manifest.
 
 ```
 src/
@@ -41,6 +41,10 @@ src/
   enforcement/
     capabilities.ts           Diff paths vs declared write scope
     restart.ts                Failed task -> strategy derivation
+  analysis/
+    co-change.ts              Git log parser -> co-change edge graph (1/(n-1) weighting)
+    cache.ts                  Incremental .varp/ cache (strategy: full/incremental/current)
+    matrix.ts                 Coupling diagnostic matrix (structural vs behavioral signals)
 ```
 
 ## Key Design Decisions
@@ -108,6 +112,33 @@ Longest chain of RAW dependencies via memoized DP. For each task, compute `longe
 
 Returns task IDs in chain order plus the chain length.
 
+### Co-Change Analysis (`analysis/co-change.ts`)
+
+Pure pipeline: `git log` output → parse → filter commits → filter files → compute edges. Each file pair in a commit gets edge weight `1/(n-1)` where n is the number of files. This graduated weighting means small focused commits dominate the signal; large commits contribute proportionally less.
+
+Noise filtering: hard ceiling on commit size (default 50 files) catches bulk operations regardless of commit message quality. Secondary filter matches commit message patterns (chore, format, lint, merge). File path exclude patterns remove lockfiles and generated code.
+
+The `scanCoChanges` function is the effectful wrapper — calls `Bun.spawnSync` to run `git log --pretty=format:%H%n%s --name-only --diff-filter=ACMRD`. Accepts optional `lastSha` for incremental scanning (`lastSha..HEAD`).
+
+### Incremental Cache (`analysis/cache.ts`)
+
+Cache stored in `.varp/co-change.json`. Strategy decision:
+- **current**: same HEAD + same config → return cached graph (no work)
+- **incremental**: new commits, same config → scan only new commits, merge additive weights
+- **full**: cache missing, invalid, or config changed → full rescan
+
+Config comparison is field-by-field (max_commit_files, skip_message_patterns, exclude_paths). Edge storage is a Record<string, {weight, count}> keyed by `"fileA\0fileB"`.
+
+### Coupling Matrix (`analysis/matrix.ts`)
+
+Combines two independent signal layers:
+1. **Behavioral**: co-change edges → component pairs via `findOwningComponent()`, aggregated weights
+2. **Structural**: import deps → component pairs, weighted by evidence count (number of import statements)
+
+Thresholds auto-calibrate to median of non-zero values. Classification is a 2x2 matrix (high/low structural × high/low behavioral). `findHiddenCoupling()` extracts the high-behavioral, low-structural quadrant — the highest-value findings.
+
+Design doc: [`docs/coupling-measurement-design.md`](../../../docs/coupling-measurement-design.md)
+
 ### Restart Strategy (`restart.ts`)
 
 Decision tree based on touches and mutex overlap:
@@ -151,6 +182,13 @@ plan.xml --> parsePlanXml() --> Plan
                                                     |
                                               computeCriticalPath()
                                               (longest RAW chain)
+
+git log --> scanCoChangesWithCache() --> CoChangeGraph
+             (cached, incremental)          |
+                                   buildCouplingMatrix()
+                                   (+ ImportScanResult)  --> CouplingMatrix
+                                                              |
+                                                    findHiddenCoupling()
 
 git diff --> verifyCapabilities() --> CapabilityReport
              (paths vs write scope)

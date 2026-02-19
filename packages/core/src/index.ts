@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { TouchesSchema } from "#shared/types.js";
 
+import { scanCoChangesWithCache } from "./analysis/cache.js";
+import { buildCouplingMatrix, findHiddenCoupling } from "./analysis/matrix.js";
 import { verifyCapabilities } from "./enforcement/capabilities.js";
 import { deriveRestartStrategy } from "./enforcement/restart.js";
 import { checkEnv } from "./manifest/env-check.js";
@@ -369,6 +371,93 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path, direction }) => {
       const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
       return { mermaid: renderGraph(manifest, { direction }) };
+    },
+  },
+
+  // Co-Change Analysis
+  {
+    name: "varp_scan_co_changes",
+    description:
+      "Scan git history for file co-change patterns. Returns weighted co-change graph with file pairs that frequently change together.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      max_commit_files: z
+        .number()
+        .optional()
+        .describe("Skip commits touching more than this many files (default 50)"),
+      skip_message_patterns: z
+        .array(z.string())
+        .optional()
+        .describe("Skip commits whose subject matches these patterns"),
+      exclude_paths: z
+        .array(z.string())
+        .optional()
+        .describe("Glob patterns for files to exclude from analysis"),
+    },
+    handler: async ({ manifest_path, max_commit_files, skip_message_patterns, exclude_paths }) => {
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
+      const repoDir = dirname(resolve(mp));
+      const config = {
+        ...(max_commit_files !== undefined && { max_commit_files }),
+        ...(skip_message_patterns !== undefined && { skip_message_patterns }),
+        ...(exclude_paths !== undefined && { exclude_paths }),
+      };
+      return scanCoChangesWithCache(repoDir, config);
+    },
+  },
+  {
+    name: "varp_coupling_matrix",
+    description:
+      "Build coupling matrix combining git co-change (behavioral) and import analysis (structural) signals. Classifies component pairs into quadrants: explicit_module, stable_interface, hidden_coupling, unrelated.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      structural_threshold: z
+        .number()
+        .optional()
+        .describe("Manual structural threshold (default: auto-calibrated median)"),
+      behavioral_threshold: z
+        .number()
+        .optional()
+        .describe("Manual behavioral threshold (default: auto-calibrated median)"),
+      component: z.string().optional().describe("Filter results to pairs involving this component"),
+    },
+    handler: async ({ manifest_path, structural_threshold, behavioral_threshold, component }) => {
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
+      const manifestDir = dirname(resolve(mp));
+      const manifest = parseManifest(mp);
+      const coChange = scanCoChangesWithCache(manifestDir);
+      const imports = scanImports(manifest, manifestDir);
+      const matrix = buildCouplingMatrix(coChange, imports, manifest, {
+        repo_dir: manifestDir,
+        structural_threshold,
+        behavioral_threshold,
+      });
+      if (component) {
+        const { componentCouplingProfile } = await import("./analysis/matrix.js");
+        return { ...matrix, entries: componentCouplingProfile(matrix, component) };
+      }
+      return matrix;
+    },
+  },
+  {
+    name: "varp_coupling_hotspots",
+    description:
+      "Find hidden coupling hotspots — component pairs that frequently co-change but have no import relationship. Sorted by behavioral weight descending.",
+    inputSchema: {
+      manifest_path: manifestPath,
+      limit: z.number().optional().describe("Maximum entries to return (default 20)"),
+    },
+    handler: async ({ manifest_path, limit }) => {
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
+      const manifestDir = dirname(resolve(mp));
+      const manifest = parseManifest(mp);
+      const coChange = scanCoChangesWithCache(manifestDir);
+      const imports = scanImports(manifest, manifestDir);
+      const matrix = buildCouplingMatrix(coChange, imports, manifest, {
+        repo_dir: manifestDir,
+      });
+      const hotspots = findHiddenCoupling(matrix);
+      return { hotspots: hotspots.slice(0, limit ?? 20), total: hotspots.length };
     },
   },
 

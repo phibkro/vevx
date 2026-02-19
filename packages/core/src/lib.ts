@@ -31,6 +31,15 @@ export { validatePlan } from "./plan/validator.js";
 // Scheduler
 export { detectHazards } from "./scheduler/hazards.js";
 
+// Analysis
+export { analyzeCoChanges, scanCoChanges } from "./analysis/co-change.js";
+export { scanCoChangesWithCache } from "./analysis/cache.js";
+export {
+  buildCouplingMatrix,
+  findHiddenCoupling,
+  componentCouplingProfile,
+} from "./analysis/matrix.js";
+
 // Types needed by consumers
 export type {
   LintReport,
@@ -45,4 +54,10 @@ export type {
   Hazard,
   ImportDep,
   ImportScanResult,
+  CoChangeGraph,
+  CoChangeEdge,
+  FilterConfig,
+  CouplingMatrix,
+  CouplingEntry,
+  CouplingClassification,
 } from "./shared/types.js";

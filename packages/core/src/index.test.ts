@@ -84,7 +84,7 @@ describe("MCP server integration", () => {
     } catch {}
   });
 
-  test("lists all 23 tools", async () => {
+  test("lists all tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -93,6 +93,8 @@ describe("MCP server integration", () => {
       "varp_check_warm_staleness",
       "varp_compute_critical_path",
       "varp_compute_waves",
+      "varp_coupling_hotspots",
+      "varp_coupling_matrix",
       "varp_derive_restart_strategy",
       "varp_detect_hazards",
       "varp_diff_plan",
@@ -104,6 +106,7 @@ describe("MCP server integration", () => {
       "varp_read_manifest",
       "varp_render_graph",
       "varp_resolve_docs",
+      "varp_scan_co_changes",
       "varp_scan_links",
       "varp_scoped_tests",
       "varp_suggest_components",

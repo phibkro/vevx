@@ -5,9 +5,15 @@ shared:
   tags: [core]
   stability: stable
 
+analysis:
+  path: ./packages/core/src/analysis
+  deps: [shared, manifest]
+  tags: [core]
+  stability: experimental
+
 server:
   path: ./packages/core/src
-  deps: [shared, manifest, plan, scheduler, enforcement]
+  deps: [shared, manifest, plan, scheduler, enforcement, analysis]
   tags: [core]
   stability: stable
   docs:
