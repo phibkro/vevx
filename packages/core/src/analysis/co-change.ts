@@ -133,6 +133,19 @@ export function computeCoChangeEdges(commits: Commit[]): CoChangeEdge[] {
 }
 
 /**
+ * Count per-file occurrences across commits.
+ */
+export function computeFileFrequencies(commits: Commit[]): Record<string, number> {
+  const freq: Record<string, number> = {};
+  for (const commit of commits) {
+    for (const file of commit.files) {
+      freq[file] = (freq[file] ?? 0) + 1;
+    }
+  }
+  return freq;
+}
+
+/**
  * Full pure pipeline: parse → filter commits → filter files → compute edges.
  */
 export function analyzeCoChanges(raw: string, config?: Partial<FilterConfig>): CoChangeGraph {
@@ -141,10 +154,12 @@ export function analyzeCoChanges(raw: string, config?: Partial<FilterConfig>): C
   const { kept, filtered } = filterCommits(commits, resolvedConfig);
   const cleaned = filterFiles(kept, resolvedConfig.exclude_paths);
   const edges = computeCoChangeEdges(cleaned);
+  const fileFrequencies = computeFileFrequencies(cleaned);
   const lastSha = commits[0]?.sha;
 
   return {
     edges,
+    file_frequencies: fileFrequencies,
     total_commits_analyzed: commits.length,
     total_commits_filtered: filtered,
     ...(lastSha ? { last_sha: lastSha } : {}),

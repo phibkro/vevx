@@ -14,6 +14,7 @@ const CoChangeCacheSchema = z.object({
   last_sha: z.string(),
   filter_config: FilterConfigSchema,
   edges: z.record(z.string(), z.object({ weight: z.number(), count: z.number() })),
+  file_frequencies: z.record(z.string(), z.number()).optional(),
 });
 
 type CoChangeCache = z.infer<typeof CoChangeCacheSchema>;
@@ -66,6 +67,20 @@ export function mergeEdges(
     }
   }
 
+  return merged;
+}
+
+/**
+ * Merge incremental file frequencies into existing frequencies. Counts are additive.
+ */
+export function mergeFrequencies(
+  existing: Record<string, number>,
+  incremental: Record<string, number>,
+): Record<string, number> {
+  const merged = { ...existing };
+  for (const [file, count] of Object.entries(incremental)) {
+    merged[file] = (merged[file] ?? 0) + count;
+  }
   return merged;
 }
 
@@ -138,6 +153,7 @@ export function scanCoChangesWithCache(
   if (strategy === "current" && cache) {
     return {
       edges: edgesToArray(cache.edges),
+      file_frequencies: cache.file_frequencies,
       total_commits_analyzed: 0,
       total_commits_filtered: 0,
       last_sha: cache.last_sha,
@@ -146,15 +162,21 @@ export function scanCoChangesWithCache(
 
   if (strategy === "incremental" && cache) {
     const incremental = scanCoChanges(repoDir, config, cache.last_sha);
-    const merged = mergeEdges(cache.edges, incremental);
+    const mergedEdges = mergeEdges(cache.edges, incremental);
+    const mergedFreqs = mergeFrequencies(
+      cache.file_frequencies ?? {},
+      incremental.file_frequencies ?? {},
+    );
     const newCache: CoChangeCache = {
       last_sha: currentHead,
       filter_config: resolvedConfig,
-      edges: merged,
+      edges: mergedEdges,
+      file_frequencies: mergedFreqs,
     };
     writeCache(varpDir, newCache);
     return {
-      edges: edgesToArray(merged),
+      edges: edgesToArray(mergedEdges),
+      file_frequencies: mergedFreqs,
       total_commits_analyzed: incremental.total_commits_analyzed,
       total_commits_filtered: incremental.total_commits_filtered,
       last_sha: currentHead,
@@ -174,6 +196,7 @@ export function scanCoChangesWithCache(
     last_sha: currentHead,
     filter_config: resolvedConfig,
     edges: edgeRecord,
+    file_frequencies: graph.file_frequencies,
   };
   writeCache(varpDir, newCache);
   return { ...graph, last_sha: currentHead };

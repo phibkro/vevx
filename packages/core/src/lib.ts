@@ -58,13 +58,24 @@ export { verifyCapabilities } from "./enforcement/capabilities.js";
 export { deriveRestartStrategy } from "./enforcement/restart.js";
 
 // Analysis
-export { analyzeCoChanges, scanCoChanges } from "./analysis/co-change.js";
+export { analyzeCoChanges, computeFileFrequencies, scanCoChanges } from "./analysis/co-change.js";
 export { scanCoChangesWithCache } from "./analysis/cache.js";
+export { buildCodebaseGraph } from "./analysis/graph.js";
+export type { BuildGraphOptions } from "./analysis/graph.js";
 export {
   buildCouplingMatrix,
   findHiddenCoupling,
   componentCouplingProfile,
 } from "./analysis/matrix.js";
+export { computeHotspots, countLines, fileNeighborhood } from "./analysis/hotspots.js";
+export type { HotspotEntry, FileNeighbor } from "./analysis/hotspots.js";
+
+// Execution
+export { estimateTokens, createChunks, formatChunkSummary } from "./execution/chunker.js";
+export { FileContentSchema, ChunkSchema } from "./execution/chunker.js";
+export type { FileContent, Chunk } from "./execution/chunker.js";
+export { ModelCallerResultSchema } from "./execution/types.js";
+export type { ModelCaller, ModelCallerResult } from "./execution/types.js";
 
 // Types needed by consumers
 export type {

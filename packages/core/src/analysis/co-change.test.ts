@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   analyzeCoChanges,
   computeCoChangeEdges,
+  computeFileFrequencies,
   filterCommits,
   filterFiles,
   parseGitLog,
@@ -120,6 +121,19 @@ describe("computeCoChangeEdges", () => {
   });
 });
 
+describe("computeFileFrequencies", () => {
+  test("counts per-file occurrences across commits", () => {
+    const commits = [
+      { sha: SHA1, subject: "x", files: ["a.ts", "b.ts"] },
+      { sha: SHA2, subject: "y", files: ["a.ts", "c.ts"] },
+    ];
+    const freq = computeFileFrequencies(commits);
+    expect(freq["a.ts"]).toBe(2);
+    expect(freq["b.ts"]).toBe(1);
+    expect(freq["c.ts"]).toBe(1);
+  });
+});
+
 describe("analyzeCoChanges", () => {
   test("full pipeline with defaults", () => {
     const raw = makeLog(
@@ -131,6 +145,8 @@ describe("analyzeCoChanges", () => {
     expect(result.total_commits_filtered).toBe(1); // chore filtered
     expect(result.edges).toHaveLength(1);
     expect(result.last_sha).toBe(SHA1);
+    expect(result.file_frequencies).toBeDefined();
+    expect(result.file_frequencies!["src/a.ts"]).toBe(1);
   });
 });
 

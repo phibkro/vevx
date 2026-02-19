@@ -260,6 +260,7 @@ export const CoChangeEdgeSchema = z.object({
 
 export const CoChangeGraphSchema = z.object({
   edges: z.array(CoChangeEdgeSchema),
+  file_frequencies: z.record(z.string(), z.number()).optional(),
   total_commits_analyzed: z.number(),
   total_commits_filtered: z.number(),
   last_sha: z.string().optional(),

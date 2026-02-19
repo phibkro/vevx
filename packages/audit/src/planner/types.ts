@@ -90,27 +90,4 @@ export interface AuditPlan {
   };
 }
 
-/**
- * Result from a model call. Returned by ModelCaller implementations.
- */
-export interface ModelCallerResult {
-  /** The model's text response (or stringified structured output). */
-  text: string;
-  /** Parsed structured output when jsonSchema was provided. */
-  structured?: unknown;
-  /** Token usage from the API call. */
-  usage?: { inputTokens: number; outputTokens: number };
-  /** API cost in USD. */
-  costUsd?: number;
-}
-
-/**
- * Backend-agnostic model caller.
- * The library defines the shape; consumers provide the implementation
- * (Claude Code CLI, Anthropic SDK, OpenAI, etc.).
- */
-export type ModelCaller = (
-  systemPrompt: string,
-  userPrompt: string,
-  options: { model: string; maxTokens?: number; jsonSchema?: Record<string, unknown> },
-) => Promise<ModelCallerResult>;
+export type { ModelCaller, ModelCallerResult } from "@varp/core/lib";

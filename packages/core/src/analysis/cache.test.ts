@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import type { CoChangeGraph, FilterConfig } from "#shared/types.js";
 
-import { cacheStrategy, mergeEdges, readCache, writeCache } from "./cache.js";
+import { cacheStrategy, mergeEdges, mergeFrequencies, readCache, writeCache } from "./cache.js";
 
 const defaultConfig: FilterConfig = {
   max_commit_files: 50,
@@ -62,6 +62,22 @@ describe("mergeEdges", () => {
     const merged = mergeEdges(existing, incremental);
     expect(Object.keys(merged)).toHaveLength(2);
     expect(merged["c.ts\0d.ts"]).toEqual({ weight: 2.0, count: 1 });
+  });
+});
+
+describe("mergeFrequencies", () => {
+  test("merges frequencies additively", () => {
+    const existing = { "a.ts": 5, "b.ts": 3 };
+    const incremental = { "a.ts": 2, "c.ts": 1 };
+    const merged = mergeFrequencies(existing, incremental);
+    expect(merged["a.ts"]).toBe(7);
+    expect(merged["b.ts"]).toBe(3);
+    expect(merged["c.ts"]).toBe(1);
+  });
+
+  test("handles empty existing", () => {
+    const merged = mergeFrequencies({}, { "a.ts": 1 });
+    expect(merged["a.ts"]).toBe(1);
   });
 });
 

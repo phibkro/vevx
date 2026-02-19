@@ -381,6 +381,7 @@ export type CoChangeEdge = {
 
 export type CoChangeGraph = {
   edges: CoChangeEdge[];
+  file_frequencies?: Record<string, number>;
   total_commits_analyzed: number;
   total_commits_filtered: number;
   last_sha?: string;
@@ -411,6 +412,42 @@ export type CodebaseGraph = {
   imports: ImportScanResult;
   coupling?: CouplingMatrix;
 };
+
+// ── Execution types from execution/ ──
+
+export type FileContent = {
+  path: string;
+  relativePath: string;
+  content: string;
+  language: string;
+  size: number;
+};
+
+export type Chunk = {
+  files: FileContent[];
+  estimatedTokens: number;
+};
+
+export type ModelCallerResult = {
+  text: string;
+  structured?: unknown;
+  usage?: { inputTokens: number; outputTokens: number };
+  costUsd?: number;
+};
+
+export type ModelCaller = (
+  systemPrompt: string,
+  userPrompt: string,
+  options: { model: string; maxTokens?: number; jsonSchema?: Record<string, unknown> },
+) => Promise<ModelCallerResult>;
+
+export declare const FileContentSchema: ZodType<FileContent>;
+export declare const ChunkSchema: ZodType<Chunk>;
+export declare const ModelCallerResultSchema: ZodType<ModelCallerResult>;
+
+export function estimateTokens(text: string): number;
+export function createChunks(files: FileContent[], maxTokensPerChunk: number): Chunk[];
+export function formatChunkSummary(chunks: Chunk[]): string;
 
 // ── Bun-dependent functions ──
 
@@ -503,7 +540,20 @@ export function parseLogFile(path: string): ExecutionLog;
 
 // ── Analysis functions ──
 
+export interface BuildGraphOptions {
+  filterConfig?: Partial<FilterConfig>;
+  withCoupling?: boolean;
+}
+
+export function buildCodebaseGraph(
+  manifestPath: string,
+  options?: BuildGraphOptions,
+): CodebaseGraph;
+
 export function analyzeCoChanges(raw: string, config?: Partial<FilterConfig>): CoChangeGraph;
+export function computeFileFrequencies(
+  commits: Array<{ sha: string; subject: string; files: string[] }>,
+): Record<string, number>;
 export function scanCoChanges(
   repoDir: string,
   config?: Partial<FilterConfig>,
@@ -528,3 +578,30 @@ export function componentCouplingProfile(
   matrix: CouplingMatrix,
   component: string,
 ): CouplingEntry[];
+
+// ── Hotspot analysis ──
+
+export type HotspotEntry = {
+  file: string;
+  changeFrequency: number;
+  lineCount: number;
+  score: number;
+};
+
+export type FileNeighbor = {
+  file: string;
+  coChangeWeight: number;
+  coChangeCommits: number;
+  hasImportRelation: boolean;
+};
+
+export function computeHotspots(
+  fileFrequencies: Record<string, number>,
+  lineCounts: Record<string, number>,
+): HotspotEntry[];
+export function countLines(filePaths: string[], repoDir: string): Record<string, number>;
+export function fileNeighborhood(
+  file: string,
+  edges: CoChangeEdge[],
+  imports: ImportScanResult,
+): FileNeighbor[];

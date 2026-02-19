@@ -41,6 +41,12 @@ enforcement:
   tags: [core]
   stability: stable
 
+execution:
+  path: ./packages/core/src/execution
+  deps: [shared]
+  tags: [core]
+  stability: experimental
+
 skills:
   path: ./packages/plugin/skills
   deps: [manifest]
