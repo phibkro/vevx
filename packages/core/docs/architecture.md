@@ -4,7 +4,7 @@ Implementation details for the Varp MCP server. For the public API surface, see 
 
 ## Module Map
 
-Components: `shared` (types, ownership), `server` (MCP wiring), `manifest/`, `plan/`, `scheduler/`, `enforcement/`, `analysis/` (domain tools), `skills/`, `hooks/`. Domain components depend on `shared` via `#shared/*` import alias. `server` depends on all domain components (hub pattern). Skills and hooks depend on manifest.
+Components: `shared` (types, ownership), `server` (MCP wiring), `manifest/`, `plan/`, `scheduler/`, `enforcement/`, `analysis/`, `execution/` (domain tools), `skills/`, `hooks/`. Domain components depend on `shared` via `#shared/*` import alias. `server` depends on all domain components (hub pattern). Skills and hooks depend on manifest.
 
 ```
 src/
@@ -42,9 +42,14 @@ src/
     capabilities.ts           Diff paths vs declared write scope
     restart.ts                Failed task -> strategy derivation
   analysis/
-    co-change.ts              Git log parser -> co-change edge graph (1/(n-1) weighting)
+    co-change.ts              Git log parser -> co-change edge graph (1/(n-1) weighting) + computeFileFrequencies()
     cache.ts                  Incremental .varp/ cache (strategy: full/incremental/current)
     matrix.ts                 Coupling diagnostic matrix (structural vs behavioral signals)
+    graph.ts                  buildCodebaseGraph() — assembles CodebaseGraph from manifest, co-change, imports, optional coupling
+    hotspots.ts               computeHotspots() (freq x LOC scoring), countLines(), fileNeighborhood() (co-change neighbors + import annotation)
+  execution/
+    types.ts                  ModelCaller, ModelCallerResult — backend-agnostic model calling interface
+    chunker.ts                FileContent, Chunk, estimateTokens(), createChunks(), formatChunkSummary()
 ```
 
 ## Key Design Decisions
@@ -190,7 +195,10 @@ git log --> scanCoChangesWithCache() --> CoChangeGraph
                                                               |
                                                     findHiddenCoupling()
 
-The analysis outputs compose into a `CodebaseGraph` (`{manifest, coChange, imports, coupling?}`) — the interface contract between the analysis layer and its consumers (audit, CLI, MCP queries).
+buildCodebaseGraph(manifestPath, options?) orchestrates the full pipeline above:
+  parseManifest() + scanCoChangesWithCache() + scanImports() + optional buildCouplingMatrix()
+  --> CodebaseGraph ({manifest, coChange, imports, coupling?})
+This is the primary entry point for consumers (audit, CLI, MCP tool `varp_build_codebase_graph`).
 
 git diff --> verifyCapabilities() --> CapabilityReport
              (paths vs write scope)

@@ -161,6 +161,14 @@ Finds hidden coupling hotspots — component pairs that frequently co-change but
 
 **Returns:** `{ hotspots: CouplingEntry[], total: number }`
 
+#### `varp_build_codebase_graph`
+
+Builds a complete `CodebaseGraph` combining manifest, co-change analysis, import scanning, and optional coupling matrix. Returns the unified analysis layer output.
+
+**Parameters:** `{ manifest_path?: string, with_coupling?: boolean }`
+
+**Returns:** `CodebaseGraph`
+
 #### `varp_scan_links`
 
 Scans component docs for markdown links. Infers cross-component dependencies from links, detects broken links, and compares against declared `deps` in the manifest.
@@ -495,11 +503,65 @@ interface SuggestedComponent {
   evidence: { stem: string; files: string[] }[]
 }
 
+interface CoChangeGraph {
+  edges: CoChangeEdge[]
+  file_frequencies?: Record<string, number>  // per-file commit frequency counts
+  total_commits_analyzed: number
+  total_commits_filtered: number
+  last_sha?: string
+}
+
 interface CodebaseGraph {
   manifest: Manifest
   coChange: CoChangeGraph
   imports: ImportScanResult
   coupling?: CouplingMatrix
+}
+
+interface BuildGraphOptions {
+  filterConfig?: Partial<FilterConfig>
+  withCoupling?: boolean
+}
+
+// ── Execution types ──
+
+interface FileContent {
+  path: string
+  content: string
+}
+
+interface Chunk {
+  files: FileContent[]
+  estimatedTokens: number
+}
+
+interface ModelCallerResult {
+  text: string
+  structured?: unknown
+  usage?: { inputTokens: number; outputTokens: number }
+  costUsd?: number
+}
+
+type ModelCaller = (
+  systemPrompt: string,
+  userPrompt: string,
+  options: { model: string; maxTokens?: number; jsonSchema?: Record<string, unknown> },
+) => Promise<ModelCallerResult>
+
+// ── Hotspot types ──
+
+interface HotspotEntry {
+  file: string
+  changeFrequency: number
+  lineCount: number
+  score: number              // changeFrequency * lineCount
+}
+
+interface FileNeighbor {
+  file: string
+  coChangeWeight: number
+  coChangeCommits: number
+  hasImportRelation: boolean
 }
 
 interface SuggestComponentsResult {

@@ -18,7 +18,7 @@ Compliance audit:   files + ruleset → planner → 3-wave executor → complian
 | Module | Purpose |
 |--------|---------|
 | `orchestrator.ts` | Generic review — runs weighted agents in parallel, scores results |
-| `chunker.ts` | Splits source files into token-bounded chunks |
+| `chunker.ts` | Re-exports chunking utilities from `@varp/core/lib` (extracted to `core/src/execution/`) |
 | `discovery.ts` | File discovery (Bun runtime) |
 | `errors.ts` | Domain error types |
 | `agents/` | Specialized review agents with weights (see `agents/README.md`) |

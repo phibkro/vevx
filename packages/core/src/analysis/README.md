@@ -6,9 +6,11 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 
 | File | Purpose | Pure? |
 |------|---------|-------|
-| `co-change.ts` | Git log parser, commit filtering, edge computation | Pure pipeline + effectful `scanCoChanges` wrapper |
+| `co-change.ts` | Git log parser, commit filtering, edge computation, `file_frequencies` | Pure pipeline + effectful `scanCoChanges` wrapper |
 | `cache.ts` | Incremental `.varp/` cache (strategy: full/incremental/current) | Pure strategy + effectful read/write/orchestrator |
 | `matrix.ts` | Coupling diagnostic matrix, classification, hotspot detection | Pure |
+| `graph.ts` | `buildCodebaseGraph()` — assembles a `CodebaseGraph` from manifest, co-change, imports, and optional coupling | Effectful (reads git history, filesystem) |
+| `hotspots.ts` | `computeHotspots()` scores files by change frequency × LOC; `fileNeighborhood()` finds co-change neighbors annotated with import relationships | Pure (operates on `CoChangeGraph.file_frequencies`) |
 
 ## Key Concepts
 
@@ -25,4 +27,4 @@ Co-change analysis and coupling diagnostics. Combines git history (behavioral si
 
 ## Design Doc
 
-[`docs/coupling-measurement-design.md`](../../../../docs/coupling-measurement-design.md) — full rationale for signal independence, graduated weighting, and the coupling matrix model.
+[`docs/designs/002-relational-architecture-analysis.md`](../../../../docs/designs/002-relational-architecture-analysis.md) — full rationale for signal independence, graduated weighting, and the coupling matrix model.
