@@ -1,6 +1,8 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 
+export type ResolveFn = (specifier: string, fromDir: string) => string | null;
+
 import { findOwningComponent, buildComponentPaths } from "#shared/ownership.js";
 import {
   componentPaths,
@@ -222,52 +224,36 @@ export function extractImports(content: string, aliasPrefixes?: string[]): RawIm
 }
 
 /**
- * Resolve an import specifier to an absolute file path.
- * Handles .js→.ts and .jsx→.tsx remapping, and directory→index resolution.
- * When aliases are provided, resolves alias specifiers before file resolution.
+ * Resolve an import specifier to an absolute file path using Bun's built-in resolver.
+ * Handles .js→.ts remapping, directory→index, workspace imports, and package exports.
+ * Returns null if resolution fails (e.g. bare specifier for external package).
  */
-export function resolveImport(
+export function bunResolve(specifier: string, fromDir: string): string | null {
+  try {
+    return Bun.resolveSync(specifier, fromDir);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve an import specifier using alias resolution + a pluggable resolver.
+ * Aliases are tried first for non-relative specifiers, then the resolver handles
+ * the rest (extension remapping, directory→index, workspace imports).
+ */
+export function resolveSpecifier(
   specifier: string,
-  sourceFile: string,
-  fileExists: (path: string) => boolean,
+  fromDir: string,
+  resolveFn: ResolveFn,
   aliases?: PathAliases,
-): string {
-  // Try alias resolution for non-relative specifiers
-  let base: string;
+): string | null {
+  // Try alias resolution first for non-relative specifiers
   if (aliases && !specifier.startsWith("./") && !specifier.startsWith("../")) {
     const aliased = resolveAlias(specifier, aliases);
-    if (aliased) {
-      base = aliased;
-    } else {
-      base = resolve(dirname(sourceFile), specifier);
-    }
-  } else {
-    base = resolve(dirname(sourceFile), specifier);
+    if (aliased) return resolveFn(aliased, fromDir) ?? aliased;
   }
 
-  // Try .js → .ts remapping
-  if (base.endsWith(".js")) {
-    const tsPath = base.slice(0, -3) + ".ts";
-    if (fileExists(tsPath)) return tsPath;
-  }
-
-  // Try .jsx → .tsx remapping
-  if (base.endsWith(".jsx")) {
-    const tsxPath = base.slice(0, -4) + ".tsx";
-    if (fileExists(tsxPath)) return tsxPath;
-  }
-
-  // If the base itself exists, use it
-  if (fileExists(base)) return base;
-
-  // Try directory → index resolution
-  for (const ext of [".ts", ".tsx", ".js", ".jsx"]) {
-    const indexPath = join(base, `index${ext}`);
-    if (fileExists(indexPath)) return indexPath;
-  }
-
-  // Fallback: return base as-is
-  return base;
+  return resolveFn(specifier, fromDir);
 }
 
 // ── Pure analysis ──
@@ -275,11 +261,14 @@ export function resolveImport(
 /**
  * Analyze pre-loaded source files for cross-component import dependencies.
  * Pure function — no I/O, fully testable with synthetic data.
+ *
+ * @param resolveFn - Resolves a specifier from a directory to an absolute path.
+ *   Use `bunResolve` for real resolution, or a custom function for tests.
  */
 export function analyzeImports(
   files: SourceFile[],
   manifest: Manifest,
-  fileExists: (path: string) => boolean,
+  resolveFn: ResolveFn,
   aliases?: PathAliases,
 ): ImportScanResult {
   const componentPaths = buildComponentPaths(manifest);
@@ -295,7 +284,8 @@ export function analyzeImports(
 
     for (const imp of rawImports) {
       totalImportsScanned++;
-      const resolved = resolveImport(imp.specifier, file.path, fileExists, aliases);
+      const resolved = resolveSpecifier(imp.specifier, dirname(file.path), resolveFn, aliases);
+      if (!resolved) continue; // unresolvable (external package, etc.)
       const targetOwner = findOwningComponent(resolved, manifest, componentPaths);
 
       if (targetOwner !== null && targetOwner !== file.component) {
@@ -409,5 +399,5 @@ export function scanImports(manifest: Manifest, manifestDir?: string): ImportSca
     }
   }
 
-  return analyzeImports(files, manifest, existsSync, aliases ?? undefined);
+  return analyzeImports(files, manifest, bunResolve, aliases ?? undefined);
 }

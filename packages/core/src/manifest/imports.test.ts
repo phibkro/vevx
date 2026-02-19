@@ -6,13 +6,15 @@ import type { Manifest } from "#shared/types.js";
 
 import {
   extractImports,
-  resolveImport,
+  resolveSpecifier,
+  bunResolve,
   analyzeImports,
   resolveAlias,
   aliasPrefixesFrom,
   loadTsconfigPaths,
   type SourceFile,
   type PathAliases,
+  type ResolveFn,
 } from "./imports.js";
 
 describe("extractImports", () => {
@@ -167,63 +169,79 @@ describe("aliasPrefixesFrom", () => {
   });
 });
 
-describe("resolveImport", () => {
-  test("resolves relative path", () => {
-    const exists = () => false;
-    const result = resolveImport("./foo.js", "/project/src/bar.ts", exists);
+describe("resolveSpecifier", () => {
+  const mockResolve: ResolveFn = (spec, dir) => {
+    const { resolve } = require("node:path");
+    return resolve(dir, spec);
+  };
+
+  test("resolves relative specifier via resolveFn", () => {
+    const result = resolveSpecifier("./foo.js", "/project/src", mockResolve);
     expect(result).toBe("/project/src/foo.js");
   });
 
-  test("remaps .js to .ts when .ts exists", () => {
-    const exists = (p: string) => p === "/project/src/foo.ts";
-    const result = resolveImport("./foo.js", "/project/src/bar.ts", exists);
-    expect(result).toBe("/project/src/foo.ts");
-  });
-
-  test("remaps .jsx to .tsx when .tsx exists", () => {
-    const exists = (p: string) => p === "/project/src/comp.tsx";
-    const result = resolveImport("./comp.jsx", "/project/src/bar.ts", exists);
-    expect(result).toBe("/project/src/comp.tsx");
-  });
-
-  test("resolves directory to index.ts", () => {
-    const exists = (p: string) => p === "/project/src/utils/index.ts";
-    const result = resolveImport("./utils", "/project/src/bar.ts", exists);
-    expect(result).toBe("/project/src/utils/index.ts");
-  });
-
-  test("falls back to original when no .ts variant exists", () => {
-    const exists = () => false;
-    const result = resolveImport("./foo.js", "/project/src/bar.ts", exists);
-    expect(result).toBe("/project/src/foo.js");
-  });
-
-  test("resolves parent-relative specifier", () => {
-    const exists = () => false;
-    const result = resolveImport("../lib/util.js", "/project/src/sub/bar.ts", exists);
-    expect(result).toBe("/project/src/lib/util.js");
-  });
-
-  test("resolves alias specifier with .js→.ts remapping", () => {
+  test("resolves alias before calling resolveFn", () => {
     const aliases: PathAliases = {
       mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
       baseDir: "/project",
     };
-    const exists = (p: string) => p === "/project/src/shared/types.ts";
-    const result = resolveImport("#shared/types.js", "/project/src/api/routes.ts", exists, aliases);
-    expect(result).toBe("/project/src/shared/types.ts");
+    const result = resolveSpecifier("#shared/types.js", "/project/src/api", mockResolve, aliases);
+    expect(result).toBe("/project/src/shared/types.js");
   });
 
-  test("alias resolution falls back when no alias matches", () => {
+  test("returns null when resolveFn returns null", () => {
+    const failing: ResolveFn = () => null;
+    const result = resolveSpecifier("./missing.js", "/project/src", failing);
+    expect(result).toBeNull();
+  });
+
+  test("skips alias for relative specifiers", () => {
     const aliases: PathAliases = {
       mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
       baseDir: "/project",
     };
-    const exists = () => false;
-    const result = resolveImport("./foo.js", "/project/src/bar.ts", exists, aliases);
-    expect(result).toBe("/project/src/foo.js");
+    const result = resolveSpecifier("./local.js", "/project/src", mockResolve, aliases);
+    expect(result).toBe("/project/src/local.js");
   });
 });
+
+describe("bunResolve", () => {
+  const CORE_SRC = join(import.meta.dir, "..");
+
+  test("resolves relative .js to .ts", () => {
+    const result = bunResolve("./manifest/lint.js", CORE_SRC);
+    expect(result).toEndWith("/manifest/lint.ts");
+  });
+
+  test("resolves cross-directory relative", () => {
+    const result = bunResolve("../shared/types.js", join(CORE_SRC, "manifest"));
+    expect(result).toEndWith("/shared/types.ts");
+  });
+
+  test("returns null for unresolvable specifier", () => {
+    const result = bunResolve("./definitely-does-not-exist-abc123.js", CORE_SRC);
+    expect(result).toBeNull();
+  });
+
+  test("resolves bare specifier to node_modules", () => {
+    const result = bunResolve("zod", CORE_SRC);
+    expect(result).not.toBeNull();
+    expect(result!).toInclude("node_modules");
+  });
+});
+
+/** Build a mock ResolveFn that does .js→.ts remapping against a known file set. */
+function makeResolveFn(fileExists: (p: string) => boolean): ResolveFn {
+  const { resolve } = require("node:path");
+  return (specifier: string, fromDir: string) => {
+    const base = resolve(fromDir, specifier);
+    if (base.endsWith(".js")) {
+      const tsPath = base.slice(0, -3) + ".ts";
+      if (fileExists(tsPath)) return tsPath;
+    }
+    return base;
+  };
+}
 
 describe("analyzeImports", () => {
   const manifest: Manifest = {
@@ -236,6 +254,7 @@ describe("analyzeImports", () => {
 
   const fileExists = (p: string) =>
     ["/project/src/auth/index.ts", "/project/src/api/routes.ts"].includes(p);
+  const resolveFn = makeResolveFn(fileExists);
 
   test("detects cross-component imports", () => {
     const files: SourceFile[] = [
@@ -245,7 +264,7 @@ describe("analyzeImports", () => {
         content: "import { verify } from '../auth/index.js';",
       },
     ];
-    const result = analyzeImports(files, manifest, fileExists);
+    const result = analyzeImports(files, manifest, resolveFn);
     expect(result.import_deps).toHaveLength(1);
     expect(result.import_deps[0].from).toBe("api");
     expect(result.import_deps[0].to).toBe("auth");
@@ -262,7 +281,7 @@ describe("analyzeImports", () => {
         content: "import { verify } from './index.js';",
       },
     ];
-    const result = analyzeImports(files, manifest, fileExists);
+    const result = analyzeImports(files, manifest, resolveFn);
     expect(result.import_deps).toHaveLength(0);
   });
 
@@ -279,7 +298,7 @@ describe("analyzeImports", () => {
         content: "import { check } from '../auth/index.js';",
       },
     ];
-    const result = analyzeImports(files, manifest, fileExists);
+    const result = analyzeImports(files, manifest, resolveFn);
     expect(result.import_deps).toHaveLength(1);
     expect(result.import_deps[0].evidence).toHaveLength(2);
   });
@@ -293,7 +312,7 @@ describe("analyzeImports", () => {
       },
     ];
     // external is not a known component, so no cross-component dep from it
-    const result = analyzeImports(files, manifest, fileExists);
+    const result = analyzeImports(files, manifest, resolveFn);
     // The target resolves to auth, but the source component "external" isn't in manifest
     // findOwningComponent on the source won't match, but the file.component is "external"
     // which doesn't match "auth", so it would create a dep from "external" to "auth"
@@ -316,7 +335,7 @@ describe("analyzeImports", () => {
         content: "import { verify } from '../auth/index.js';",
       },
     ];
-    const result = analyzeImports(files, manifestNoDeps, fileExists);
+    const result = analyzeImports(files, manifestNoDeps, resolveFn);
     expect(result.missing_deps).toHaveLength(1);
     expect(result.missing_deps[0].from).toBe("api");
     expect(result.missing_deps[0].to).toBe("auth");
@@ -324,7 +343,7 @@ describe("analyzeImports", () => {
 
   test("manifest dep not found in imports appears in extra_deps", () => {
     const files: SourceFile[] = [];
-    const result = analyzeImports(files, manifest, fileExists);
+    const result = analyzeImports(files, manifest, resolveFn);
     expect(result.extra_deps).toContainEqual({ from: "api", to: "auth" });
   });
 
@@ -336,7 +355,7 @@ describe("analyzeImports", () => {
         content: "import { verify } from '../auth/index.js';",
       },
     ];
-    const result = analyzeImports(files, manifest, fileExists);
+    const result = analyzeImports(files, manifest, resolveFn);
     // api->auth is declared and inferred: not in missing or extra
     expect(result.missing_deps).toHaveLength(0);
     expect(result.extra_deps).toHaveLength(0);
@@ -353,7 +372,7 @@ import { helper } from './utils.js';
 `,
       },
     ];
-    const result = analyzeImports(files, manifest, fileExists);
+    const result = analyzeImports(files, manifest, resolveFn);
     expect(result.total_files_scanned).toBe(1);
     expect(result.total_imports_scanned).toBe(2);
   });
@@ -370,7 +389,7 @@ import { helper } from './utils.js';
       mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
       baseDir: "/project",
     };
-    const exists = (p: string) => p === "/project/src/shared/types.ts";
+    const aliasResolveFn = makeResolveFn((p) => p === "/project/src/shared/types.ts");
     const files: SourceFile[] = [
       {
         path: "/project/src/api/routes.ts",
@@ -378,7 +397,7 @@ import { helper } from './utils.js';
         content: "import type { Manifest } from '#shared/types.js';",
       },
     ];
-    const result = analyzeImports(files, aliasManifest, exists, aliases);
+    const result = analyzeImports(files, aliasManifest, aliasResolveFn, aliases);
     expect(result.import_deps).toHaveLength(1);
     expect(result.import_deps[0].from).toBe("api");
     expect(result.import_deps[0].to).toBe("shared");
@@ -398,7 +417,7 @@ import { helper } from './utils.js';
       mappings: [{ pattern: "#shared/*", targets: ["src/shared/*"] }],
       baseDir: "/project",
     };
-    const exists = (p: string) => p === "/project/src/shared/types.ts";
+    const aliasResolveFn = makeResolveFn((p) => p === "/project/src/shared/types.ts");
     const files: SourceFile[] = [
       {
         path: "/project/src/api/routes.ts",
@@ -406,7 +425,7 @@ import { helper } from './utils.js';
         content: "import type { Manifest } from '#shared/types.js';",
       },
     ];
-    const result = analyzeImports(files, aliasManifest, exists, aliases);
+    const result = analyzeImports(files, aliasManifest, aliasResolveFn, aliases);
     expect(result.missing_deps).toHaveLength(1);
     expect(result.missing_deps[0].from).toBe("api");
     expect(result.missing_deps[0].to).toBe("shared");
