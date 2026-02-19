@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 
-import { makeTask } from "#shared/test-helpers.js";
+import { makeTask, makeTaskDef } from "#shared/test-helpers.js";
 
 import { computeWaves } from "./waves.js";
 
@@ -70,5 +70,13 @@ describe("computeWaves", () => {
 
   test("empty tasks", () => {
     expect(computeWaves([])).toEqual([]);
+  });
+
+  test("works with TaskDefinition (no execution fields)", () => {
+    const tasks = [makeTaskDef("1", ["auth"]), makeTaskDef("2", ["api"], ["auth"])];
+    const waves = computeWaves(tasks);
+    expect(waves).toHaveLength(2);
+    expect(waves[0].tasks[0].id).toBe("1");
+    expect(waves[1].tasks[0].id).toBe("2");
   });
 });

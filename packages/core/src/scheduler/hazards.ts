@@ -1,6 +1,4 @@
-import type { Task, Hazard } from "#shared/types.js";
-
-type TaskRef = Pick<Task, "id" | "touches"> & { mutexes?: string[] };
+import type { TaskDefinition, Hazard } from "#shared/types.js";
 
 /**
  * Pairwise hazard detection — O(n^2) over tasks, O(k) per pair over shared components.
@@ -8,7 +6,7 @@ type TaskRef = Pick<Task, "id" | "touches"> & { mutexes?: string[] };
  * for RAW (true dependency), WAW (output conflict), and WAR (anti-dependency).
  * WAR is suppressed when the reader also writes (already captured by WAW + RAW).
  */
-export function detectHazards(tasks: TaskRef[]): Hazard[] {
+export function detectHazards(tasks: TaskDefinition[]): Hazard[] {
   const hazards: Hazard[] = [];
 
   for (let i = 0; i < tasks.length; i++) {

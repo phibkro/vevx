@@ -1,4 +1,4 @@
-import type { Task, Plan } from "./types.js";
+import type { Task, Plan, TaskDefinition } from "./types.js";
 
 /**
  * Create a Task with sensible defaults. Use in tests to avoid repeating boilerplate.
@@ -14,6 +14,23 @@ export function makeTask(
     description: `Task ${id}`,
     action: "implement",
     values: ["correctness"],
+    touches: { writes, reads },
+    ...(mutexes ? { mutexes } : {}),
+  };
+}
+
+/**
+ * Create a TaskDefinition (scheduler-only shape). Use in scheduler tests
+ * that don't need execution fields (action, values, description).
+ */
+export function makeTaskDef(
+  id: string,
+  writes?: string[],
+  reads?: string[],
+  mutexes?: string[],
+): TaskDefinition {
+  return {
+    id,
     touches: { writes, reads },
     ...(mutexes ? { mutexes } : {}),
   };

@@ -190,6 +190,8 @@ git log --> scanCoChangesWithCache() --> CoChangeGraph
                                                               |
                                                     findHiddenCoupling()
 
+The analysis outputs compose into a `CodebaseGraph` (`{manifest, coChange, imports, coupling?}`) — the interface contract between the analysis layer and its consumers (audit, CLI, MCP queries).
+
 git diff --> verifyCapabilities() --> CapabilityReport
              (paths vs write scope)
 
@@ -204,7 +206,7 @@ Tools are defined as `ToolDef` objects in `index.ts` — each with name, descrip
 2. Error handling (catch → `{ isError: true }`)
 3. MCP response formatting (`{ content: [{ type: "text", text }] }`)
 
-Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `touchesSchema`, `mutexesSchema`, `taskRefSchema`, `schedulableTaskSchema`) are defined once and reused across tool definitions. Scheduler and enforcement tools accept minimal task objects (`{id, touches, mutexes?}`) rather than full `Task` schemas — reduces tool description token overhead.
+Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `touchesSchema`, `mutexesSchema`, `taskRefSchema`, `schedulableTaskSchema`) are defined once and reused across tool definitions. Scheduler and enforcement tools accept `TaskDefinition` objects (`{id, touches, mutexes?}`) rather than full `Task` schemas — reduces tool description token overhead.
 
 `varp_compute_waves` accepts inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 

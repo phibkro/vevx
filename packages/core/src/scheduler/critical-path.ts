@@ -1,14 +1,12 @@
-import type { Task, Hazard, CriticalPath } from "#shared/types.js";
+import type { TaskDefinition, Hazard, CriticalPath } from "#shared/types.js";
 
 import { detectHazards } from "./hazards.js";
-
-type SchedulableTask = Pick<Task, "id" | "touches">;
 
 /**
  * Compute the longest chain of RAW dependencies via memoized DP.
  * Pass pre-computed hazards to avoid redundant detection (e.g. when called from computeWaves).
  */
-export function computeCriticalPath(tasks: SchedulableTask[], hazards?: Hazard[]): CriticalPath {
+export function computeCriticalPath(tasks: TaskDefinition[], hazards?: Hazard[]): CriticalPath {
   if (tasks.length === 0) {
     return { task_ids: [], length: 0 };
   }

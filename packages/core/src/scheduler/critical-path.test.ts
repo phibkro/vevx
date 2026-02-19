@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 
-import { makeTask } from "#shared/test-helpers.js";
+import { makeTask, makeTaskDef } from "#shared/test-helpers.js";
 
 import { computeCriticalPath } from "./critical-path.js";
 
@@ -45,5 +45,16 @@ describe("computeCriticalPath", () => {
     const result = computeCriticalPath(tasks);
     expect(result.task_ids).toHaveLength(1);
     expect(result.length).toBe(1);
+  });
+
+  test("works with TaskDefinition (no execution fields)", () => {
+    const tasks = [
+      makeTaskDef("1", ["auth"]),
+      makeTaskDef("2", ["api"], ["auth"]),
+      makeTaskDef("3", undefined, ["api"]),
+    ];
+    const result = computeCriticalPath(tasks);
+    expect(result.task_ids).toEqual(["1", "2", "3"]);
+    expect(result.length).toBe(3);
   });
 });

@@ -1,6 +1,6 @@
 # ADR-002: Three-Layer Architecture Separation
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-02-19
 **Deciders:** @phibkro
 
