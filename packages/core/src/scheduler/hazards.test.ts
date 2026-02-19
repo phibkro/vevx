@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 
-import { makeTask } from "#shared/test-helpers.js";
+import { makeTask, makeTaskDef } from "#shared/test-helpers.js";
 
 import { detectHazards } from "./hazards.js";
 
@@ -86,5 +86,11 @@ describe("detectHazards", () => {
     expect(types.has("WAW")).toBe(true);
     // WAR: task 1 reads api, task 2 writes api, task 1 doesn't write api
     expect(types.has("WAR")).toBe(true);
+  });
+
+  test("works with TaskDefinition (no execution fields)", () => {
+    const tasks = [makeTaskDef("1", ["auth"]), makeTaskDef("2", undefined, ["auth"])];
+    const hazards = detectHazards(tasks);
+    expect(hazards.filter((h) => h.type === "RAW")).toHaveLength(1);
   });
 });
