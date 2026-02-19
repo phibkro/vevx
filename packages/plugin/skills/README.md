@@ -1,6 +1,6 @@
 # Skills
 
-Five prompt-based skills for the varp orchestration lifecycle.
+Six prompt-based skills for the varp orchestration lifecycle.
 
 | Skill | Trigger | Purpose |
 |-------|---------|---------|
@@ -9,6 +9,7 @@ Five prompt-based skills for the varp orchestration lifecycle.
 | `/varp:execute` | Approved plan ready for implementation | Dispatch tasks to subagents with capability enforcement. Outputs a status snapshot (freshness + lint) on plan completion. |
 | `/varp:review` | Wave or plan completion | Diff expected vs actual via `varp_parse_log`, track doc changes via `varp_watch_freshness`, visualize deps via `varp_render_graph`. Appends project status snapshot. |
 | `/varp:status` | Anytime | Snapshot of components, freshness, dependency graph (`varp_render_graph`), active plan progress (`varp_parse_log`) |
+| `/varp:coupling` | Mid-session | Surface coupling diagnostics for files or components being worked on |
 
 ## Monorepo Tool Integration
 

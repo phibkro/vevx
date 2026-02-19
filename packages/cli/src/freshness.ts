@@ -1,6 +1,5 @@
-import { resolve } from "path";
-
 import { parseManifest, checkFreshness } from "@varp/core/lib";
+import { dirname, resolve } from "path";
 
 import { DEFAULT_MANIFEST, parseEnum } from "./args.js";
 
@@ -29,7 +28,7 @@ export async function runFreshnessCommand(argv: string[]): Promise<void> {
   const args = parseFreshnessArgs(argv);
   const manifestPath = resolve(args.manifest);
   const manifest = parseManifest(manifestPath);
-  const report = checkFreshness(manifest);
+  const report = checkFreshness(manifest, dirname(manifestPath));
 
   if (args.format === "json") {
     console.log(JSON.stringify(report, null, 2));
