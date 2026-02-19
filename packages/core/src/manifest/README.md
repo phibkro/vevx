@@ -164,7 +164,7 @@ Detection conventions are defined in `DEFAULT_DETECTION_CONFIG` (inspectable via
 
 `varp_ack_freshness` records that component docs have been reviewed and are still accurate, without modifying the doc files themselves. This eliminates false-positive staleness warnings after internal refactors that don't change documented behavior.
 
-Acks are stored in `.varp-freshness.json` in the manifest directory — a sidecar file mapping absolute doc paths to ISO timestamps. When checking freshness, the effective time for each doc is `max(doc_mtime, ack_time)`. If the effective time is within the staleness threshold of the source mtime, the doc is considered fresh.
+Acks are stored in `.varp/freshness.json` in the manifest directory — a sidecar file mapping absolute doc paths to ISO timestamps. When checking freshness, the effective time for each doc is `max(doc_mtime, ack_time)`. If the effective time is within the staleness threshold of the source mtime, the doc is considered fresh.
 
 **Parameters:** `{ manifest_path?: string, components: string[], doc?: string }`
 
@@ -173,7 +173,7 @@ Acks are stored in `.varp-freshness.json` in the manifest directory — a sideca
 
 **Returns:** `{ acked: string[] }` — absolute paths of acknowledged docs
 
-The `.varp-freshness.json` file can be committed (team-wide acks) or gitignored (per-developer). Acks expire naturally — when source files change after the ack timestamp, the doc becomes stale again.
+The `.varp/freshness.json` file can be committed (team-wide acks) or gitignored (per-developer). Acks expire naturally — when source files change after the ack timestamp, the doc becomes stale again.
 
 ## Watch Freshness
 

@@ -12,9 +12,16 @@ if [ ! -f "$MANIFEST" ]; then
 fi
 
 # ── Modified files since session start ──
+# Uncommitted changes (staged + unstaged)
 modified_files=$(git diff --name-only HEAD 2>/dev/null || true)
 staged_files=$(git diff --cached --name-only 2>/dev/null || true)
-all_modified=$(printf '%s\n%s' "$modified_files" "$staged_files" | sort -u | grep -v '^$' || true)
+# Committed changes during this session (saved by session-start.sh)
+committed_files=""
+if [ -f ".varp/session-head" ]; then
+  session_head=$(cat .varp/session-head)
+  committed_files=$(git diff --name-only "$session_head"..HEAD 2>/dev/null || true)
+fi
+all_modified=$(printf '%s\n%s\n%s' "$modified_files" "$staged_files" "$committed_files" | sort -u | grep -v '^$' || true)
 
 if [ -z "$all_modified" ]; then
   exit 0

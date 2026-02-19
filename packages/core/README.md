@@ -64,7 +64,7 @@ Returns freshness status for all component docs — last modified timestamps, st
 
 #### `varp_ack_freshness`
 
-Acknowledges component docs as reviewed and still accurate. Records the current timestamp in `.varp-freshness.json` so docs are no longer flagged stale until source changes again. Use after internal refactors that don't affect documented behavior.
+Acknowledges component docs as reviewed and still accurate. Records the current timestamp in `.varp/freshness.json` so docs are no longer flagged stale until source changes again. Use after internal refactors that don't affect documented behavior.
 
 **Parameters:** `{ manifest_path?: string, components: string[], doc?: string }`
 

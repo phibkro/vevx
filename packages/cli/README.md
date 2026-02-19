@@ -24,6 +24,7 @@ varp freshness              # Check doc freshness across components
 varp validate <plan.xml>    # Validate plan against manifest
 varp coupling               # Analyze component coupling (co-change + imports)
 varp summary                # Project health digest (coupling, freshness, stability)
+varp summary --json         # JSON output (also writes .varp/summary.json cache)
 varp conventions            # Show component detection conventions
 ```
 

@@ -11,6 +11,10 @@ if [ ! -f "$MANIFEST" ]; then
   exit 0
 fi
 
+# ── Save session baseline for stop hook ──
+mkdir -p .varp
+git rev-parse HEAD > .varp/session-head 2>/dev/null || true
+
 # ── Graph-aware summary ──
 # Try the built CLI first (fast, includes coupling diagnostics)
 # Fall back to basic manifest parsing if CLI not available

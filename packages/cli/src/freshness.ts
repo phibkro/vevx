@@ -1,5 +1,6 @@
-import { parseManifest, checkFreshness } from "@varp/core/lib";
 import { dirname, resolve } from "path";
+
+import { parseManifest, checkFreshness } from "@varp/core/lib";
 
 import { DEFAULT_MANIFEST, parseEnum } from "./args.js";
 

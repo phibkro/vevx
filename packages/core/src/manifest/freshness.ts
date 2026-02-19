@@ -1,4 +1,4 @@
-import { statSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, basename } from "node:path";
 
 import {
@@ -102,18 +102,26 @@ export function computeStaleness(
 
 // ── Ack sidecar I/O ──
 
-const ACK_FILENAME = ".varp-freshness.json";
+const ACK_DIR = ".varp";
+const ACK_FILENAME = "freshness.json";
 
 export function loadAcks(manifestDir: string): Record<string, string> {
   try {
-    return JSON.parse(readFileSync(join(manifestDir, ACK_FILENAME), "utf-8"));
+    return JSON.parse(readFileSync(join(manifestDir, ACK_DIR, ACK_FILENAME), "utf-8"));
   } catch {
-    return {};
+    // Fall back to legacy location for migration
+    try {
+      return JSON.parse(readFileSync(join(manifestDir, ".varp-freshness.json"), "utf-8"));
+    } catch {
+      return {};
+    }
   }
 }
 
 export function saveAcks(manifestDir: string, acks: Record<string, string>): void {
-  writeFileSync(join(manifestDir, ACK_FILENAME), JSON.stringify(acks, null, 2) + "\n");
+  const dir = join(manifestDir, ACK_DIR);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, ACK_FILENAME), JSON.stringify(acks, null, 2) + "\n");
 }
 
 // ── Effectful wrapper ──
