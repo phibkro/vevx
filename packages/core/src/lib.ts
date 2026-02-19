@@ -21,7 +21,8 @@ export { invalidationCascade, validateDependencyGraph } from "./manifest/graph.j
 export { parseManifest } from "./manifest/parser.js";
 export { runLint } from "./manifest/lint.js";
 export { ackFreshness, checkFreshness, checkWarmStaleness } from "./manifest/freshness.js";
-export { renderGraph } from "./manifest/render-graph.js";
+export { renderAsciiGraph, renderGraph, renderTagGroups } from "./manifest/render-graph.js";
+export type { AsciiGraphOptions } from "./manifest/render-graph.js";
 export { scanImports } from "./manifest/imports.js";
 export { resolveDocs } from "./manifest/resolver.js";
 export { checkEnv } from "./manifest/env-check.js";

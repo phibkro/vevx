@@ -413,6 +413,14 @@ export function checkWarmStaleness(
   since: Date,
 ): WarmStalenessResult;
 export function renderGraph(manifest: Manifest, opts?: { direction?: "TD" | "LR" }): string;
+
+export type AsciiGraphOptions = {
+  tags?: "color" | "superscript" | false;
+  stability?: boolean;
+};
+
+export function renderAsciiGraph(manifest: Manifest, opts?: AsciiGraphOptions): string;
+export function renderTagGroups(manifest: Manifest): string;
 export function scanImports(manifest: Manifest, manifestDir?: string): ImportScanResult;
 export function resolveDocs(manifest: Manifest, touches: Touches): ResolvedDocs;
 export function checkEnv(

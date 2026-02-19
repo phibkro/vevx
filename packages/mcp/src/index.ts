@@ -21,7 +21,9 @@ import {
   parseLogFile,
   parseManifest,
   parsePlanFile,
+  renderAsciiGraph,
   renderGraph,
+  renderTagGroups,
   resolveDocs,
   runLint,
   scanCoChangesWithCache,
@@ -386,16 +388,42 @@ const tools: ToolDef[] = [
   {
     name: "varp_render_graph",
     description:
-      "Render the manifest dependency graph as Mermaid diagram syntax. Annotates nodes with stability badges.",
+      "Render the manifest dependency graph as Mermaid diagram syntax, ASCII text, or tag groups. Annotates nodes with stability badges.",
     inputSchema: {
       manifest_path: manifestPath,
       direction: z
         .enum(["TD", "LR"])
         .optional()
         .describe("Graph direction: TD (top-down, default) or LR (left-right)"),
+      format: z
+        .enum(["mermaid", "ascii"])
+        .optional()
+        .describe('Output format: "mermaid" (default) or "ascii" for terminal display'),
+      tags: z
+        .enum(["color", "superscript", "group", "false"])
+        .optional()
+        .describe(
+          'Tag display: "color" (default, colored dots), "superscript" (numbered), "group" (group-by-tag view), "false" (hide)',
+        ),
+      stability: z.boolean().optional().describe("Show stability badges (default: true)"),
     },
-    handler: async ({ manifest_path, direction }) => {
+    handler: async ({ manifest_path, direction, format, tags, stability }) => {
       const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
+
+      if (tags === "group") {
+        return { tag_groups: renderTagGroups(manifest) };
+      }
+
+      if (format === "ascii") {
+        const tagMode = tags === "false" ? false : (tags ?? "superscript");
+        return {
+          ascii: renderAsciiGraph(manifest, {
+            tags: tagMode as "color" | "superscript" | false,
+            stability,
+          }),
+        };
+      }
+
       return { mermaid: renderGraph(manifest, { direction }) };
     },
   },

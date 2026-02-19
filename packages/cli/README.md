@@ -111,7 +111,12 @@ Each entry requires `rule` and `reason`. Optionally scope with `file` (exact pat
 
 ```bash
 varp lint                   # Lint manifest (imports, links, freshness, stability)
-varp graph                  # Render dependency graph as Mermaid diagram
+varp graph                  # Render dependency graph (ASCII, default)
+varp graph --format mermaid # Render as Mermaid diagram
+varp graph --tags           # Group components by tag
+varp graph --no-color       # Superscript tag markers (no ANSI)
+varp graph --no-tags        # Hide tag markers
+varp graph --no-stability   # Hide stability badges
 varp freshness              # Check doc freshness across components
 varp validate <plan.xml>    # Validate plan against manifest
 ```

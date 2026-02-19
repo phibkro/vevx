@@ -214,11 +214,15 @@ Runs all health checks against the manifest: import dependency verification, lin
 
 #### `varp_render_graph`
 
-Renders the manifest dependency graph as Mermaid diagram syntax. Annotates nodes with stability badges (🟢 stable, 🟡 active, 🔴 experimental).
+Renders the manifest dependency graph as Mermaid diagram syntax or ASCII text. Annotates nodes with stability badges and optional tag markers.
 
-**Parameters:** `{ manifest_path?: string, direction?: "TD" | "LR" }`
+**Parameters:** `{ manifest_path?: string, direction?: "TD" | "LR", format?: "mermaid" | "ascii", tags?: "color" | "superscript" | "group" | "false", stability?: boolean }`
 
-**Returns:** `{ mermaid: string }`
+- `format`: `"mermaid"` (default) for Mermaid diagram, `"ascii"` for terminal-friendly tree
+- `tags`: `"color"` (colored dots, default for ASCII), `"superscript"` (numbered `¹²³`), `"group"` (group-by-tag view), `"false"` (hide tags)
+- `stability`: show stability badges (default: `true`)
+
+**Returns:** `{ mermaid: string }` or `{ ascii: string }` or `{ tag_groups: string }`
 
 #### `varp_watch_freshness`
 

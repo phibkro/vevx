@@ -20,7 +20,7 @@ src/
     links.ts                  Markdown link scanner — extract, resolve, integrity + dep inference
     scoped-tests.ts           Find test files scoped to a touches declaration
     suggest-components.ts     Analyze layer/domain dirs to suggest multi-path component groupings
-    render-graph.ts           Render dependency graph as Mermaid diagram syntax
+    render-graph.ts           Render dependency graph (Mermaid + ASCII with tag/stability display)
     watch.ts                  Freshness polling — filter changes since baseline timestamp
     touches.ts                Suggest touches declarations from file paths + import deps
     parser.ts                 Flat YAML -> Manifest (path resolution)

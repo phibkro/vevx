@@ -13,7 +13,7 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 | `bun test packages/core/src/index.test.ts` | MCP integration tests only |
 | `bun test packages/core/src/scheduler/` | Scheduler tests only |
 | `bun run packages/cli/dist/cli.js lint` | Lint manifest for issues |
-| `bun run packages/cli/dist/cli.js graph` | Render dependency graph (Mermaid) |
+| `bun run packages/cli/dist/cli.js graph` | Render dependency graph (ASCII, default) |
 | `bun run packages/cli/dist/cli.js freshness` | Check doc freshness |
 | `bun run packages/cli/dist/cli.js validate plan.xml` | Validate plan against manifest |
 

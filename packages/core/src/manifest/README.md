@@ -147,7 +147,12 @@ Use the output to scaffold `varp.yaml` components with `path: [...]` arrays.
 
 ## Render Graph
 
-`varp_render_graph` generates Mermaid diagram syntax from the manifest dependency graph. Nodes are annotated with stability badges when set. Useful for visualizing project structure during init or status reporting.
+`varp_render_graph` renders the manifest dependency graph in two formats:
+
+- **Mermaid** (default): Diagram syntax with emoji stability badges (🟢🟡🔴). Used by skills for rich output.
+- **ASCII**: Terminal-friendly tree layout with stability badges (`·`, `·▲`, `·⚠`) and tag markers. Tags display as colored dots (ANSI), superscript numbers (`¹²³`), or a group-by-tag view. Useful for quick terminal inspection via `varp graph`.
+
+`renderAsciiGraph` accepts `AsciiGraphOptions` to independently toggle stability badges and tag display mode. `renderTagGroups` provides an inverted view grouping components by tag.
 
 ## Warm Staleness
 
