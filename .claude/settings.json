@@ -1,6 +1,1 @@
-{
-  "statusLine": {
-    "type": "command",
-    "command": "bash packages/plugin/hooks/scripts/statusline-cost.sh"
-  }
-}
+{}
