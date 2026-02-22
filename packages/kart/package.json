@@ -1,0 +1,24 @@
+{
+  "name": "@vevx/kart",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "bun build ./src/Mcp.ts --outdir ./dist --target bun",
+    "test": "bun run test:pure && bun run test:integration",
+    "test:pure": "bun test --concurrent --coverage src/pure/",
+    "test:integration": "bun test --concurrent src/*.test.ts",
+    "lint": "oxlint --type-aware",
+    "format": "oxfmt --write 'src/**/*.ts'",
+    "format:check": "oxfmt --check 'src/**/*.ts'",
+    "typecheck": "oxlint --type-aware --type-check",
+    "check": "bun run format:check && bun run lint && bun run build",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "effect": "^3.19.0",
+    "@effect/platform": "^0.94.0",
+    "@effect/platform-bun": "^0.87.0",
+"@modelcontextprotocol/sdk": "^1.9.0",
+    "zod": "^3.24.0"
+  }
+}

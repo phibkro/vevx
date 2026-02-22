@@ -25,6 +25,17 @@
         "@vevx/varp": "workspace:*",
       },
     },
+    "packages/kart": {
+      "name": "@vevx/kart",
+      "version": "0.1.0",
+      "dependencies": {
+        "@effect/platform": "^0.94.0",
+        "@effect/platform-bun": "^0.87.0",
+        "@modelcontextprotocol/sdk": "^1.9.0",
+        "effect": "^3.19.0",
+        "zod": "^3.24.0",
+      },
+    },
     "packages/kiste": {
       "name": "@vevx/kiste",
       "version": "0.1.0",
@@ -269,6 +280,8 @@
     "@types/node": ["@types/node@25.2.3", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-m0jEgYlYz+mDJZ2+F4v8D1AyQb+QzsNqRuI7xg1VQX/KlKS0qT9r1Mo16yo5F/MtifXFgaofIFsdFMox2SxIbQ=="],
 
     "@vevx/audit": ["@vevx/audit@workspace:packages/audit"],
+
+    "@vevx/kart": ["@vevx/kart@workspace:packages/kart"],
 
     "@vevx/kiste": ["@vevx/kiste@workspace:packages/kiste"],
 

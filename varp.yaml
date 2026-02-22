@@ -71,3 +71,9 @@ cli:
   path: ./packages/varp/src/cli
   deps: [core]
   stability: experimental
+
+kart:
+  paths: [packages/kart/src]
+  stability: experimental
+  doc: packages/kart/design.md
+  tags: [code-intelligence]
