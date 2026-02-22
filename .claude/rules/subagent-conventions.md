@@ -22,9 +22,17 @@ This is a Varp-managed project (varp.yaml defines components, paths, dependencie
 
 **Kiste** (experimental): `kiste` = `packages/kiste/src/`. Git-backed artifact index using Effect TS. Standalone — no varp dependency.
 
+**Kart** (experimental): `kart` = `packages/kart/src/`. Progressive code disclosure + behavioral coupling. Effect TS. `src/pure/` = deterministic functions, `src/` = effectful services (LSP, SQLite, MCP). Standalone — no varp dependency.
+
 If you modify component files, note which components were affected in your response.
 
 ## Code Quality Guidelines
+
+### Design
+
+- **Functional core, imperative shell**: Maximize pure, deterministic code. Push IO and effects to the boundary. If logic can be a pure function (data in, data out), keep it pure — call it from the effectful layer.
+- **Test the core, integrate the shell**: Pure code gets coverage enforcement. Effectful code gets integration tests without coverage gates.
+- Temp files: use `/tmp/claude/` prefix, never `tmpdir()`. Guard subprocess tests with `!process.env.TURBO_HASH`.
 
 ### Before Writing Code
 

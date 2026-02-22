@@ -58,6 +58,9 @@ packages/
     rulesets/               Audit rulesets (OWASP, etc.)
   kiste/                    Git-backed artifact index (@vevx/kiste, Effect TS)
     src/                    Indexer, MCP server, CLI
+  kart/                     Progressive code disclosure (@vevx/kart, Effect TS)
+    src/pure/               Pure functions (export detection, signatures, types)
+    src/                    Effectful services (LSP, SQLite, MCP)
 docs/                       Design docs, getting started, reference URLs
 ```
 
@@ -66,6 +69,12 @@ Import alias `#shared/*` maps to `packages/varp/src/shared/*`. One library entry
 - **`@vevx/varp/lib`** — All types and functions (pure + Bun-dependent). Used by `@vevx/audit`. Has a hand-maintained `lib.d.ts` — update it when exported signatures change.
 
 **Details**: See `packages/varp/docs/architecture.md` for algorithms and data flow. See `packages/varp/README.md` for tool API surface. See `packages/varp/src/manifest/README.md` and `packages/varp/src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
+
+## Design Principles
+
+- **Functional core, imperative shell**: Maximize pure, deterministic code. Push IO, state, and effects to the boundary. Pure functions are easier to test (no mocking), easier to reason about (no hidden state), and compose better. When adding logic, ask: can this be a pure function that takes data and returns data? If yes, keep it pure and call it from the effectful layer — don't embed it in the service.
+- **Test the core, integrate the shell**: Pure code gets coverage enforcement — edge cases are cheap to test. Effectful code (LSP, SQLite, MCP transport, subprocess) gets integration tests without coverage gates — the interesting failures are environmental, not logical.
+- **Sandbox-safe temp dirs**: Always use `/tmp/claude/` prefix for temp files, never `tmpdir()` or bare `/tmp/`. Tests that spawn subprocesses (LSP, git) should guard with `!process.env.TURBO_HASH` since turbo's sandbox blocks spawning.
 
 ## Key Conventions
 
