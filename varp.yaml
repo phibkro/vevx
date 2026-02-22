@@ -73,3 +73,9 @@ cli:
   path: ./packages/cli/src
   deps: [core]
   stability: experimental
+
+kart:
+  paths: [packages/kart/src]
+  stability: experimental
+  doc: packages/kart/design.md
+  tags: [code-intelligence]
