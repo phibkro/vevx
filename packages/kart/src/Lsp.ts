@@ -81,7 +81,7 @@ class JsonRpcTransport {
     if (this.reading) return;
     this.reading = true;
     this.readLoop().catch((err) => {
-      for (const [_id, p] of this.pending) {
+      for (const [id, p] of this.pending) {
         p.reject(new LspError({ message: `Read loop failed: ${err}`, cause: err }));
         this.pending.delete(id);
       }
