@@ -114,4 +114,29 @@ describe.skipIf(!hasLsp)("LspClient", () => {
       expect(token.length).toBeGreaterThan(0);
     }
   }, 30_000);
+
+  test("shutdown() terminates the language server cleanly", async () => {
+    // Separate runtime — shutdown kills the process, can't reuse the shared one
+    const shutdownRuntime = ManagedRuntime.make(LspClientLive({ rootDir: tempDir }));
+    try {
+      // Verify it works before shutdown
+      const symbols = await shutdownRuntime.runPromise(
+        Effect.gen(function* () {
+          const lsp = yield* LspClient;
+          return yield* lsp.documentSymbol(fixtureUri);
+        }),
+      );
+      expect(symbols.length).toBeGreaterThan(0);
+
+      // Explicit shutdown should complete without error
+      await shutdownRuntime.runPromise(
+        Effect.gen(function* () {
+          const lsp = yield* LspClient;
+          yield* lsp.shutdown();
+        }),
+      );
+    } finally {
+      await shutdownRuntime.dispose();
+    }
+  }, 30_000);
 });

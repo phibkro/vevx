@@ -65,8 +65,11 @@ type PendingRequest = {
 class JsonRpcTransport {
   private nextId = 1;
   private pending = new Map<number, PendingRequest>();
-  private buffer = "";
+  /** Raw byte buffer — Content-Length is in bytes, not characters. */
+  private buffer = new Uint8Array(0);
   private reading = false;
+  private readonly encoder = new TextEncoder();
+  private readonly decoder = new TextDecoder();
 
   constructor(
     private readonly stdin: BunFileSink,
@@ -125,7 +128,7 @@ class JsonRpcTransport {
   }
 
   private writeMessage(body: string): void {
-    const encoded = new TextEncoder().encode(body);
+    const encoded = this.encoder.encode(body);
     const header = `Content-Length: ${encoded.byteLength}\r\n\r\n`;
     this.stdin.write(header);
     this.stdin.write(encoded);
@@ -134,13 +137,12 @@ class JsonRpcTransport {
 
   private async readLoop(): Promise<void> {
     const reader = this.stdout.getReader();
-    const decoder = new TextDecoder();
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        this.buffer += decoder.decode(value, { stream: true });
+        this.appendToBuffer(value);
         this.processBuffer();
       }
     } finally {
@@ -148,15 +150,41 @@ class JsonRpcTransport {
     }
   }
 
+  private appendToBuffer(chunk: Uint8Array): void {
+    const next = new Uint8Array(this.buffer.length + chunk.length);
+    next.set(this.buffer, 0);
+    next.set(chunk, this.buffer.length);
+    this.buffer = next;
+  }
+
+  /** ASCII bytes for "\r\n\r\n" */
+  private static readonly HEADER_DELIM = new Uint8Array([0x0d, 0x0a, 0x0d, 0x0a]);
+
+  private findHeaderEnd(): number {
+    const delim = JsonRpcTransport.HEADER_DELIM;
+    for (let i = 0; i <= this.buffer.length - delim.length; i++) {
+      if (
+        this.buffer[i] === delim[0] &&
+        this.buffer[i + 1] === delim[1] &&
+        this.buffer[i + 2] === delim[2] &&
+        this.buffer[i + 3] === delim[3]
+      ) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   private processBuffer(): void {
     while (true) {
-      const headerEnd = this.buffer.indexOf("\r\n\r\n");
+      const headerEnd = this.findHeaderEnd();
       if (headerEnd === -1) return;
 
-      const header = this.buffer.slice(0, headerEnd);
-      const match = header.match(/Content-Length:\s*(\d+)/i);
+      const headerStr = this.decoder.decode(this.buffer.subarray(0, headerEnd));
+      const match = headerStr.match(/Content-Length:\s*(\d+)/i);
       if (!match) {
-        this.buffer = this.buffer.slice(headerEnd + 4);
+        // Skip malformed header
+        this.buffer = this.buffer.subarray(headerEnd + 4);
         continue;
       }
 
@@ -166,8 +194,8 @@ class JsonRpcTransport {
 
       if (this.buffer.length < bodyEnd) return;
 
-      const bodyStr = this.buffer.slice(bodyStart, bodyEnd);
-      this.buffer = this.buffer.slice(bodyEnd);
+      const bodyStr = this.decoder.decode(this.buffer.subarray(bodyStart, bodyEnd));
+      this.buffer = this.buffer.subarray(bodyEnd);
 
       try {
         const msg = JSON.parse(bodyStr);
@@ -350,11 +378,10 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
                   formats: ["relative"],
                 },
               },
-              workspace: {
-                didChangeWatchedFiles: {
-                  dynamicRegistration: true,
-                },
-              },
+              // TODO: Add workspace/didChangeWatchedFiles support. The client should
+              // watch *.ts, *.tsx, tsconfig.json, package.json via fs.watch and send
+              // workspace/didChangeWatchedFiles notifications to keep the server in sync.
+              // Omitted for v0.1 — the server falls back to polling or stale state.
             },
             rootUri,
             workspaceFolders: [{ uri: rootUri, name: "workspace" }],
