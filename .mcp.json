@@ -3,6 +3,14 @@
     "varp": {
       "command": "bun",
       "args": ["packages/varp/build/index.js"]
+    },
+    "kart": {
+      "command": "bun",
+      "args": ["packages/kart/dist/Mcp.js"]
+    },
+    "kiste": {
+      "command": "bun",
+      "args": ["packages/kiste/dist/Mcp.js"]
     }
   }
 }
