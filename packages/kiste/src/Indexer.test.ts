@@ -151,6 +151,73 @@ describe("Indexer", () => {
     );
   });
 
+  test("processes tag operations from commit body", async () => {
+    const cwd = makeTempDir();
+    dirs.push(cwd);
+    initRepo(cwd);
+    writeFile(cwd, "src/core/utils.ts", "export const noop = () => {}");
+    git(cwd, "add", ".");
+    // Commit with a tags: line in the body to trigger insertTagOps
+    git(cwd, "commit", "-m", "feat: add utils", "-m", "tags: +security, +critical");
+
+    const layer = makeLayer(cwd);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        const result = yield* rebuildIndex(cwd);
+        expect(result.commits_indexed).toBe(1);
+
+        const sql = yield* SqlClient.SqlClient;
+        const tags = yield* sql<{ tag: string }>`
+          SELECT at.tag FROM artifact_tags at
+          JOIN artifacts a ON a.id = at.artifact_id
+          WHERE a.path = ${"src/core/utils.ts"}
+        `;
+        const tagNames = tags.map((r) => r.tag);
+        // Should have folder-derived tags plus explicit tags
+        expect(tagNames).toContain("security");
+        expect(tagNames).toContain("critical");
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  test("handles file rename across commits", async () => {
+    const cwd = makeTempDir();
+    dirs.push(cwd);
+    initRepo(cwd);
+    writeFile(cwd, "old-name.ts", "export const x = 1");
+    git(cwd, "add", ".");
+    git(cwd, "commit", "-m", "feat: add file");
+    git(cwd, "mv", "old-name.ts", "new-name.ts");
+    git(cwd, "commit", "-m", "refactor: rename file");
+
+    const layer = makeLayer(cwd);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        const result = yield* rebuildIndex(cwd);
+        expect(result.commits_indexed).toBe(2);
+
+        const sql = yield* SqlClient.SqlClient;
+        // Old path should be marked dead
+        const old = yield* sql<{
+          alive: number;
+        }>`SELECT alive FROM artifacts WHERE path = ${"old-name.ts"}`;
+        expect(old.length).toBe(1);
+        expect(old[0].alive).toBe(0);
+
+        // New path should be alive
+        const renamed = yield* sql<{
+          alive: number;
+        }>`SELECT alive FROM artifacts WHERE path = ${"new-name.ts"}`;
+        expect(renamed.length).toBe(1);
+        expect(renamed[0].alive).toBe(1);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
   test("derives folder tags from paths", async () => {
     const cwd = makeTempDir();
     dirs.push(cwd);

@@ -156,4 +156,36 @@ describe("MCP Tools", () => {
     expect(parsed.commits.length).toBeGreaterThanOrEqual(1);
     expect(parsed.commits[0].message).toContain("login");
   });
+
+  test("kiste_list_artifacts with tag filter", async () => {
+    const result = await client.callTool({
+      name: "kiste_list_artifacts",
+      arguments: { tags: ["auth"] },
+    });
+
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    const paths = parsed.artifacts.map((a: { path: string }) => a.path);
+    expect(paths).toContain("src/auth/login.ts");
+    expect(paths).not.toContain("src/api/routes.ts");
+  });
+
+  test("kiste_get_artifact returns error for nonexistent path", async () => {
+    const result = await client.callTool({
+      name: "kiste_get_artifact",
+      arguments: { path: "does/not/exist.ts" },
+    });
+
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    expect(parsed.error).toContain("not found");
+  });
+
+  test("kiste_search with tag filter", async () => {
+    const result = await client.callTool({
+      name: "kiste_search",
+      arguments: { query: "login", tags: ["auth"] },
+    });
+
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    expect(parsed.results.length).toBeGreaterThanOrEqual(1);
+  });
 });
