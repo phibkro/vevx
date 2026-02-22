@@ -45,6 +45,7 @@ const SCHEMA_STATEMENTS = [
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   )`,
+  `CREATE INDEX IF NOT EXISTS idx_artifact_commits_sha ON artifact_commits(commit_sha)`,
   `CREATE VIRTUAL TABLE IF NOT EXISTS commits_fts USING fts5(
     message, content=commits, content_rowid=rowid
   )`,

@@ -69,13 +69,27 @@ const processCommits = (
   commits: readonly RawCommit[],
 ): Effect.Effect<IndexResult, IndexError | DbError, Config | SqlClient.SqlClient> =>
   Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
     let artifacts_indexed = 0;
     let artifacts_deleted = 0;
 
-    for (const commit of commits) {
-      const counts = yield* indexCommit(commit);
-      artifacts_indexed += counts.indexed;
-      artifacts_deleted += counts.deleted;
+    // Wrap all commits in a single transaction for performance.
+    // Without this, each INSERT/UPDATE is an implicit transaction (extremely slow for large repos).
+    yield* sql
+      .unsafe("BEGIN")
+      .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+    try {
+      for (const commit of commits) {
+        const counts = yield* indexCommit(commit);
+        artifacts_indexed += counts.indexed;
+        artifacts_deleted += counts.deleted;
+      }
+      yield* sql
+        .unsafe("COMMIT")
+        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+    } catch (e) {
+      yield* sql.unsafe("ROLLBACK").pipe(Effect.catchAll(() => Effect.void));
+      throw e;
     }
 
     return {

@@ -158,5 +158,27 @@ export const GitLive: Layer.Layer<Git> = Layer.succeed(Git, {
     return runGit(cwd, args).pipe(Effect.map((output) => parseGitLogOutput(output).reverse()));
   },
 
-  show: (cwd, ref, path) => runGit(cwd, ["show", `${ref}:${path}`]),
+  show: (cwd, ref, path) => {
+    // Reject shell metacharacters and path traversal in ref/path
+    const badPattern = /[;&|`$(){}[\]!<>\\]/;
+    if (badPattern.test(ref) || badPattern.test(path)) {
+      return Effect.fail(
+        new GitError({
+          command: `git show ${ref}:${path}`,
+          stderr: "Invalid characters in ref or path",
+          exitCode: 1,
+        }),
+      );
+    }
+    if (path.includes("..")) {
+      return Effect.fail(
+        new GitError({
+          command: `git show ${ref}:${path}`,
+          stderr: "Path traversal not allowed",
+          exitCode: 1,
+        }),
+      );
+    }
+    return runGit(cwd, ["show", `${ref}:${path}`]);
+  },
 });

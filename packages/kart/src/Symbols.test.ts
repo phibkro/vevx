@@ -46,7 +46,9 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     await mkdir(join(tempDir, "node_modules"), { recursive: true });
     await symlink(typescriptSrc, join(tempDir, "node_modules", "typescript"));
 
-    const layer = SymbolIndexLive.pipe(Layer.provide(LspClientLive({ rootDir: tempDir })));
+    const layer = SymbolIndexLive({ rootDir: tempDir }).pipe(
+      Layer.provide(LspClientLive({ rootDir: tempDir })),
+    );
     runtime = ManagedRuntime.make(layer);
     await runtime.runPromise(Effect.void);
   }, 30_000);

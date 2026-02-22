@@ -36,6 +36,19 @@ function getIgnoredPaths(repoDir: string, paths: string[]): Set<string> {
   return new Set(output.split("\n").map((p) => p.trim()));
 }
 
+// ── FTS5 sanitization ──
+
+/**
+ * Strip FTS5 special operators/syntax to prevent query injection.
+ * Keeps alphanumeric, spaces, hyphens, underscores. Collapses whitespace.
+ */
+function sanitizeFts5Query(query: string): string {
+  return query
+    .replace(/[^a-zA-Z0-9\s\-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ── Runner type ──
 
 export type RunEffect = <A>(
@@ -213,6 +226,11 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
 
             const lim = limit ?? 20;
 
+            const safeQuery = sanitizeFts5Query(query);
+            if (!safeQuery) {
+              return { results: [], count: 0 };
+            }
+
             if (tags && tags.length > 0) {
               const placeholders = tags.map(() => "?").join(", ");
               const rows = yield* sql.unsafe(
@@ -225,7 +243,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
                  WHERE commits_fts MATCH ? AND at2.tag IN (${placeholders})
                  ORDER BY c.timestamp DESC
                  LIMIT ?`,
-                [query, ...tags, lim],
+                [safeQuery, ...tags, lim],
               );
               return { results: rows, count: rows.length };
             }
@@ -238,7 +256,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
                WHERE commits_fts MATCH ?
                ORDER BY c.timestamp DESC
                LIMIT ?`,
-              [query, lim],
+              [safeQuery, lim],
             );
             return { results: rows, count: rows.length };
           }),

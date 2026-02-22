@@ -59,25 +59,30 @@ export const CochangeDbLive = (dbPath: string): Layer.Layer<CochangeDb> =>
             };
           }
 
-          const db = new Database(dbPath, { readonly: true });
-          try {
-            const rows = db
-              .query<{ path: string; coupling_score: number; edge_count: number }, [string]>(
-                NEIGHBORS_SQL,
-              )
-              .all(path);
-
-            return {
-              path,
-              neighbors: rows.map((r) => ({
-                path: r.path,
-                score: r.coupling_score,
-                commits: r.edge_count,
-              })),
-            };
-          } finally {
-            db.close();
+          // Lazily open and cache the database connection.
+          // Safe because this is readonly and single-threaded (MCP stdio).
+          if (!cachedDbs.has(dbPath)) {
+            cachedDbs.set(dbPath, new Database(dbPath, { readonly: true }));
           }
+          const db = cachedDbs.get(dbPath)!;
+
+          const rows = db
+            .query<{ path: string; coupling_score: number; edge_count: number }, [string]>(
+              NEIGHBORS_SQL,
+            )
+            .all(path);
+
+          return {
+            path,
+            neighbors: rows.map((r) => ({
+              path: r.path,
+              score: r.coupling_score,
+              commits: r.edge_count,
+            })),
+          };
         }),
     }),
   );
+
+// Module-level cache for readonly database connections
+const cachedDbs = new Map<string, InstanceType<typeof Database>>();

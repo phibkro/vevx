@@ -12,6 +12,10 @@ import type { ZoomResult, ZoomSymbol } from "./pure/types.js";
 
 export type { ZoomResult, ZoomSymbol } from "./pure/types.js";
 
+// ── Constants ──
+
+const MAX_LEVEL2_BYTES = 100 * 1024; // 100KB cap for level-2 full file content
+
 // ── Symbol conversion ──
 
 function toZoomSymbol(symbol: DocumentSymbol, lines: string[]): ZoomSymbol {
@@ -42,69 +46,86 @@ export class SymbolIndex extends Context.Tag("kart/SymbolIndex")<
 
 // ── Layer ──
 
-export const SymbolIndexLive: Layer.Layer<SymbolIndex, never, LspClient> = Layer.effect(
-  SymbolIndex,
-  Effect.gen(function* () {
-    const lsp = yield* LspClient;
+export const SymbolIndexLive = (config?: {
+  rootDir?: string;
+}): Layer.Layer<SymbolIndex, never, LspClient> =>
+  Layer.effect(
+    SymbolIndex,
+    Effect.gen(function* () {
+      const lsp = yield* LspClient;
 
-    return SymbolIndex.of({
-      zoom: (path, level) =>
-        Effect.gen(function* () {
-          const absPath = resolve(path);
+      // Resolve workspace root for path boundary checks
+      const rootDir = resolve(config?.rootDir ?? process.cwd());
 
-          // Check existence
-          if (!existsSync(absPath)) {
-            return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
-          }
+      return SymbolIndex.of({
+        zoom: (path, level) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
 
-          // Directory zoom
-          const stat = statSync(absPath);
-          if (stat.isDirectory()) {
-            return yield* zoomDirectory(lsp, absPath);
-          }
+            // Path traversal guard: reject paths outside workspace root
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
 
-          // Level 2: full file content
-          if (level === 2) {
-            const content = readFileSync(absPath, "utf-8");
+            // Check existence
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+
+            // Directory zoom
+            const stat = statSync(absPath);
+            if (stat.isDirectory()) {
+              return yield* zoomDirectory(lsp, absPath);
+            }
+
+            // Level 2: full file content (with size cap)
+            if (level === 2) {
+              const fileStat = statSync(absPath);
+              const truncated = fileStat.size > MAX_LEVEL2_BYTES;
+              const content = truncated
+                ? readFileSync(absPath, "utf-8").slice(0, MAX_LEVEL2_BYTES)
+                : readFileSync(absPath, "utf-8");
+              return {
+                path: absPath,
+                level: 2 as const,
+                symbols: [
+                  {
+                    name: absPath.split("/").pop() ?? absPath,
+                    kind: "file",
+                    signature: content,
+                    doc: null,
+                    exported: false,
+                  },
+                ],
+                truncated,
+              };
+            }
+
+            // Level 0 or 1: use LSP
+            const uri = `file://${absPath}`;
+            const symbols = yield* lsp.documentSymbol(uri);
+            const fileContent = readFileSync(absPath, "utf-8");
+            const lines = fileContent.split("\n");
+
+            let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines));
+
+            // Level 0: filter to exported only
+            if (level === 0) {
+              zoomSymbols = zoomSymbols.filter((s) => s.exported);
+            }
+
             return {
               path: absPath,
-              level: 2 as const,
-              symbols: [
-                {
-                  name: absPath.split("/").pop() ?? absPath,
-                  kind: "file",
-                  signature: content,
-                  doc: null,
-                  exported: false,
-                },
-              ],
-              truncated: false,
+              level,
+              symbols: zoomSymbols,
+              truncated: true,
             };
-          }
-
-          // Level 0 or 1: use LSP
-          const uri = `file://${absPath}`;
-          const symbols = yield* lsp.documentSymbol(uri);
-          const fileContent = readFileSync(absPath, "utf-8");
-          const lines = fileContent.split("\n");
-
-          let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines));
-
-          // Level 0: filter to exported only
-          if (level === 0) {
-            zoomSymbols = zoomSymbols.filter((s) => s.exported);
-          }
-
-          return {
-            path: absPath,
-            level,
-            symbols: zoomSymbols,
-            truncated: true,
-          };
-        }),
-    });
-  }),
-);
+          }),
+      });
+    }),
+  );
 
 // ── Directory zoom helper ──
 

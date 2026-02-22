@@ -26,7 +26,7 @@ function createServer(config: ServerConfig = {}): McpServer {
   // This avoids LSP startup failure blocking the cochange tool.
   const cochangeRuntime = ManagedRuntime.make(CochangeDbLive(dbPath));
   const zoomRuntime = ManagedRuntime.make(
-    SymbolIndexLive.pipe(Layer.provide(LspClientLive({ rootDir }))),
+    SymbolIndexLive({ rootDir }).pipe(Layer.provide(LspClientLive({ rootDir }))),
   );
 
   const server = new McpServer({ name: "kart", version: "0.1.0" });
