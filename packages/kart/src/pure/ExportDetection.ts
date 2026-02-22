@@ -24,7 +24,7 @@
  * keyword, so this is not a concern for well-formatted code.
  */
 
-import type { DocumentSymbol } from "./Lsp.js";
+import type { DocumentSymbol } from "./types.js";
 
 /**
  * Determine whether a symbol from `textDocument/documentSymbol` is exported,

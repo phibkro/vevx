@@ -6,132 +6,13 @@ import { join, resolve } from "node:path";
 
 import { Effect, Either, Layer, ManagedRuntime } from "effect";
 
-import { FileNotFoundError } from "./Errors.js";
 import { LspClientLive } from "./Lsp.js";
-import { extractDocComment, extractSignature, SymbolIndex, SymbolIndexLive } from "./Symbols.js";
-import type { DocumentSymbol } from "./Lsp.js";
+import { FileNotFoundError } from "./pure/Errors.js";
+import { SymbolIndex, SymbolIndexLive } from "./Symbols.js";
 
 // ── Fixtures ──
 
 const FIXTURE_DIR = resolve(import.meta.dir, "__fixtures__");
-
-// ── Pure function tests (no LSP needed) ──
-
-describe("extractSignature", () => {
-  const makeSymbol = (
-    name: string,
-    kind: number,
-    startLine: number,
-    startChar: number,
-    endLine: number,
-    endChar: number,
-  ): DocumentSymbol => ({
-    name,
-    kind,
-    range: { start: { line: startLine, character: startChar }, end: { line: endLine, character: endChar } },
-    selectionRange: { start: { line: startLine, character: startChar }, end: { line: endLine, character: endChar } },
-  });
-
-  test("extracts function signature up to opening brace", () => {
-    const lines = ["export function greet(name: string): string {", '  return `Hello ${name}`;', "}"];
-    const sym = makeSymbol("greet", 12, 0, 0, 2, 1);
-    const sig = extractSignature(sym, lines);
-    expect(sig).toBe("export function greet(name: string): string");
-  });
-
-  test("extracts const declaration", () => {
-    const lines = ["export const MAX_COUNT = 100;"];
-    const sym = makeSymbol("MAX_COUNT", 13, 0, 0, 0, 28);
-    const sig = extractSignature(sym, lines);
-    expect(sig).toBe("export const MAX_COUNT = 100;");
-  });
-
-  test("extracts type alias", () => {
-    const lines = ["export type ID = string | number;"];
-    const sym = makeSymbol("ID", 26, 0, 0, 0, 32);
-    const sig = extractSignature(sym, lines);
-    expect(sig).toBe("export type ID = string | number;");
-  });
-
-  test("extracts class name up to opening brace", () => {
-    const lines = ["export class UserService {", "  constructor(public name: string) {}", "}"];
-    const sym = makeSymbol("UserService", 5, 0, 0, 2, 1);
-    const sig = extractSignature(sym, lines);
-    expect(sig).toBe("export class UserService");
-  });
-
-  test("extracts interface name up to opening brace", () => {
-    const lines = ["export interface Config {", "  debug: boolean;", "}"];
-    const sym = makeSymbol("Config", 11, 0, 0, 2, 1);
-    const sig = extractSignature(sym, lines);
-    expect(sig).toBe("export interface Config");
-  });
-
-  test("handles multiline function signature", () => {
-    const lines = [
-      "export function createUser(",
-      "  name: string,",
-      "  age: number,",
-      "): User {",
-      "  return { name, age };",
-      "}",
-    ];
-    const sym = makeSymbol("createUser", 12, 0, 0, 5, 1);
-    const sig = extractSignature(sym, lines);
-    expect(sig).toBe("export function createUser(\n  name: string,\n  age: number,\n): User");
-  });
-
-  test("returns name for out-of-range line", () => {
-    const sym = makeSymbol("ghost", 12, 9999, 0, 9999, 10);
-    const sig = extractSignature(sym, ["const x = 1;"]);
-    expect(sig).toBe("ghost");
-  });
-});
-
-describe("extractDocComment", () => {
-  const makeSymbol = (startLine: number): DocumentSymbol => ({
-    name: "test",
-    kind: 12,
-    range: { start: { line: startLine, character: 0 }, end: { line: startLine, character: 20 } },
-    selectionRange: { start: { line: startLine, character: 0 }, end: { line: startLine, character: 20 } },
-  });
-
-  test("extracts single-line JSDoc comment", () => {
-    const lines = ["/** Greet a user by name. */", "export function greet(name: string): string {"];
-    const result = extractDocComment(makeSymbol(1), lines);
-    expect(result).toBe("/** Greet a user by name. */");
-  });
-
-  test("extracts multi-line JSDoc comment", () => {
-    const lines = [
-      "/**",
-      " * Create a new user.",
-      " * @param name - The user's name",
-      " */",
-      "export function createUser(name: string) {",
-    ];
-    const result = extractDocComment(makeSymbol(4), lines);
-    expect(result).toBe("/**\n * Create a new user.\n * @param name - The user's name\n */");
-  });
-
-  test("returns null when no doc comment present", () => {
-    const lines = ["const x = 1;", "export function greet() {"];
-    const result = extractDocComment(makeSymbol(1), lines);
-    expect(result).toBeNull();
-  });
-
-  test("returns null for regular comments (not JSDoc)", () => {
-    const lines = ["// This is a regular comment", "export function greet() {"];
-    const result = extractDocComment(makeSymbol(1), lines);
-    expect(result).toBeNull();
-  });
-
-  test("skips blank lines between doc comment and symbol", () => {
-    const lines = ["/** Documented. */", "", "export function greet() {"];
-    const result = extractDocComment(makeSymbol(2), lines);
-    expect(result).toBe("/** Documented. */");
-  });
-});
 
 // ── LSP integration tests ──
 
@@ -153,7 +34,10 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     );
 
     // Create a file with no exports for directory zoom test
-    await writeFile(join(tempDir, "internal.ts"), "function privateHelper() {}\nconst HIDDEN = 42;\n");
+    await writeFile(
+      join(tempDir, "internal.ts"),
+      "function privateHelper() {}\nconst HIDDEN = 42;\n",
+    );
 
     // Symlink typescript into temp dir
     const repoRoot = resolve(import.meta.dir, "../../..");

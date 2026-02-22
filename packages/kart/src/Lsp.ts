@@ -3,35 +3,15 @@ import { resolve } from "node:path";
 
 import { Context, Effect, Layer, Scope } from "effect";
 
-import { LspError, LspTimeoutError } from "./Errors.js";
+import { LspError, LspTimeoutError } from "./pure/Errors.js";
 
-// ── Types ──
-
-export type DocumentSymbol = {
-  readonly name: string;
-  readonly kind: number;
-  readonly range: LspRange;
-  readonly selectionRange: LspRange;
-  readonly children?: readonly DocumentSymbol[];
-};
-
-export type LspRange = {
-  readonly start: { readonly line: number; readonly character: number };
-  readonly end: { readonly line: number; readonly character: number };
-};
-
-export type SemanticToken = {
-  readonly line: number;
-  readonly startChar: number;
-  readonly length: number;
-  readonly tokenType: number;
-  readonly tokenModifiers: number;
-};
-
-export type SemanticTokensResult = {
-  readonly tokens: readonly SemanticToken[];
-  readonly resultId?: string;
-};
+export type {
+  DocumentSymbol,
+  LspRange,
+  SemanticToken,
+  SemanticTokensResult,
+} from "./pure/types.js";
+import type { DocumentSymbol, SemanticToken, SemanticTokensResult } from "./pure/types.js";
 
 // ── Service ──
 

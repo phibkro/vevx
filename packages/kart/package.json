@@ -1,10 +1,12 @@
 {
-  "name": "@varp/kart",
+  "name": "@vevx/kart",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "build": "bun build ./src/Mcp.ts --outdir ./dist --target bun",
-    "test": "bun test --concurrent",
+    "test": "bun run test:pure && bun run test:integration",
+    "test:pure": "bun test --concurrent --coverage src/pure/",
+    "test:integration": "bun test --concurrent src/*.test.ts",
     "lint": "oxlint --type-aware",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",
