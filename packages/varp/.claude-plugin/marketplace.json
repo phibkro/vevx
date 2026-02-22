@@ -1,11 +1,23 @@
 {
-  "name": "varp",
+  "name": "vevx",
   "owner": { "name": "phibkro" },
   "plugins": [
     {
       "name": "varp",
       "source": "./",
       "description": "Graph-aware project analysis: coupling diagnostics, dependency tracking, scope enforcement, and architectural drift detection",
+      "version": "0.1.0"
+    },
+    {
+      "name": "kiste",
+      "source": "../../kiste/",
+      "description": "Semantic artifact index over git history — tag-based retrieval, provenance tracking, and full-text search",
+      "version": "0.1.0"
+    },
+    {
+      "name": "kart",
+      "source": "../../kart/",
+      "description": "Progressive code disclosure and behavioral coupling analysis via LSP and git history",
       "version": "0.1.0"
     }
   ]
