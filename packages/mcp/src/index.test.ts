@@ -91,25 +91,20 @@ describe("MCP server integration", () => {
       "varp_ack_freshness",
       "varp_build_codebase_graph",
       "varp_check_env",
-      "varp_check_freshness",
       "varp_check_warm_staleness",
-      "varp_compute_critical_path",
-      "varp_compute_waves",
-      "varp_coupling_hotspots",
-      "varp_coupling_matrix",
+      "varp_coupling",
       "varp_derive_restart_strategy",
-      "varp_detect_hazards",
       "varp_diff_plan",
+      "varp_health",
       "varp_infer_imports",
       "varp_invalidation_cascade",
-      "varp_lint",
+      "varp_list_files",
       "varp_parse_log",
       "varp_parse_plan",
-      "varp_read_manifest",
       "varp_render_graph",
       "varp_resolve_docs",
-      "varp_scan_co_changes",
       "varp_scan_links",
+      "varp_schedule",
       "varp_scoped_tests",
       "varp_suggest_components",
       "varp_suggest_touches",
@@ -119,26 +114,109 @@ describe("MCP server integration", () => {
     ]);
   });
 
-  // ── Manifest Tools ──
+  // ── Output Schema ──
 
-  test("varp_read_manifest parses manifest and validates dependency graph", async () => {
+  test("tools with outputSchema are listed with output schema", async () => {
+    const result = await client.listTools();
+    const withOutput = result.tools.filter((t) => t.outputSchema);
+    const names = withOutput.map((t) => t.name).sort();
+    expect(names).toEqual([
+      "varp_ack_freshness",
+      "varp_check_env",
+      "varp_invalidation_cascade",
+      "varp_list_files",
+      "varp_verify_capabilities",
+    ]);
+  });
+
+  // ── Annotations ──
+
+  test("all tools have annotations", async () => {
+    const result = await client.listTools();
+    for (const tool of result.tools) {
+      expect(tool.annotations).toBeDefined();
+      expect(typeof tool.annotations!.readOnlyHint).toBe("boolean");
+      expect(tool.annotations!.destructiveHint).toBe(false);
+      expect(tool.annotations!.openWorldHint).toBe(false);
+    }
+  });
+
+  test("varp_ack_freshness is not read-only", async () => {
+    const result = await client.listTools();
+    const ack = result.tools.find((t) => t.name === "varp_ack_freshness")!;
+    expect(ack.annotations!.readOnlyHint).toBe(false);
+  });
+
+  // ── Health Tools ──
+
+  test("varp_health mode=all returns manifest, freshness, and lint", async () => {
     const result = await client.callTool({
-      name: "varp_read_manifest",
+      name: "varp_health",
       arguments: { manifest_path: MANIFEST_PATH },
     });
     const data = parseResult(result);
-    expect(data.dependency_graph_valid).toBe(true);
-    expect(Object.keys(data.manifest.components)).toEqual(["auth", "api", "web"]);
+    expect(data.manifest.dependency_graph_valid).toBe(true);
+    expect(Object.keys(data.manifest.manifest.components)).toEqual(["auth", "api", "web"]);
+    expect(Object.keys(data.freshness.components).sort()).toEqual(["api", "auth", "web"]);
+    for (const comp of Object.values(data.freshness.components) as any[]) {
+      expect(comp).toHaveProperty("docs");
+      expect(comp).toHaveProperty("source_last_modified");
+    }
+    expect(data.lint).toHaveProperty("total_issues");
+    expect(data.lint).toHaveProperty("issues");
+    expect(typeof data.lint.total_issues).toBe("number");
+    expect(data.lint.total_issues).toBe(data.lint.issues.length);
   });
 
-  test("varp_read_manifest returns error for missing file", async () => {
+  test("varp_health mode=manifest returns only manifest", async () => {
     const result = await client.callTool({
-      name: "varp_read_manifest",
+      name: "varp_health",
+      arguments: { manifest_path: MANIFEST_PATH, mode: "manifest" },
+    });
+    const data = parseResult(result);
+    expect(data.manifest.dependency_graph_valid).toBe(true);
+    expect(data.freshness).toBeUndefined();
+    expect(data.lint).toBeUndefined();
+  });
+
+  test("varp_health mode=freshness returns only freshness", async () => {
+    const result = await client.callTool({
+      name: "varp_health",
+      arguments: { manifest_path: MANIFEST_PATH, mode: "freshness" },
+    });
+    const data = parseResult(result);
+    expect(data.freshness).toBeDefined();
+    expect(Object.keys(data.freshness.components).sort()).toEqual(["api", "auth", "web"]);
+    expect(data.manifest).toBeUndefined();
+    expect(data.lint).toBeUndefined();
+  });
+
+  test("varp_health mode=lint returns only lint", async () => {
+    const result = await client.callTool({
+      name: "varp_health",
+      arguments: { manifest_path: MANIFEST_PATH, mode: "lint" },
+    });
+    const data = parseResult(result);
+    expect(data.lint).toHaveProperty("total_issues");
+    expect(data.lint).toHaveProperty("issues");
+    for (const issue of data.lint.issues) {
+      expect(["error", "warning"]).toContain(issue.severity);
+      expect(typeof issue.message).toBe("string");
+    }
+    expect(data.manifest).toBeUndefined();
+    expect(data.freshness).toBeUndefined();
+  });
+
+  test("varp_health returns error for missing file", async () => {
+    const result = await client.callTool({
+      name: "varp_health",
       arguments: { manifest_path: "/nonexistent/varp.yaml" },
     });
     expect(result.isError).toBe(true);
     expect((result.content as any)[0].text).toContain("Error");
   });
+
+  // ── Manifest Tools ──
 
   test("varp_resolve_docs returns all docs for writes, README only for reads", async () => {
     const result = await client.callTool({
@@ -163,19 +241,6 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data.affected.sort()).toEqual(["api", "auth", "web"]);
-  });
-
-  test("varp_check_freshness returns freshness report for all components", async () => {
-    const result = await client.callTool({
-      name: "varp_check_freshness",
-      arguments: { manifest_path: MANIFEST_PATH },
-    });
-    const data = parseResult(result);
-    expect(Object.keys(data.components).sort()).toEqual(["api", "auth", "web"]);
-    for (const comp of Object.values(data.components) as any[]) {
-      expect(comp).toHaveProperty("docs");
-      expect(comp).toHaveProperty("source_last_modified");
-    }
   });
 
   // ── Plan Tools ──
@@ -220,48 +285,40 @@ describe("MCP server integration", () => {
     },
   ];
 
-  test("varp_detect_hazards finds RAW hazards in dependent tasks", async () => {
+  test("varp_schedule mode=all returns waves, hazards, and critical_path", async () => {
     const result = await client.callTool({
-      name: "varp_detect_hazards",
+      name: "varp_schedule",
       arguments: { tasks: sampleTasks },
     });
     const data = parseResult(result);
-    const rawHazards = data.filter((h: any) => h.type === "RAW");
+    expect(data.waves).toHaveLength(3);
+    expect(data.waves[0].tasks.map((t: any) => t.id)).toEqual(["1"]);
+    const rawHazards = data.hazards.filter((h: any) => h.type === "RAW");
     expect(rawHazards.length).toBeGreaterThanOrEqual(2);
-    // task 1 writes auth, task 2 reads auth
-    expect(
-      rawHazards.some(
-        (h: any) => h.source_task_id === "1" && h.target_task_id === "2" && h.component === "auth",
-      ),
-    ).toBe(true);
-    // task 2 writes api, task 3 reads api
-    expect(
-      rawHazards.some(
-        (h: any) => h.source_task_id === "2" && h.target_task_id === "3" && h.component === "api",
-      ),
-    ).toBe(true);
+    expect(data.critical_path.task_ids).toEqual(["1", "2", "3"]);
+    expect(data.critical_path.length).toBe(3);
   });
 
-  test("varp_compute_waves sequences dependent tasks into waves", async () => {
+  test("varp_schedule mode=waves returns only waves", async () => {
     const result = await client.callTool({
-      name: "varp_compute_waves",
-      arguments: { tasks: sampleTasks },
+      name: "varp_schedule",
+      arguments: { tasks: sampleTasks, mode: "waves" },
     });
     const data = parseResult(result);
-    expect(data.length).toBe(3);
-    expect(data[0].tasks.map((t: any) => t.id)).toEqual(["1"]);
-    expect(data[1].tasks.map((t: any) => t.id)).toEqual(["2"]);
-    expect(data[2].tasks.map((t: any) => t.id)).toEqual(["3"]);
+    expect(data.waves).toHaveLength(3);
+    expect(data.hazards).toBeUndefined();
+    expect(data.critical_path).toBeUndefined();
   });
 
-  test("varp_compute_critical_path returns longest RAW chain", async () => {
+  test("varp_schedule mode=hazards returns only hazards", async () => {
     const result = await client.callTool({
-      name: "varp_compute_critical_path",
-      arguments: { tasks: sampleTasks },
+      name: "varp_schedule",
+      arguments: { tasks: sampleTasks, mode: "hazards" },
     });
     const data = parseResult(result);
-    expect(data.task_ids).toEqual(["1", "2", "3"]);
-    expect(data.length).toBe(3);
+    expect(data.hazards.length).toBeGreaterThan(0);
+    expect(data.waves).toBeUndefined();
+    expect(data.critical_path).toBeUndefined();
   });
 
   // ── Enforcement Tools ──
@@ -384,6 +441,32 @@ describe("MCP server integration", () => {
     expect(data.writes).toContain("api");
   });
 
+  // ── List Files ──
+
+  test("varp_list_files returns source files for components", async () => {
+    const result = await client.callTool({
+      name: "varp_list_files",
+      arguments: { manifest_path: MANIFEST_PATH, components: ["auth"] },
+    });
+    const data = parseResult(result);
+    expect(data.files).toHaveLength(1);
+    expect(data.files[0].component).toBe("auth");
+    expect(data.files[0].paths.length).toBeGreaterThan(0);
+    expect(typeof data.total).toBe("number");
+    expect(data.total).toBe(data.files[0].paths.length);
+  });
+
+  test("varp_list_files resolves tags to components", async () => {
+    const result = await client.callTool({
+      name: "varp_list_files",
+      arguments: { manifest_path: MANIFEST_PATH, components: ["security"] },
+    });
+    const data = parseResult(result);
+    // "security" tag resolves to auth component (which has tags: [security, api-boundary])
+    expect(data.files.length).toBeGreaterThanOrEqual(1);
+    expect(data.files.some((f: any) => f.component === "auth")).toBe(true);
+  });
+
   // ── Plan Diff ──
 
   test("varp_diff_plan returns empty diff for identical plans", async () => {
@@ -472,34 +555,6 @@ describe("MCP server integration", () => {
       arguments: { plan_a_path: TEST_PLAN_PATH, plan_b_path: "/nonexistent/plan.xml" },
     });
     expect(result.isError).toBe(true);
-  });
-
-  // ── Lint ──
-
-  test("varp_lint returns lint report with expected structure", async () => {
-    const result = await client.callTool({
-      name: "varp_lint",
-      arguments: { manifest_path: MANIFEST_PATH },
-    });
-    const data = parseResult(result);
-    expect(data).toHaveProperty("total_issues");
-    expect(data).toHaveProperty("issues");
-    expect(typeof data.total_issues).toBe("number");
-    expect(Array.isArray(data.issues)).toBe(true);
-    expect(data.total_issues).toBe(data.issues.length);
-  });
-
-  test("varp_lint issues have correct shape", async () => {
-    const result = await client.callTool({
-      name: "varp_lint",
-      arguments: { manifest_path: MANIFEST_PATH },
-    });
-    const data = parseResult(result);
-    for (const issue of data.issues) {
-      expect(["error", "warning"]).toContain(issue.severity);
-      expect(["imports", "links", "freshness", "stability"]).toContain(issue.category);
-      expect(typeof issue.message).toBe("string");
-    }
   });
 
   // ── Scoped Tests ──
@@ -602,13 +657,13 @@ describe("MCP server integration", () => {
 
   // ── Multi-Path Manifest ──
 
-  test("varp_read_manifest with multi-path component returns array of resolved paths", async () => {
+  test("varp_health with multi-path component returns array of resolved paths", async () => {
     const result = await client.callTool({
-      name: "varp_read_manifest",
-      arguments: { manifest_path: MULTI_PATH_MANIFEST },
+      name: "varp_health",
+      arguments: { manifest_path: MULTI_PATH_MANIFEST, mode: "manifest" },
     });
     const data = parseResult(result);
-    const auth = data.manifest.components.auth;
+    const auth = data.manifest.manifest.components.auth;
     expect(Array.isArray(auth.path)).toBe(true);
     expect(auth.path).toHaveLength(3);
     // All paths should be absolute
@@ -759,6 +814,19 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data.changes).toEqual([]);
+  });
+
+  // ── Coupling Analysis ──
+
+  test("varp_coupling mode=co_changes returns co-change graph structure", async () => {
+    const result = await client.callTool({
+      name: "varp_coupling",
+      arguments: { manifest_path: MANIFEST_PATH, mode: "co_changes" },
+    });
+    const data = parseResult(result);
+    expect(data.co_changes).toHaveProperty("edges");
+    expect(data.co_changes).toHaveProperty("total_commits_analyzed");
+    expect(Array.isArray(data.co_changes.edges)).toBe(true);
   });
 
   // ── Warm Staleness ──

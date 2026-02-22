@@ -1,7 +1,9 @@
+import { readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import {
   type LinkScanMode,
   ackFreshness,
@@ -32,6 +34,7 @@ import {
   scanImports,
   scanLinks,
   suggestComponents,
+  componentPaths,
   suggestTouches,
   validateDependencyGraph,
   validatePlan,
@@ -47,6 +50,20 @@ import { registerTools, type ToolDef } from "./tool-registry.js";
 
 const DEFAULT_MANIFEST_PATH = "./varp.yaml";
 
+const READ_ONLY: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
+const WRITE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
 const manifestPath = z.string().optional().describe("Path to varp.yaml (defaults to ./varp.yaml)");
 
 const schedulerTasksInput = {
@@ -56,26 +73,61 @@ const schedulerTasksInput = {
 // ── Tool Definitions ──
 
 const tools: ToolDef[] = [
-  // Manifest
+  // Health
   {
-    name: "varp_read_manifest",
+    name: "varp_health",
     description:
-      "Parse and validate varp.yaml. Returns typed manifest with component registry, dependency graph, and doc references.",
-    inputSchema: { manifest_path: manifestPath },
-    handler: async ({ manifest_path }) => {
-      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
+      "Project health check: parse manifest, check doc freshness, and run lint. Use mode='all' (default) for complete health report. Ideal session-start tool.",
+    annotations: READ_ONLY,
+    inputSchema: {
+      manifest_path: manifestPath,
+      mode: z
+        .enum(["manifest", "freshness", "lint", "all"])
+        .optional()
+        .default("all")
+        .describe("Check mode: manifest, freshness, lint, or all (default)"),
+    },
+    handler: async ({ manifest_path, mode }) => {
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
+      const manifest = parseManifest(mp);
+      const m = mode ?? "all";
+
+      if (m === "manifest") {
+        const graphResult = validateDependencyGraph(manifest);
+        return {
+          manifest: {
+            manifest,
+            dependency_graph_valid: graphResult.valid,
+            ...(graphResult.valid ? {} : { cycles: graphResult.cycles }),
+          },
+        };
+      }
+      if (m === "freshness") {
+        return { freshness: checkFreshness(manifest, dirname(resolve(mp))) };
+      }
+      if (m === "lint") {
+        return { lint: await runLint(manifest, mp) };
+      }
+      // all
       const graphResult = validateDependencyGraph(manifest);
       return {
-        manifest,
-        dependency_graph_valid: graphResult.valid,
-        ...(graphResult.valid ? {} : { cycles: graphResult.cycles }),
+        manifest: {
+          manifest,
+          dependency_graph_valid: graphResult.valid,
+          ...(graphResult.valid ? {} : { cycles: graphResult.cycles }),
+        },
+        freshness: checkFreshness(manifest, dirname(resolve(mp))),
+        lint: await runLint(manifest, mp),
       };
     },
   },
+
+  // Manifest
   {
     name: "varp_resolve_docs",
     description:
       "Given a task's touches declaration, returns doc paths to load. Auto-discovers README.md (public) and docs/*.md (private) within component paths. Reads load public docs only. Writes load all docs.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       reads: z.array(z.string()).optional().describe("Components or tags this task reads from"),
@@ -93,6 +145,10 @@ const tools: ToolDef[] = [
     name: "varp_invalidation_cascade",
     description:
       "Given changed components, walks deps to return all transitively affected components.",
+    annotations: READ_ONLY,
+    outputSchema: {
+      affected: z.array(z.string()).describe("All transitively affected component names"),
+    },
     inputSchema: {
       manifest_path: manifestPath,
       changed: z.array(z.string()).describe("Component names or tags whose interface docs changed"),
@@ -103,20 +159,13 @@ const tools: ToolDef[] = [
     },
   },
   {
-    name: "varp_check_freshness",
-    description:
-      "Returns freshness status for all component docs — last modified timestamps, staleness relative to source.",
-    inputSchema: { manifest_path: manifestPath },
-    handler: async ({ manifest_path }) => {
-      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
-      const manifest = parseManifest(mp);
-      return checkFreshness(manifest, dirname(resolve(mp)));
-    },
-  },
-  {
     name: "varp_ack_freshness",
     description:
       "Acknowledge component docs as reviewed and still accurate. Records current timestamp so docs are no longer flagged stale until source changes again.",
+    annotations: WRITE,
+    outputSchema: {
+      acked: z.array(z.string()).describe("Component names whose docs were acknowledged"),
+    },
     inputSchema: {
       manifest_path: manifestPath,
       components: z.array(z.string()).describe("Component names or tags whose docs to acknowledge"),
@@ -141,6 +190,7 @@ const tools: ToolDef[] = [
   {
     name: "varp_parse_plan",
     description: "Parse plan.xml and return typed plan with metadata, contracts, and task graph.",
+    annotations: READ_ONLY,
     inputSchema: { path: z.string().describe("Path to plan.xml") },
     handler: async ({ path }) => parsePlanFile(path),
   },
@@ -148,6 +198,7 @@ const tools: ToolDef[] = [
     name: "varp_validate_plan",
     description:
       "Check plan consistency against manifest: touches reference known components, unique task IDs.",
+    annotations: READ_ONLY,
     inputSchema: {
       plan_path: z.string().describe("Path to plan.xml"),
       manifest_path: manifestPath,
@@ -165,24 +216,31 @@ const tools: ToolDef[] = [
 
   // Scheduler
   {
-    name: "varp_compute_waves",
+    name: "varp_schedule",
     description:
-      "Group tasks into execution waves based on data dependencies. Tasks within a wave are safe to run in parallel.",
-    inputSchema: schedulerTasksInput,
-    handler: async ({ tasks }) => computeWaves(tasks),
-  },
-  {
-    name: "varp_detect_hazards",
-    description: "Return all data hazards (RAW/WAR/WAW) and mutex conflicts (MUTEX) between tasks.",
-    inputSchema: schedulerTasksInput,
-    handler: async ({ tasks }) => detectHazards(tasks),
-  },
-  {
-    name: "varp_compute_critical_path",
-    description:
-      "Return the longest chain of RAW dependencies — the critical path for execution scheduling.",
-    inputSchema: schedulerTasksInput,
-    handler: async ({ tasks }) => computeCriticalPath(tasks),
+      "Analyze task scheduling: compute execution waves, detect data hazards (RAW/WAR/WAW/MUTEX), and find the critical path. Use mode='all' (default) for complete analysis.",
+    annotations: READ_ONLY,
+    inputSchema: {
+      ...schedulerTasksInput,
+      mode: z
+        .enum(["waves", "hazards", "critical_path", "all"])
+        .optional()
+        .default("all")
+        .describe("Analysis mode: waves, hazards, critical_path, or all (default)"),
+    },
+    handler: async ({ tasks, mode }) => {
+      const m = mode ?? "all";
+      if (m === "waves") return { waves: computeWaves(tasks) };
+      if (m === "hazards") return { hazards: detectHazards(tasks) };
+      if (m === "critical_path") return { critical_path: computeCriticalPath(tasks) };
+      // all
+      const hazards = detectHazards(tasks);
+      return {
+        waves: computeWaves(tasks),
+        hazards,
+        critical_path: computeCriticalPath(tasks, hazards),
+      };
+    },
   },
 
   // Link Scanner
@@ -190,6 +248,7 @@ const tools: ToolDef[] = [
     name: "varp_scan_links",
     description:
       "Scan component docs for markdown links. Infer cross-component dependencies, detect broken links, and compare against declared deps.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       mode: z
@@ -207,6 +266,7 @@ const tools: ToolDef[] = [
     name: "varp_infer_imports",
     description:
       "Scan source files for import statements. Infer cross-component dependencies from static imports.",
+    annotations: READ_ONLY,
     inputSchema: { manifest_path: manifestPath },
     handler: async ({ manifest_path }) => {
       const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
@@ -220,6 +280,7 @@ const tools: ToolDef[] = [
     name: "varp_suggest_touches",
     description:
       "Given file paths, suggest touches declaration using ownership mapping and import dependencies.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       file_paths: z.array(z.string()).describe("File paths that will be modified"),
@@ -232,11 +293,76 @@ const tools: ToolDef[] = [
     },
   },
 
+  // List Files
+  {
+    name: "varp_list_files",
+    description:
+      "List source files for given components or tags. Returns file paths grouped by component. Complements varp_suggest_touches (files→components) with the reverse lookup (components→files).",
+    annotations: READ_ONLY,
+    outputSchema: {
+      files: z
+        .array(
+          z.object({
+            component: z.string().describe("Component name"),
+            paths: z.array(z.string()).describe("Absolute file paths"),
+          }),
+        )
+        .describe("Files grouped by component"),
+      total: z.number().describe("Total file count across all components"),
+    },
+    inputSchema: {
+      manifest_path: manifestPath,
+      components: z.array(z.string()).describe("Component names or tags to list files for"),
+    },
+    handler: async ({ manifest_path, components: rawComponents }) => {
+      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
+      const manifest = parseManifest(mp);
+      const components = resolveComponentRefs(manifest, rawComponents);
+      const files: Array<{ component: string; paths: string[] }> = [];
+      let total = 0;
+      for (const name of components) {
+        const comp = manifest.components[name];
+        if (!comp) continue;
+        const compFiles: string[] = [];
+        for (const compPath of componentPaths(comp)) {
+          try {
+            const entries = readdirSync(compPath, { withFileTypes: true, recursive: true });
+            for (const entry of entries) {
+              if (!entry.isFile()) continue;
+              compFiles.push(resolve(entry.parentPath ?? compPath, entry.name));
+            }
+          } catch {
+            // Component path doesn't exist — skip
+          }
+        }
+        files.push({ component: name, paths: compFiles });
+        total += compFiles.length;
+      }
+      return { files, total };
+    },
+  },
+
   // Enforcement
   {
     name: "varp_verify_capabilities",
     description:
       "Check that file modifications fall within the declared touches write set. Returns violations for out-of-scope writes.",
+    annotations: READ_ONLY,
+    outputSchema: {
+      valid: z.boolean().describe("True if all modifications are within declared write scope"),
+      violations: z
+        .array(
+          z.object({
+            path: z.string().describe("File path that was modified out of scope"),
+            declared_component: z
+              .string()
+              .nullable()
+              .describe("Component the file was expected to be in, or null"),
+            actual_component: z.string().describe("Component the file actually belongs to"),
+          }),
+        )
+        .describe("Out-of-scope modifications"),
+    },
     inputSchema: {
       manifest_path: manifestPath,
       reads: z.array(z.string()).optional().describe("Components or tags declared as reads"),
@@ -259,6 +385,7 @@ const tools: ToolDef[] = [
     name: "varp_derive_restart_strategy",
     description:
       "Given a failed task and execution state, derive restart strategy: isolated_retry, cascade_restart, or escalate.",
+    annotations: READ_ONLY,
     inputSchema: {
       failed_task: TaskDefinitionSchema.describe("The task that failed"),
       all_tasks: z.array(TaskDefinitionSchema).describe("All tasks in the plan"),
@@ -275,6 +402,7 @@ const tools: ToolDef[] = [
     name: "varp_diff_plan",
     description:
       "Structurally diff two parsed plans. Compares metadata, contracts, and tasks by ID.",
+    annotations: READ_ONLY,
     inputSchema: {
       plan_a_path: z.string().describe("Path to first plan.xml"),
       plan_b_path: z.string().describe("Path to second plan.xml"),
@@ -291,6 +419,7 @@ const tools: ToolDef[] = [
     name: "varp_scoped_tests",
     description:
       "Find test files for a given touches declaration. Returns test file paths and a bun test command scoped to the affected components.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       reads: z.array(z.string()).optional().describe("Components this task reads from"),
@@ -315,23 +444,17 @@ const tools: ToolDef[] = [
     },
   },
 
-  // Lint
-  {
-    name: "varp_lint",
-    description:
-      "Run all health checks: import deps, link integrity, doc freshness. Returns unified report with issues and severity.",
-    inputSchema: { manifest_path: manifestPath },
-    handler: async ({ manifest_path }) => {
-      const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return runLint(manifest, manifest_path ?? DEFAULT_MANIFEST_PATH);
-    },
-  },
-
   // Env Check
   {
     name: "varp_check_env",
     description:
       "Check environment variables required by components. Returns which are set and which are missing.",
+    annotations: READ_ONLY,
+    outputSchema: {
+      required: z.array(z.string()).describe("All required environment variable names"),
+      set: z.array(z.string()).describe("Required env vars that are currently set"),
+      missing: z.array(z.string()).describe("Required env vars that are missing"),
+    },
     inputSchema: {
       manifest_path: manifestPath,
       components: z.array(z.string()).describe("Component names or tags to check env vars for"),
@@ -347,6 +470,7 @@ const tools: ToolDef[] = [
     name: "varp_suggest_components",
     description:
       "Analyze a project to suggest component groupings. Auto mode (default) runs five strategies in priority order: workspace packages, container dirs (packages/, apps/), indicator dirs (src/, app/, node_modules/), layer cross-matching, and domain detection. Conventions inspectable via DEFAULT_DETECTION_CONFIG.",
+    annotations: READ_ONLY,
     inputSchema: {
       root_dir: z.string().describe("Root directory to scan for layer directories"),
       layer_dirs: z
@@ -382,6 +506,7 @@ const tools: ToolDef[] = [
     name: "varp_parse_log",
     description:
       "Parse execution log.xml (written by /varp:execute skill) into typed structure with task metrics, postcondition checks, and wave status.",
+    annotations: READ_ONLY,
     inputSchema: {
       path: z.string().describe("Path to log.xml"),
     },
@@ -393,6 +518,7 @@ const tools: ToolDef[] = [
     name: "varp_render_graph",
     description:
       "Render the manifest dependency graph as Mermaid diagram syntax, ASCII text, or tag groups. Annotates nodes with stability badges.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       direction: z
@@ -432,13 +558,32 @@ const tools: ToolDef[] = [
     },
   },
 
-  // Co-Change Analysis
+  // Coupling Analysis
   {
-    name: "varp_scan_co_changes",
+    name: "varp_coupling",
     description:
-      "Scan git history for file co-change patterns. Returns weighted co-change graph with file pairs that frequently change together.",
+      "Analyze component coupling: scan git co-changes, build structural+behavioral coupling matrix, or find hidden coupling hotspots. Use mode='hotspots' for quick hidden coupling check, mode='all' for full analysis.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
+      mode: z
+        .enum(["co_changes", "matrix", "hotspots", "all"])
+        .optional()
+        .default("all")
+        .describe("Analysis mode: co_changes, matrix, hotspots, or all (default)"),
+      component: z
+        .string()
+        .optional()
+        .describe("Filter matrix/hotspots to pairs involving this component"),
+      structural_threshold: z
+        .number()
+        .optional()
+        .describe("Manual structural threshold for matrix (default: auto-calibrated)"),
+      behavioral_threshold: z
+        .number()
+        .optional()
+        .describe("Manual behavioral threshold for matrix (default: auto-calibrated)"),
+      limit: z.number().optional().describe("Max hotspot entries to return (default 20)"),
       max_commit_files: z
         .number()
         .optional()
@@ -450,38 +595,32 @@ const tools: ToolDef[] = [
       exclude_paths: z
         .array(z.string())
         .optional()
-        .describe("Glob patterns for files to exclude from analysis"),
+        .describe("Glob patterns for files to exclude from co-change analysis"),
     },
-    handler: async ({ manifest_path, max_commit_files, skip_message_patterns, exclude_paths }) => {
-      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
-      const repoDir = dirname(resolve(mp));
-      const config = {
-        ...(max_commit_files !== undefined && { max_commit_files }),
-        ...(skip_message_patterns !== undefined && { skip_message_patterns }),
-        ...(exclude_paths !== undefined && { exclude_paths }),
-      };
-      return scanCoChangesWithCache(repoDir, config);
-    },
-  },
-  {
-    name: "varp_coupling_matrix",
-    description:
-      "Build coupling matrix combining git co-change (behavioral) and import analysis (structural) signals. Classifies component pairs into quadrants: explicit_module, stable_interface, hidden_coupling, unrelated.",
-    inputSchema: {
-      manifest_path: manifestPath,
-      structural_threshold: z
-        .number()
-        .optional()
-        .describe("Manual structural threshold (default: auto-calibrated median)"),
-      behavioral_threshold: z
-        .number()
-        .optional()
-        .describe("Manual behavioral threshold (default: auto-calibrated median)"),
-      component: z.string().optional().describe("Filter results to pairs involving this component"),
-    },
-    handler: async ({ manifest_path, structural_threshold, behavioral_threshold, component }) => {
+    handler: async ({
+      manifest_path,
+      mode,
+      component,
+      structural_threshold,
+      behavioral_threshold,
+      limit,
+      max_commit_files,
+      skip_message_patterns,
+      exclude_paths,
+    }) => {
       const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const manifestDir = dirname(resolve(mp));
+      const m = mode ?? "all";
+
+      if (m === "co_changes") {
+        const config = {
+          ...(max_commit_files !== undefined && { max_commit_files }),
+          ...(skip_message_patterns !== undefined && { skip_message_patterns }),
+          ...(exclude_paths !== undefined && { exclude_paths }),
+        };
+        return { co_changes: scanCoChangesWithCache(manifestDir, config) };
+      }
+
       const manifest = parseManifest(mp);
       const coChange = scanCoChangesWithCache(manifestDir);
       const imports = scanImports(manifest, manifestDir);
@@ -490,31 +629,30 @@ const tools: ToolDef[] = [
         structural_threshold,
         behavioral_threshold,
       });
-      if (component) {
-        return { ...matrix, entries: componentCouplingProfile(matrix, component) };
+
+      if (m === "matrix") {
+        if (component) {
+          return { matrix: { ...matrix, entries: componentCouplingProfile(matrix, component) } };
+        }
+        return { matrix };
       }
-      return matrix;
-    },
-  },
-  {
-    name: "varp_coupling_hotspots",
-    description:
-      "Find hidden coupling hotspots — component pairs that frequently co-change but have no import relationship. Sorted by behavioral weight descending.",
-    inputSchema: {
-      manifest_path: manifestPath,
-      limit: z.number().optional().describe("Maximum entries to return (default 20)"),
-    },
-    handler: async ({ manifest_path, limit }) => {
-      const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
-      const manifestDir = dirname(resolve(mp));
-      const manifest = parseManifest(mp);
-      const coChange = scanCoChangesWithCache(manifestDir);
-      const imports = scanImports(manifest, manifestDir);
-      const matrix = buildCouplingMatrix(coChange, imports, manifest, {
-        repo_dir: manifestDir,
-      });
+
+      if (m === "hotspots") {
+        const hotspots = findHiddenCoupling(matrix);
+        return { hotspots: hotspots.slice(0, limit ?? 20), total: hotspots.length };
+      }
+
+      // all
       const hotspots = findHiddenCoupling(matrix);
-      return { hotspots: hotspots.slice(0, limit ?? 20), total: hotspots.length };
+      const matrixResult = component
+        ? { ...matrix, entries: componentCouplingProfile(matrix, component) }
+        : matrix;
+      return {
+        co_changes: coChange,
+        matrix: matrixResult,
+        hotspots: hotspots.slice(0, limit ?? 20),
+        total_hotspots: hotspots.length,
+      };
     },
   },
 
@@ -523,6 +661,7 @@ const tools: ToolDef[] = [
     name: "varp_build_codebase_graph",
     description:
       "Build a complete CodebaseGraph combining manifest, co-change analysis, import scanning, and optional coupling matrix. Returns the unified analysis layer output.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       with_coupling: z
@@ -543,6 +682,7 @@ const tools: ToolDef[] = [
     name: "varp_watch_freshness",
     description:
       "Check freshness and return changes since a given baseline timestamp. Returns only components/docs modified since the baseline. Omit since for initial snapshot.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       since: z
@@ -564,6 +704,7 @@ const tools: ToolDef[] = [
     name: "varp_check_warm_staleness",
     description:
       "Check whether components have been modified since a warm agent was last active. Returns whether it is safe to resume the agent or if components are stale.",
+    annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       components: z

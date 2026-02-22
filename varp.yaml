@@ -14,6 +14,8 @@ analysis:
 mcp:
   path: ./packages/mcp/src
   deps: [shared, manifest, plan, scheduler, enforcement, analysis]
+  docs:
+    - ./packages/mcp/README.md
   tags: [core]
   stability: stable
 
