@@ -6,12 +6,20 @@ import { Context, Effect, Layer, Scope } from "effect";
 import { LspError, LspTimeoutError } from "./pure/Errors.js";
 
 export type {
+  CallHierarchyItem,
   DocumentSymbol,
+  IncomingCallItem,
   LspRange,
   SemanticToken,
   SemanticTokensResult,
 } from "./pure/types.js";
-import type { DocumentSymbol, SemanticToken, SemanticTokensResult } from "./pure/types.js";
+import type {
+  CallHierarchyItem,
+  DocumentSymbol,
+  IncomingCallItem,
+  SemanticToken,
+  SemanticTokensResult,
+} from "./pure/types.js";
 
 // ── Service ──
 
@@ -24,6 +32,14 @@ export class LspClient extends Context.Tag("kart/LspClient")<
     readonly semanticTokens: (
       uri: string,
     ) => Effect.Effect<SemanticTokensResult, LspError | LspTimeoutError>;
+    readonly prepareCallHierarchy: (
+      uri: string,
+      line: number,
+      character: number,
+    ) => Effect.Effect<CallHierarchyItem[], LspError | LspTimeoutError>;
+    readonly incomingCalls: (
+      item: CallHierarchyItem,
+    ) => Effect.Effect<IncomingCallItem[], LspError | LspTimeoutError>;
     readonly updateOpenDocument: (uri: string) => Effect.Effect<void, LspError>;
     readonly shutdown: () => Effect.Effect<void, LspError>;
   }
@@ -372,6 +388,9 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
                     tokenModifiers: [...SEMANTIC_TOKEN_MODIFIERS],
                     formats: ["relative"],
                   },
+                  callHierarchy: {
+                    dynamicRegistration: false,
+                  },
                 },
                 workspace: {
                   didChangeWatchedFiles: {
@@ -569,6 +588,46 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
                 tokens: decodeSemanticTokens(typed.data),
                 resultId: typed.resultId,
               };
+            }),
+
+          prepareCallHierarchy: (uri, line, character) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/prepareCallHierarchy", {
+                    textDocument: { uri },
+                    position: { line, character },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `prepareCallHierarchy request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!Array.isArray(result)) return [];
+              return result as CallHierarchyItem[];
+            }),
+
+          incomingCalls: (item) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.tryPromise({
+                try: () => transport.request("callHierarchy/incomingCalls", { item }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `incomingCalls request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!Array.isArray(result)) return [];
+              return result as IncomingCallItem[];
             }),
 
           updateOpenDocument: (uri) =>

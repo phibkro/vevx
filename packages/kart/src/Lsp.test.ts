@@ -158,6 +158,67 @@ describe.skipIf(!hasLsp)("LspClient", () => {
     expect(updatedNames).toContain("farewell");
   }, 30_000);
 
+  test("prepareCallHierarchy returns items for a function", async () => {
+    // greet is at line 6, character 16 (export function greet)
+    const items = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.prepareCallHierarchy(fixtureUri, 6, 16);
+      }),
+    );
+
+    expect(items.length).toBeGreaterThan(0);
+    expect(items[0].name).toBe("greet");
+  }, 30_000);
+
+  test("incomingCalls returns callers", async () => {
+    // Create a caller fixture
+    const callerPath = join(tempDir, "caller.ts");
+    const callerUri = `file://${callerPath}`;
+    await writeFile(
+      callerPath,
+      `import { greet, User } from "./fixture.js";\n\nexport function welcome(u: User) {\n  return greet(u);\n}\n`,
+    );
+
+    // Ensure LSP knows about the caller file by opening it
+    await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        yield* lsp.documentSymbol(callerUri);
+      }),
+    );
+
+    // Give LSP time to cross-reference
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // Get the call hierarchy item for greet
+    const items = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.prepareCallHierarchy(fixtureUri, 6, 16);
+      }),
+    );
+    expect(items.length).toBeGreaterThan(0);
+
+    // Get incoming calls
+    const start = performance.now();
+    const calls = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.incomingCalls(items[0]);
+      }),
+    );
+    const elapsed = performance.now() - start;
+
+    // Should find at least 'welcome' as a caller
+    expect(calls.length).toBeGreaterThan(0);
+    const callerNames = calls.map((c) => c.from.name);
+    expect(callerNames).toContain("welcome");
+
+    // Log latency for the spike
+    console.log(`incomingCalls latency: ${elapsed.toFixed(1)}ms for ${calls.length} callers`);
+  }, 30_000);
+
   test("shutdown() terminates the language server cleanly", async () => {
     // Separate runtime — shutdown kills the process, can't reuse the shared one
     const shutdownRuntime = ManagedRuntime.make(LspClientLive({ rootDir: tempDir }));

@@ -17,34 +17,32 @@ Continuation plan for kart after phase 0 completion. Phase 0 shipped `kart_zoom`
 
 **Decisions made**: Bun's `fs.watch` with `{recursive: true}` works on macOS. No debounce needed — events forwarded immediately. Watcher errors are non-fatal (stale state is acceptable fallback).
 
-## Phase 1: `kart_impact` latency spike (research)
+## Phase 1: `kart_impact` latency spike (research) ✓
 
-**Problem.** `kart_impact` computes transitive callers via BFS over LSP `callHierarchy/incomingCalls`. Unknown whether live traversal is viable — a 3-deep BFS with fan-out of 5 is ~155 round-trips.
+**Result: live BFS is viable (Path A).** `prepareCallHierarchy` + `incomingCalls` methods added to LspClient and tested.
 
-**This is make-or-break research.** The result determines whether phase 2 is live BFS or a pre-computed call graph index.
+### Latency Data
 
-### Tasks
+**kart codebase (~18 files, 4 symbols):**
 
-1. **Verify `callHierarchy` support** (`src/Lsp.ts`)
-   - Add `callHierarchy/prepareCallHierarchy` and `callHierarchy/incomingCalls` methods to `LspClient`
-   - Test against the kart codebase itself (small, ~18 files) and against the varp codebase (~50 files)
+| Symbol | Depth 3 Total | Depth 3 Calls | Avg/call | Max fan-out |
+|--------|--------------|---------------|----------|-------------|
+| extractSignature | 31ms | 5 | 6ms | 3 |
+| isExported | 24ms | 6 | 4ms | 3 |
+| extractDocComment | 24ms | 5 | 5ms | 3 |
+| symbolKindName | 21ms | 5 | 4ms | 3 |
 
-2. **Measure latency** (spike script or test)
-   - Pick 5 representative symbols at different depths (leaf function, mid-layer service, widely-used utility)
-   - Measure: time per `incomingCalls` call, total BFS time at depth 1/2/3, fan-out distribution
-   - Record results in a table: symbol, depth, fan-out, total calls, total time
+**varp codebase (~50 files, parseManifest — highest fan-out function):**
 
-3. **Document findings** (update `design.md` section 3.4)
-   - If median BFS < 2s at depth 3: **live BFS viable** → phase 2 is implementation
-   - If median BFS > 5s: **pre-computed index needed** → phase 2 is call graph caching with incremental updates
-   - If 2-5s: **hybrid** — live BFS with timeout + partial results
+| Depth | Calls | Total | Avg/call | Max fan-out | Visited |
+|-------|-------|-------|----------|-------------|---------|
+| 1 | 1 | 347ms | 347ms (cold) | 11 | 1 |
+| 2 | 12 | 54ms | 5ms | 11 | 12 |
+| 3 | 16 | 47ms | 3ms | 11 | 16 |
 
-**Acceptance**: latency data for 5+ symbols across 2 codebases, architectural decision documented.
+First call includes cold start (LS loading the file). Subsequent calls are 3-5ms. Depth-3 BFS with fan-out 11 completes in <500ms total.
 
-**Key context**:
-- `typescript-language-server` supports `textDocument/prepareCallHierarchy` and `callHierarchy/incomingCalls` (LSP 3.16+)
-- The LspClient already has the JSON-RPC transport infrastructure — adding new methods is mechanical
-- Effect's `Effect.timeout` is the right tool for per-call deadlines
+**Decision: Path A (live BFS).** Even worst-case symbols complete depth-3 well under 2s. No pre-computed index needed. Phase 2 should implement BFS in SymbolIndex with `Effect.timeout(30_000)` for safety.
 
 ## Phase 2: `kart_impact` implementation
 

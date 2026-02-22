@@ -26,6 +26,24 @@ export type SemanticTokensResult = {
   readonly resultId?: string;
 };
 
+// ── Call hierarchy types ──
+
+export type CallHierarchyItem = {
+  readonly name: string;
+  readonly kind: number;
+  readonly uri: string;
+  readonly range: LspRange;
+  readonly selectionRange: LspRange;
+  readonly detail?: string;
+  readonly tags?: readonly number[];
+  readonly data?: unknown;
+};
+
+export type IncomingCallItem = {
+  readonly from: CallHierarchyItem;
+  readonly fromRanges: readonly LspRange[];
+};
+
 // ── Zoom types ──
 
 export type ZoomSymbol = {
