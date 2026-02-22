@@ -37,23 +37,27 @@ The user's mental model is simple: **point it at a codebase, tell it what you ca
 
 ### Interface
 
-The primary interface is a CLI. The surface is intentionally minimal:
+The primary interface is a CLI (`varp-audit`). The surface is intentionally minimal:
 
 ```
-varp audit --ruleset owasp ./src
+varp-audit audit ./src --ruleset owasp-top-10
 ```
 
-The system reads the codebase, selects the appropriate analysis strategy, runs the audit, and produces a report. No configuration of agents, models, context windows, or parallelism.
+The system discovers files, parses the ruleset, generates a plan, executes it, and produces a report.
 
-Optional flags for user intent, not implementation details:
+Implemented flags:
 
-- `--quick` / `--thorough` — bias toward speed or coverage (can also be inferred automatically from codebase size and budget)
-- `--ruleset <name>` — which compliance framework(s) to check against
-- `--scope <path>` — audit a subset of the codebase
-- `--diff` — compare against the previous audit run
-- ~~`--budget <amount>`~~ — dropped per ADR-001; token usage tracked as observability metrics
+- `--ruleset <name>` — which compliance framework to check against (default: `owasp-top-10`). Accepts built-in names, file paths, or relative paths.
+- `--model <name>` — Claude model (default: `claude-sonnet-4-5-20250929`)
+- `--concurrency <n>` — max parallel API calls per wave (default: 5)
+- `--format <type>` — output format: `text`, `json`, `markdown` (default: `text`)
+- `--output <path>` — write report to file
+- `--diff [ref]` — incremental audit — only changed files (default ref: `HEAD`)
+- `--budget <tokens>` — max estimated tokens; skips low-priority tasks when exceeded
+- `--baseline <path>` — compare against a previous report JSON for drift tracking
+- `--quiet` — suppress progress output
 
-CI integration is the second target: run as a GitHub Action or similar, with findings surfaced as PR annotations or status checks.
+GitHub Actions integration exists (`cli/github/`) for PR comment posting. Dashboard sync (`cli/dashboard-sync.ts`) sends generic review results to a web dashboard via API key auth.
 
 ### Report
 
@@ -82,102 +86,102 @@ The report is structured data (JSON/YAML) that can be rendered into human-readab
 
 ### Composition with Varp Core
 
-Varp Audit does not implement its own execution strategy. It composes with Varp Core, which owns the decision of *how* a goal gets executed.
-
-Varp Core's abstraction: **given a goal and a codebase, produce a result.** Core reads the manifest (or infers codebase structure), estimates complexity, and selects the appropriate execution strategy:
-
-- **Simple / small scope** → single-pass execution. One agent, one context window, no planning or scheduling overhead.
-- **Complex / large scope** → orchestrated execution. Plan decomposition, wave scheduling, multi-agent dispatch, supervision, synthesis.
-
-This decision lives in Core, not in any domain package. All packages — audit, migration, documentation, test generation — submit goals with domain-specific context and receive results in a consistent format. They don't decide how execution happens.
+Varp Audit depends on `@varp/core/lib` for manifest types, chunking utilities, and concurrency primitives (`runWithConcurrency`). It imports `ModelCaller` and `ModelCallerResult` types from core. However, audit owns its own execution pipeline — a 3-wave planner/executor that runs directly, not via Core's strategy layer.
 
 ```
 ┌──────────────────────────────────────────────────┐
 │                   Varp Audit                      │
 │                                                   │
-│  CLI / MCP        Rulesets        Reporter         │
-│  (user             (compliance     (synthesis,     │
-│   interface)        frameworks)    diffing)        │
+│  CLI (varp-audit)   Rulesets        Reporters      │
+│  (audit, login,     (OWASP, etc.)  (terminal,     │
+│   logout, --diff,                   markdown,      │
+│   --baseline)                       JSON, drift)   │
 │       │                │              ▲            │
-│       └───── goal ─────┘              │            │
-│                │                   findings        │
-│                ▼                      │            │
+│       └── plan ────────┘              │            │
+│            │                       findings        │
+│            ▼                          │            │
+│  Planner → Executor (3-wave) → Synthesis           │
+│  (component grouping,  (concurrent    (dedup,      │
+│   rule matching,        API calls,    coverage,    │
+│   manifest-aware)       budget ctrl)  suppress)    │
+│                                                    │
+│  Generic Review (separate path):                   │
+│  files → orchestrator → weighted agents → report   │
 ├──────────────────────────────────────────────────┤
-│                   Varp Core                       │
+│                  @varp/core/lib                    │
 │                                                   │
-│  Manifest ─── Strategy ─── Execution              │
-│  (codebase     (single-pass   (plan, schedule,    │
-│   structure)    or orchestrate) dispatch, supervise)│
-│                                                   │
-│  The strategy layer selects execution mode:       │
-│  • Small codebase / simple goal → single pass     │
-│  • Large codebase / complex goal → orchestrate    │
-│  • Budget constrained → optimize coverage         │
-│                                                   │
-│  Output format is identical regardless of mode.   │
+│  Manifest types, componentPaths, estimateTokens,  │
+│  createChunks, runWithConcurrency,                │
+│  ModelCaller/ModelCallerResult                     │
 └──────────────────────────────────────────────────┘
 ```
 
-This means:
-
-- Audit doesn't implement single-pass vs orchestrated logic — Core does
-- A future `varp migrate` or `varp document` package gets the same scaling behavior for free
-- Strategy tuning (threshold calibration, model selection, budget optimization) improves all packages at once
-- The execution mode is an internal detail that no consumer ever reasons about
-
 ### What Varp Audit Owns
 
-Varp Audit is responsible for the domain-specific layer:
+Varp Audit is responsible for:
 
-**Rulesets** — compliance framework definitions, expressed as structured markdown documents. Each ruleset defines rules with descriptions, compliant/violating patterns, severity, and applicability. Rulesets are the domain knowledge layer.
+**Two execution modes:**
+1. **Generic review** — `runAudit()` runs 7 weighted agents (correctness, security, performance, maintainability, edge-cases, accessibility, documentation) in parallel, producing scored findings with a weighted-average overall score.
+2. **Compliance audit** — `executeAuditPlan()` runs a 3-wave plan against a parsed ruleset, producing a structured compliance report with coverage tracking and corroboration.
 
-**Goal construction** — translating user input (ruleset + scope + flags) into a goal that Core can execute. For orchestrated mode, this includes providing the decomposition strategy: how to partition work across components and rules, which tasks are cross-cutting, how to handle redundancy.
+**Rulesets** — compliance framework definitions in markdown with YAML frontmatter. Each ruleset defines rules with IDs, descriptions, compliant/violating patterns, severity, appliesTo tags, and cross-cutting patterns.
 
-**Reporter** — aggregating findings from Core's execution output, deduplicating, ranking by severity, calculating coverage statistics, diffing against previous audits, and rendering the final report.
+**Planner** — translates (files + ruleset + optional manifest) into a 3-wave audit plan. Uses manifest components and tag-based rule matching when available, falls back to directory-based heuristic grouping.
+
+**Executor** — runs audit plan waves with configurable concurrency, budget enforcement (token-based), and structured JSON schema output (constrained decoding).
+
+**Synthesis** — deduplicates findings across tasks via `findingsOverlap()` (same ruleId + overlapping file/line range), computes corroboration confidence, applies suppressions, computes coverage.
+
+**Reporters** — terminal (ANSI), markdown, and JSON output for both compliance reports and drift reports.
+
+**CLI** — `varp-audit` binary with `audit`, `login`, `logout` subcommands. Calls Claude via the Claude Code CLI (`claude -p`), not the Anthropic API directly.
+
+**Backend abstraction** — `ModelCaller` interface (imported from `@varp/core/lib`) lets consumers inject any LLM backend. The CLI injects a Claude Code CLI caller; tests can inject mocks.
 
 ### Manifest Handling
 
-The manifest provides codebase structure, dependency relationships, component metadata, and documentation pointers. Three scenarios:
+The planner uses the manifest for component boundaries and tag-based rule matching when available. Two scenarios:
 
-- **Manifest exists** — Core uses it directly. Richest input: human-curated component boundaries, risk tags, stability markers, architectural docs.
-- **No manifest, quick scan** — Core infers structure on the fly from directory conventions, package boundaries, and import analysis. Good enough for single-pass analysis. No file persisted.
-- **No manifest, thorough audit** — Core generates a manifest and surfaces it to the user for review before proceeding. Essentially a guided `varp:init` as the first step of the audit. The generated manifest can be saved for future runs.
+- **Manifest exists** — `loadManifestComponents()` reads `varp.yaml`, uses `componentPaths()` from core to resolve component paths, and `assignFilesToComponents()` to map discovered files to components. `matchRulesByTags()` uses component tags for rule matching (substring matching between component tags and rule `appliesTo` tags).
+- **No manifest** — `groupIntoComponents()` groups files by top-level directory structure (first two directory levels as component key). File-to-rule matching falls back to `TAG_PATTERNS` — regex-based heuristics mapping rule tags like "API routes" to filename patterns like `/route/i`, `/handler/i`.
 
-This means the tool works without any setup for casual use, but rewards investment in a curated manifest with better analysis quality. The tool earns the right to ask for more input by proving value on the quick scan first.
+The manifest is discovered automatically by walking up from the target path. An explicit `--manifest` path can also be provided.
 
-Varp's component discovery supports both vertical slicing (feature-based folders) and horizontal architectures (controllers/services/repositories), reassembling vertical components from category-based folder structures.
+## Execution Pipeline
 
-## Audit-Specific Execution Details
+### Plan Generation (`generatePlan()`)
 
-When Core selects orchestrated mode for an audit goal, the audit package provides the decomposition strategy:
+1. **Load components** — from manifest (tag-aware) or heuristic directory grouping
+2. **Match rules to components** — tag-based matching with manifest, filename-pattern heuristics without
+3. **Generate component scan tasks** — one per (component, rule category) pair. Rules grouped by category within each component. Files filtered to those matching the category's rules.
+4. **Generate cross-cutting tasks** — one per `CrossCuttingPattern` in the ruleset, operating on all files
+5. **Generate synthesis task** — placeholder for in-process aggregation
 
-### Plan Generation
-
-1. **Map the risk surface** — read the manifest, identify components that touch external input, data storage, auth, crypto, secrets, network boundaries. Tag by risk tier.
-2. **Match rules to components** — for each rule in the ruleset, determine which components are relevant. Not every rule applies everywhere.
-3. **Generate component scan tasks** — one per relevant (component, rule category) pair. Each task gets the component's code context and the applicable ruleset excerpt.
-4. **Generate cross-cutting tasks** — analysis spanning multiple components: data flow tracing, authentication chain verification, secrets scanning.
-5. **Generate synthesis task** — aggregates all findings.
-
-### Scheduling
-
-All audit tasks are read-only, so scheduling is straightforward:
+### Execution (`executeAuditPlan()`)
 
 ```
-Wave 1: Component scan tasks (fully parallel)
-Wave 2: Cross-cutting tasks (parallel, may use wave 1 outputs)
-Wave 3: Synthesis
+Wave 1: Component scan tasks (parallel, concurrency-limited)
+Wave 2: Cross-cutting tasks (parallel, concurrency-limited)
+Wave 3: Synthesis (in-process, no API call)
 ```
 
-Risk-priority ordering within waves ensures the most critical components are scanned first. If the audit is interrupted or budget-constrained, findings from the highest-risk areas are already available.
+Each task in waves 1-2: generate prompt (`generatePrompt()`) with rules/code context, call `ModelCaller` with JSON schema for constrained decoding (`AUDIT_FINDINGS_SCHEMA`), parse response into `AuditTaskResult`.
 
-### Redundancy
+Concurrency is controlled via `runWithConcurrency()` from `@varp/core/lib` (default: 5 concurrent API calls per wave).
 
-For thorough audits, the decomposition strategy can schedule redundant passes — multiple agents reviewing the same component independently. Findings corroborated by multiple agents are flagged as higher confidence. This is a knob controlled by the `--thorough` flag or the risk tier of the component.
+Risk-priority ordering within waves ensures critical-severity rules are scanned first. Budget enforcement (`--budget`) tracks cumulative estimated tokens and skips low-priority tasks when exceeded.
 
-### Supervision
+### Synthesis
 
-Varp Core's supervision handles agent failures: timeouts are retried, persistent failures are logged. The report notes which components were not fully audited. Since audit tasks are read-only and idempotent, retry is always safe.
+Wave 3 runs in-process (no API call):
+1. `deduplicateFindings()` — groups overlapping findings (same ruleId + overlapping file/line range), picks canonical finding by severity then confidence, computes corroboration count and effective confidence
+2. `applySuppressions()` — applies config-file and inline suppressions
+3. `computeCoverage()` — tracks which (component, rule) pairs were checked
+4. Assembles `ComplianceReport` with scope, findings, summary, coverage, and metadata
+
+### Error Handling
+
+Failed tasks are logged and tracked in coverage as "agent failed". The report shows which components were not fully audited. `Promise.allSettled` in the generic review path and `runWithConcurrency`'s `onError` callback in the compliance path ensure individual task failures don't abort the audit.
 
 ## Rulesets
 
@@ -213,60 +217,68 @@ Custom organizational rulesets (coding standards, architectural rules, security 
 
 ## Model Strategy
 
-Model selection is an internal decision made by Core's strategy layer. Users don't configure this.
-
-| Role | Model | Rationale |
-|------|-------|-----------|
-| Single-pass analysis | Sonnet (1M context) | Large context, good quality/cost balance |
-| Orchestrated: planner | Opus | Deep reasoning for structure and compliance mapping |
-| Orchestrated: scan agents | Sonnet (1M context) | Parallel instances, cost-sensitive, large context |
-| Orchestrated: cross-cutting | Sonnet (1M context) | Broad context across components |
-| Orchestrated: synthesis | Opus | Judgment for deduplication and ranking |
-| Quick scan / CI | Haiku or Sonnet | Speed-optimized for fast feedback |
+Model selection is configurable via `--model` flag (default: `claude-sonnet-4-5-20250929`). All tasks in a single audit run use the same model. Synthesis is done in-process (no model call).
 
 ## Non-Functional Requirements
 
-**Consistency** — the report format and finding schema are identical across all execution modes. Downstream consumers (dashboards, CI, ticket systems) never need to know how the analysis was performed.
+**Consistency** — `ComplianceReport` schema is identical regardless of codebase size. Finding schema (`AuditFinding`) includes ruleId, severity (5-level: critical/high/medium/low/informational), locations, evidence, remediation, and confidence.
 
-**Determinism and confidence** — LLM outputs vary between runs. The confidence field on findings is honest about this. Multi-agent corroboration (in orchestrated mode) increases confidence. Single-pass findings are inherently lower confidence but faster and cheaper.
+**Confidence and corroboration** — LLM outputs vary between runs. Each finding carries a self-assessed confidence (0.0-1.0). When multiple tasks flag the same issue (same ruleId + overlapping locations), effective confidence increases: `min(1.0, base + 0.1 * (corroborations - 1))`.
 
-**Cost management** — Core's strategy layer respects budget constraints. Given a cost ceiling, it maximizes coverage by prioritizing high-risk components and critical rules. Partial audits with clear coverage gaps are better than no audit.
+**Cost management** — `--budget` sets a token ceiling. Tasks are priority-ordered (critical-severity first). When cumulative estimated tokens exceed the budget, remaining tasks are skipped. Coverage report shows what was and wasn't checked.
 
-**Latency** — quick scans should complete in seconds to low minutes (CI-compatible). Full audits can take longer but should provide incremental output as waves complete.
+**Traceability** — every finding traces to specific code locations (file + line range) and specific rule IDs. Parse errors produce an informational finding with `PARSE-ERROR` ruleId.
 
-**Security** — Varp Audit handles source code. Code confidentiality, prompt injection via malicious code patterns, and audit trail integrity all apply. Self-hosted model support is important for enterprise adoption.
-
-**Traceability** — every finding traces back to specific code locations and specific rules. Vague findings are worse than no findings — they erode trust in the tool.
-
-## Monorepo Structure
+## Package Structure
 
 ```
-packages/
-  core/       — manifest, strategy, scheduler, execution, supervision
-  audit/      — rulesets, audit goal construction, reporter, audit CLI
-  (future)
-  migrate/    — migration planning, framework upgrade strategies
-  document/   — documentation generation
-  test/       — test generation
+packages/audit/
+  src/
+    index.ts              — barrel export (agents, orchestrator, chunker, report, discovery, errors, planner)
+    cli.ts                — CLI entry point (varp-audit binary)
+    orchestrator.ts       — Generic review: run weighted agents in parallel
+    discovery.ts          — File discovery (Bun.Glob, gitignore-aware)
+    chunker.ts            — Re-exports chunking utilities from @varp/core/lib
+    errors.ts             — Domain errors (RateLimitError, AuthenticationError, ValidationError, AgentError)
+    agents/
+      index.ts            — 7 weighted agents (correctness 22%, security 22%, performance 13%, ...)
+      types.ts            — FileContent, Finding, AgentResult, AgentDefinition
+      factory.ts          — createAgent(), parseAgentResponse() — agent construction helpers
+      *.ts                — Individual agent definitions
+    planner/
+      index.ts            — Barrel export for compliance audit pipeline
+      types.ts            — Ruleset, Rule, CrossCuttingPattern, AuditComponent, AuditTask, AuditPlan
+      planner.ts          — generatePlan(), groupIntoComponents()
+      executor.ts         — executeAuditPlan() — 3-wave execution with concurrency + budget
+      ruleset-parser.ts   — parseRuleset() — YAML frontmatter + markdown rule parser
+      findings.ts         — AuditFinding, CorroboratedFinding, ComplianceReport, deduplicateFindings()
+      prompt-generator.ts — Prompt generation + AUDIT_FINDINGS_SCHEMA + response parsing
+      suppressions.ts     — Config-file + inline suppression matching
+      diff-filter.ts      — Incremental audit: git diff + dependency-graph expansion
+      drift.ts            — diffReports() — compare two compliance reports
+      manifest-adapter.ts — Manifest discovery, parsing, component-to-file assignment
+      compliance-reporter.ts — Terminal, markdown, JSON output for ComplianceReport
+    report/
+      index.ts            — Barrel export for generic review reporters
+      synthesizer.ts      — synthesizeReport() — weighted-average scoring for generic review
+      terminal.ts         — ANSI terminal output for generic review
+      markdown.ts         — Markdown output for generic review
+    cli/
+      audit.ts            — runAuditCommand() — full audit flow (discovery, plan, execute, output)
+      claude-client.ts    — ModelCaller implementation via Claude Code CLI (claude -p)
+      auth.ts             — login/logout — dashboard API key management
+      dashboard-sync.ts   — syncToDashboard() — send generic review results to dashboard
+      formatters/         — HTML, JSON, markdown formatters for generic review
+      github/             — GitHub Actions integration (PR comments, changed files)
+  rulesets/               — Built-in rulesets (owasp-top-10.md)
 ```
-
-Shared CLI/MCP interface:
-
-```
-varp plan              — implementation planning (core)
-varp audit             — compliance auditing (audit)
-varp plan-migrate      — migration planning (migrate)
-```
-
-Each package composes with Core. Core owns execution strategy. Packages own domain knowledge and goal construction.
 
 ## Open Questions
 
-- **Strategy threshold tuning** — the boundary between single-pass and orchestrated mode needs empirical calibration. Too eager to orchestrate wastes money; too reluctant misses issues in large codebases.
-- **Core strategy API** — how do packages communicate their decomposition strategy to Core? Core needs to know how to partition work, but the partitioning logic is domain-specific. The interface between packages and Core's strategy layer needs careful design.
-- **Integration points** — CLI done, CI next. IDE integration and dashboard/reporting platform are future considerations.
-- **Multi-repo** — enterprise codebases span multiple repositories. The manifest supports this conceptually, but cross-repo orchestration needs design.
-- **Regulatory certification** — can Varp Audit's reports be used as evidence in actual compliance audits (SOC 2, etc.)? Requires understanding what auditors accept and potentially partnering with audit firms. Long-term consideration.
+- **Integration points** — CLI done. GitHub Actions integration exists (PR comments) but needs testing. IDE integration and dashboard/reporting platform are future considerations.
+- **Multi-repo** — enterprise codebases span multiple repositories. Cross-repo orchestration needs design.
+- **Regulatory certification** — can Varp Audit's reports be used as evidence in actual compliance audits (SOC 2, etc.)?
+- **Generic review vs compliance consolidation** — the two execution paths (orchestrator + weighted agents vs planner + 3-wave executor) share no code. Consider whether the generic review path should be retired or unified with the compliance pipeline.
 
 ## Resolved Questions
 

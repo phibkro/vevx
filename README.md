@@ -136,10 +136,10 @@ varp.yaml                Source of truth for project structure
 MCP Server               Deterministic logic: parsing, scheduling, enforcement
   |
   v
-Skills                   Workflow protocols: init, plan, execute, review, status
+Skills                   Workflow protocols: init, plan, execute, review, status, coupling
   |
   v
-Hooks                    Lifecycle: session context, subagent injection, freshness tracking
+Hooks                    Lifecycle: session start, subagent context, freshness tracking, stop
 ```
 
 The MCP server exposes pure functions. Skills structure agent behavior by loading protocols. Hooks enforce conventions at lifecycle boundaries.
@@ -151,7 +151,7 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 | `@varp/core` | `packages/core/` | MCP server — manifest, plan, scheduler, enforcement tools |
 | `@varp/audit` | `packages/audit/` | Compliance audit engine + CLI (`varp-audit`) — multi-agent code review |
 | `@varp/plugin` | `packages/plugin/` | Claude Code plugin — skills, hooks, plugin manifest |
-| `@varp/cli` | `packages/cli/` | CLI (`varp`) — deterministic manifest tooling: init, graph, lint, freshness, validate, coupling |
+| `@varp/cli` | `packages/cli/` | CLI (`varp`) — deterministic manifest tooling: init, graph, lint, freshness, validate, coupling, summary, conventions, completions |
 
 ## Design Docs
 
@@ -179,7 +179,7 @@ bun install              # install all workspace deps
 turbo build              # build all packages
 turbo test               # all tests across all packages
 turbo check              # format + lint + build (all packages)
-turbo typecheck          # tsc --noEmit (all packages)
+turbo typecheck          # oxlint --type-aware --type-check (all packages)
 ```
 
 **Stack:** Bun, Turborepo, TypeScript (ES2022, ESM only), Zod, MCP SDK, fast-xml-parser.
