@@ -48,6 +48,9 @@ const SCHEMA_STATEMENTS = [
   `CREATE VIRTUAL TABLE IF NOT EXISTS commits_fts USING fts5(
     message, content=commits, content_rowid=rowid
   )`,
+  // AFTER INSERT only — not AFTER INSERT OR REPLACE. Commits use INSERT OR IGNORE,
+  // so the trigger won't fire on ignored rows (correct). If the DDL ever changes to
+  // INSERT OR REPLACE, duplicate FTS entries would accumulate silently.
   `CREATE TRIGGER IF NOT EXISTS commits_fts_insert AFTER INSERT ON commits
    BEGIN INSERT INTO commits_fts(rowid, message) VALUES (new.rowid, new.message); END`,
 ];

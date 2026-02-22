@@ -53,13 +53,12 @@ function makeTestLayer(cwd: string) {
 
 describe("MCP Tools", () => {
   let tmpDir: string;
-  let dbPath: string;
   let client: Client;
 
   beforeEach(async () => {
     // 1. Create temp repo with a file
     tmpDir = makeTempDir();
-    dbPath = join(tmpDir, ".kiste", "index.sqlite");
+    const dbPath = join(tmpDir, ".kiste", "index.sqlite");
 
     initRepo(tmpDir);
     writeFile(tmpDir, "src/auth/login.ts", 'export const login = () => "authenticated";');
@@ -80,7 +79,7 @@ describe("MCP Tools", () => {
     );
 
     // 3. Set up MCP server + client via InMemoryTransport
-    const server = createServer();
+    const server = createServer({ repoDir: tmpDir, dbPath });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await server.connect(serverTransport);
 
@@ -100,7 +99,7 @@ describe("MCP Tools", () => {
   test("kiste_list_tags returns tags including auth", async () => {
     const result = await client.callTool({
       name: "kiste_list_tags",
-      arguments: { db_path: dbPath, repo_dir: tmpDir },
+      arguments: {},
     });
 
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
@@ -111,7 +110,7 @@ describe("MCP Tools", () => {
   test("kiste_list_artifacts returns indexed files", async () => {
     const result = await client.callTool({
       name: "kiste_list_artifacts",
-      arguments: { db_path: dbPath, repo_dir: tmpDir },
+      arguments: {},
     });
 
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
@@ -123,7 +122,7 @@ describe("MCP Tools", () => {
   test("kiste_get_artifact returns content, tags, and commits", async () => {
     const result = await client.callTool({
       name: "kiste_get_artifact",
-      arguments: { db_path: dbPath, repo_dir: tmpDir, path: "src/auth/login.ts" },
+      arguments: { path: "src/auth/login.ts" },
     });
 
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
@@ -137,7 +136,7 @@ describe("MCP Tools", () => {
   test("kiste_search finds commits by message", async () => {
     const result = await client.callTool({
       name: "kiste_search",
-      arguments: { db_path: dbPath, repo_dir: tmpDir, query: "login" },
+      arguments: { query: "login" },
     });
 
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
@@ -149,7 +148,7 @@ describe("MCP Tools", () => {
   test("kiste_get_provenance returns commit history", async () => {
     const result = await client.callTool({
       name: "kiste_get_provenance",
-      arguments: { db_path: dbPath, repo_dir: tmpDir, path: "src/auth/login.ts" },
+      arguments: { path: "src/auth/login.ts" },
     });
 
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
