@@ -70,6 +70,27 @@ export type ImpactResult = {
   readonly root: ImpactNode;
 };
 
+// ── Deps types ──
+
+export type DepsNode = {
+  readonly name: string;
+  readonly kind: number;
+  readonly uri: string;
+  readonly range: LspRange;
+  readonly fanOut: number;
+  readonly callees: DepsNode[];
+};
+
+export type DepsResult = {
+  readonly symbol: string;
+  readonly path: string;
+  readonly depth: number;
+  readonly maxDepth: number;
+  readonly totalNodes: number;
+  readonly highFanOut: boolean;
+  readonly root: DepsNode;
+};
+
 // ── Zoom types ──
 
 export type ZoomSymbol = {

@@ -7,10 +7,17 @@ import { LspClient } from "./Lsp.js";
 import { FileNotFoundError, LspError, LspTimeoutError } from "./pure/Errors.js";
 import { isExported } from "./pure/ExportDetection.js";
 import { extractDocComment, extractSignature, symbolKindName } from "./pure/Signatures.js";
-import type { CallHierarchyItem, DocumentSymbol, ImpactNode, ImpactResult } from "./pure/types.js";
+import type {
+  CallHierarchyItem,
+  DepsNode,
+  DepsResult,
+  DocumentSymbol,
+  ImpactNode,
+  ImpactResult,
+} from "./pure/types.js";
 import type { ZoomResult, ZoomSymbol } from "./pure/types.js";
 
-export type { ImpactResult, ZoomResult, ZoomSymbol } from "./pure/types.js";
+export type { DepsResult, ImpactResult, ZoomResult, ZoomSymbol } from "./pure/types.js";
 
 // ── Constants ──
 
@@ -64,6 +71,11 @@ export class SymbolIndex extends Context.Tag("kart/SymbolIndex")<
       symbolName: string,
       maxDepth?: number,
     ) => Effect.Effect<ImpactResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly deps: (
+      path: string,
+      symbolName: string,
+      maxDepth?: number,
+    ) => Effect.Effect<DepsResult, LspError | LspTimeoutError | FileNotFoundError>;
   }
 >() {}
 
@@ -241,6 +253,111 @@ export const SymbolIndexLive = (config?: {
             // Count total nodes (including root)
             const countNodes = (node: ImpactNode): number =>
               1 + node.callers.reduce((sum, c) => sum + countNodes(c), 0);
+
+            return {
+              symbol: symbolName,
+              path: absPath,
+              depth: clampedDepth,
+              maxDepth: MAX_IMPACT_DEPTH,
+              totalNodes: countNodes(root),
+              highFanOut,
+              root,
+            };
+          }),
+
+        deps: (path, symbolName, maxDepth = 3) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+
+            // Path traversal guard
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+
+            const clampedDepth = Math.min(Math.max(1, maxDepth), MAX_IMPACT_DEPTH);
+            const uri = `file://${absPath}`;
+
+            // Find the symbol by name
+            const symbols = yield* lsp.documentSymbol(uri);
+            const target = findSymbolByName(symbols, symbolName);
+
+            if (!target) {
+              return yield* Effect.fail(
+                new FileNotFoundError({
+                  path: `Symbol '${symbolName}' not found in ${path}`,
+                }),
+              );
+            }
+
+            // Get call hierarchy item at the symbol's position
+            const items = yield* lsp.prepareCallHierarchy(
+              uri,
+              target.selectionRange.start.line,
+              target.selectionRange.start.character,
+            );
+
+            if (items.length === 0) {
+              return yield* Effect.fail(
+                new FileNotFoundError({
+                  path: `Call hierarchy not available for '${symbolName}' in ${path}`,
+                }),
+              );
+            }
+
+            // BFS over outgoingCalls
+            const visited = new Set<string>();
+            let highFanOut = false;
+
+            const buildNode = (
+              item: CallHierarchyItem,
+              depth: number,
+            ): Effect.Effect<DepsNode, LspError | LspTimeoutError> =>
+              Effect.gen(function* () {
+                const key = `${item.uri}:${item.selectionRange.start.line}:${item.selectionRange.start.character}`;
+
+                let callees: DepsNode[] = [];
+                let fanOut = 0;
+
+                if (depth < clampedDepth && !visited.has(key)) {
+                  visited.add(key);
+
+                  const calls = yield* lsp.outgoingCalls(item);
+                  fanOut = calls.length;
+
+                  if (fanOut > HIGH_FAN_OUT_THRESHOLD) {
+                    highFanOut = true;
+                  }
+
+                  for (const call of calls) {
+                    const childKey = `${call.to.uri}:${call.to.selectionRange.start.line}:${call.to.selectionRange.start.character}`;
+                    if (!visited.has(childKey)) {
+                      const node = yield* buildNode(call.to, depth + 1);
+                      callees.push(node);
+                    }
+                  }
+                }
+
+                return {
+                  name: item.name,
+                  kind: item.kind,
+                  uri: item.uri,
+                  range: item.selectionRange,
+                  fanOut,
+                  callees,
+                };
+              });
+
+            const root = yield* buildNode(items[0], 0);
+
+            // Count total nodes (including root)
+            const countNodes = (node: DepsNode): number =>
+              1 + node.callees.reduce((sum, c) => sum + countNodes(c), 0);
 
             return {
               symbol: symbolName,

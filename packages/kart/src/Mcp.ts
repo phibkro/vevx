@@ -32,7 +32,7 @@ function errorMessage(e: unknown): string {
 import { CochangeDbLive } from "./Cochange.js";
 import { LspClientLive } from "./Lsp.js";
 import { SymbolIndexLive } from "./Symbols.js";
-import { kart_cochange, kart_impact, kart_zoom } from "./Tools.js";
+import { kart_cochange, kart_deps, kart_impact, kart_zoom } from "./Tools.js";
 
 // ── Config ──
 
@@ -122,6 +122,34 @@ function createServer(config: ServerConfig = {}): McpServer {
       try {
         const result = await zoomRuntime.runPromise(
           kart_impact.handler(
+            args as { path: string; symbol: string; depth?: number },
+          ) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_deps
+  server.registerTool(
+    kart_deps.name,
+    {
+      description: kart_deps.description,
+      inputSchema: kart_deps.inputSchema,
+      annotations: kart_deps.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await zoomRuntime.runPromise(
+          kart_deps.handler(
             args as { path: string; symbol: string; depth?: number },
           ) as Effect.Effect<unknown>,
         );

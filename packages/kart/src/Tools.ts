@@ -76,4 +76,21 @@ export const kart_impact = {
     }),
 } as const;
 
-export const tools = [kart_cochange, kart_zoom, kart_impact] as const;
+export const kart_deps = {
+  name: "kart_deps",
+  description:
+    "List the dependencies of a symbol. Returns transitive callees via BFS over the call hierarchy. Use to understand what a function, method, or class relies on.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the symbol"),
+    symbol: z.string().describe("Name of the symbol to analyze"),
+    depth: z.number().min(1).max(5).optional().describe("BFS depth limit (default: 3, max: 5)."),
+  },
+  handler: (args: { path: string; symbol: string; depth?: number }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.deps(args.path, args.symbol, args.depth);
+    }),
+} as const;
+
+export const tools = [kart_cochange, kart_zoom, kart_impact, kart_deps] as const;

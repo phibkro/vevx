@@ -278,6 +278,53 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     expect(result.root.name).toBe("greet");
   }, 30_000);
 
+  // ── deps tests ──
+
+  test("deps: path traversal outside workspace root fails", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.deps("/etc/passwd", "greet"));
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+      expect((result.left as FileNotFoundError).path).toContain("Access denied");
+    }
+  }, 30_000);
+
+  test("deps: unknown symbol fails with FileNotFoundError", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.deps(join(tempDir, "exports.ts"), "doesNotExist"));
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+      expect((result.left as FileNotFoundError).path).toContain("doesNotExist");
+    }
+  }, 30_000);
+
+  test("deps: returns valid tree for function with dependencies", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.deps(join(tempDir, "exports.ts"), "greet");
+      }),
+    );
+
+    expect(result.symbol).toBe("greet");
+    expect(result.depth).toBe(3); // default
+    expect(result.maxDepth).toBe(5);
+    expect(result.totalNodes).toBeGreaterThanOrEqual(1);
+    expect(result.root.name).toBe("greet");
+  }, 30_000);
+
   test("human-readable kind names", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {

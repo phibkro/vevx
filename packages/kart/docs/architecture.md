@@ -2,7 +2,7 @@
 
 ## overview
 
-kart is an MCP server providing progressive code disclosure, behavioral coupling, and impact analysis. Three tools: `kart_zoom` (zoom levels on file/directory structure), `kart_cochange` (co-change neighbors from git history), and `kart_impact` (blast radius of changing a symbol via LSP call hierarchy).
+kart is an MCP server providing progressive code disclosure, behavioral coupling, and symbol neighborhood analysis. Four tools: `kart_zoom` (zoom levels on file/directory structure), `kart_cochange` (co-change neighbors from git history), `kart_impact` (blast radius of changing a symbol via LSP call hierarchy), and `kart_deps` (dependencies of a symbol via LSP call hierarchy).
 
 ```
 MCP client ──stdio──▷ Mcp.ts (McpServer + ManagedRuntime)
@@ -26,14 +26,14 @@ Code is split into `src/pure/` (deterministic, no IO) and `src/` (effectful serv
 ```
 src/
   pure/
-    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult
+    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult
     Errors.ts            — 3 Data.TaggedError types
     ExportDetection.ts   — isExported() pure text scanner
     Signatures.ts        — extractSignature, extractDocComment, findBodyOpenBrace, symbolKindName
   Lsp.ts                 — LspClient service, JsonRpcTransport, LspClientLive layer
-  Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact (BFS over call hierarchy)
+  Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact + deps (BFS over call hierarchy)
   Cochange.ts            — CochangeDb service, SQL query, graceful degradation
-  Tools.ts               — kart_zoom + kart_cochange + kart_impact tool definitions
+  Tools.ts               — kart_zoom + kart_cochange + kart_impact + kart_deps tool definitions
   Mcp.ts                 — MCP server entrypoint, per-tool ManagedRuntime
   __fixtures__/          — test fixtures (exports.ts, other.ts, tsconfig.json)
 ```
@@ -87,6 +87,8 @@ Level-2 reads are capped at `MAX_LEVEL2_BYTES` (100KB). Files exceeding this ret
 
 **Impact analysis:** `impact(path, symbolName, maxDepth?)` computes the blast radius of changing a symbol. Uses `documentSymbol` to locate the target by name, `prepareCallHierarchy` to get a call hierarchy item, then BFS over `incomingCalls` up to `maxDepth` (default 3, hard cap `MAX_IMPACT_DEPTH` = 5). A `visited` set prevents cycles. Returns an `ImpactResult` tree with `totalNodes`, `highFanOut` flag (triggered when any node exceeds `HIGH_FAN_OUT_THRESHOLD` = 10 callers), and the caller tree rooted at the target symbol.
 
+**Dependency analysis:** `deps(path, symbolName, maxDepth?)` is the inverse of `impact` — BFS over `outgoingCalls` to find transitive callees. Same depth clamping, visited-set cycle prevention, and fan-out tracking. Returns a `DepsResult` tree with `callees` instead of `callers`. Together, `impact` + `deps` give a complete view of a symbol's neighborhood.
+
 ### CochangeDb (`src/Cochange.ts`)
 
 Read-only SQLite client for `.varp/cochange.db` (owned by kiste).
@@ -137,6 +139,26 @@ kart_impact({ path: "src/auth.ts", symbol: "validateToken", depth: 3 })
 
 **Latency profile:** ~350ms cold start (LSP initialization), then 3–5ms per `incomingCalls` hop. Depth-3 BFS on a 50-file codebase completes in <500ms total. No caching needed at current scale.
 
+### kart_deps request
+
+```
+kart_deps({ path: "src/auth.ts", symbol: "validateToken", depth: 3 })
+  │
+  ├─ resolve absolute path + workspace boundary check
+  ├─ check existence (FileNotFoundError if missing)
+  ├─ clamp depth to [1, MAX_IMPACT_DEPTH]
+  ├─ LspClient.documentSymbol(uri) → find symbol by name
+  │    └─ [not found] → FileNotFoundError
+  ├─ LspClient.prepareCallHierarchy(uri, line, char) → CallHierarchyItem[]
+  │    └─ [empty] → FileNotFoundError (call hierarchy unavailable)
+  └─ BFS: buildNode(rootItem, depth=0)
+       ├─ skip if visited (cycle prevention) or depth >= maxDepth
+       ├─ LspClient.outgoingCalls(item) → callees
+       ├─ track fanOut, set highFanOut if > HIGH_FAN_OUT_THRESHOLD
+       └─ recurse on each callee → DepsNode tree
+           → DepsResult { symbol, path, depth, maxDepth, totalNodes, highFanOut, root }
+```
+
 ### kart_cochange request
 
 ```
@@ -168,25 +190,25 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-72 tests across 8 files, split into pure (coverage-gated) and integration:
+89 tests across 8 files, split into pure (coverage-gated) and integration:
 
-**Pure tests** (`src/pure/`, 24 tests, `test:pure` with `--coverage`):
+**Pure tests** (`src/pure/`, 31 tests, `test:pure` with `--coverage`):
 
 | file | tests | what |
 |------|-------|------|
 | `pure/ExportDetection.test.ts` | 12 | isExported text scanning against fixture |
-| `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
+| `pure/Signatures.test.ts` | 19 | extractSignature, extractDocComment, symbolKindName edge cases |
 
-**Integration tests** (`src/*.test.ts`, 48 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 58 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
 | `Lsp.test.ts` | 8 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
-| `Symbols.test.ts` | 12 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap |
-| `Mcp.test.ts` | 11 | MCP integration via InMemoryTransport, cochange, zoom, impact, structuredContent |
-| `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
+| `Symbols.test.ts` | 16 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, impact, deps |
+| `Mcp.test.ts` | 19 | MCP integration via InMemoryTransport, cochange, zoom, impact, deps, structuredContent |
+| `call-hierarchy-spike.test.ts` | 9 | BFS latency measurement across kart + varp symbols |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.
 

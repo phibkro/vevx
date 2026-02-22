@@ -189,7 +189,7 @@ describe("MCP integration — tool listing", () => {
   test("lists all kart tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
-    expect(names).toEqual(["kart_cochange", "kart_impact", "kart_zoom"]);
+    expect(names).toEqual(["kart_cochange", "kart_deps", "kart_impact", "kart_zoom"]);
   });
 
   test("all tools have read-only annotations", async () => {
@@ -392,5 +392,64 @@ function internal() {}
     expect((result as { isError?: boolean }).isError).toBeFalsy();
     const data = parseResult(result) as { depth: number };
     expect(data.depth).toBe(1);
+  }, 30_000);
+
+  // ── kart_deps tests (reuse the same LSP-enabled server) ──
+
+  test("kart_deps returns transitive callees", async () => {
+    // welcome() calls greet(), so deps of welcome should include greet
+    const result = await client.callTool({
+      name: "kart_deps",
+      arguments: {
+        path: join(tempDir, "caller.ts"),
+        symbol: "welcome",
+      },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as {
+      symbol: string;
+      depth: number;
+      maxDepth: number;
+      totalNodes: number;
+      highFanOut: boolean;
+      root: { name: string; fanOut: number; callees: { name: string }[] };
+    };
+
+    expect(data.symbol).toBe("welcome");
+    expect(data.depth).toBe(3);
+    expect(data.maxDepth).toBe(5);
+    expect(data.totalNodes).toBeGreaterThanOrEqual(2); // root + at least 1 callee
+    expect(data.highFanOut).toBe(false);
+    expect(data.root.name).toBe("welcome");
+    const calleeNames = data.root.callees.map((c) => c.name);
+    expect(calleeNames).toContain("greet");
+  }, 30_000);
+
+  test("kart_deps returns structuredContent", async () => {
+    const result = await client.callTool({
+      name: "kart_deps",
+      arguments: {
+        path: join(tempDir, "caller.ts"),
+        symbol: "welcome",
+      },
+    });
+
+    const typed = result as { structuredContent?: { symbol: string } };
+    expect(typed.structuredContent).toBeDefined();
+    expect(typed.structuredContent!.symbol).toBe("welcome");
+  }, 30_000);
+
+  test("kart_deps returns error for unknown symbol", async () => {
+    const result = await client.callTool({
+      name: "kart_deps",
+      arguments: {
+        path: join(tempDir, "fixture.ts"),
+        symbol: "nonexistent",
+      },
+    });
+    expect((result as { isError?: boolean }).isError).toBe(true);
+    const text = (result as { content: { text: string }[] }).content[0].text;
+    expect(text).toContain("nonexistent");
   }, 30_000);
 });
