@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { extractDocComment, extractSignature } from "./Signatures.js";
+import {
+  extractDocComment,
+  extractSignature,
+  findBodyOpenBrace,
+  symbolKindName,
+} from "./Signatures.js";
 import type { DocumentSymbol } from "./types.js";
 
 // ── Pure function tests (no LSP needed) ──
@@ -83,6 +88,42 @@ describe("extractSignature", () => {
     const sym = makeSymbol("Repository", 11, 0, 0, 2, 1);
     const sig = extractSignature(sym, lines);
     expect(sig).toBe("export interface Repository<T>");
+  });
+
+  test("ignores braces inside string literals", () => {
+    const lines = ['export const TEMPLATE = "{name}" + something;'];
+    const sym = makeSymbol("TEMPLATE", 13, 0, 0, 0, 45);
+    const sig = extractSignature(sym, lines);
+    expect(sig).toBe('export const TEMPLATE = "{name}" + something;');
+  });
+});
+
+describe("findBodyOpenBrace", () => {
+  test("ignores braces inside double-quoted strings", () => {
+    expect(findBodyOpenBrace('const x = "{"')).toBe(-1);
+  });
+
+  test("ignores braces inside single-quoted strings", () => {
+    expect(findBodyOpenBrace("const x = '{'")).toBe(-1);
+  });
+
+  test("ignores braces inside template literals", () => {
+    expect(findBodyOpenBrace("const x = `{`")).toBe(-1);
+  });
+
+  test("finds brace after string containing brace", () => {
+    expect(findBodyOpenBrace('function f(x = "{") {')).toBe(20);
+  });
+});
+
+describe("symbolKindName", () => {
+  test("returns 'unknown' for unrecognized kind number", () => {
+    expect(symbolKindName(999)).toBe("unknown");
+  });
+
+  test("maps known kinds correctly", () => {
+    expect(symbolKindName(12)).toBe("function");
+    expect(symbolKindName(5)).toBe("class");
   });
 });
 
