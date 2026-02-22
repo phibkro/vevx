@@ -1,12 +1,27 @@
 {
   "name": "@vevx/audit",
   "version": "0.1.1",
+  "description": "Compliance audit engine for AI-assisted code review",
   "bin": {
-    "varp-audit": "./dist/cli.js"
+    "varp-audit": "dist/cli.js"
   },
   "type": "module",
+  "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist/",
+    "rulesets/",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phibkro/vevx.git",
+    "directory": "packages/audit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "bun build src/index.ts src/cli.ts --outdir dist --target bun --sourcemap=external --external @vevx/varp && tsc --emitDeclarationOnly",
     "test": "bun test --concurrent --reporter=junit --reporter-outfile=test-results.xml",
