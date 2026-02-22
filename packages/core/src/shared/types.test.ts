@@ -1,13 +1,6 @@
 import { describe, test, expect } from "bun:test";
 
-import {
-  TaskDefinitionSchema,
-  CodebaseGraphSchema,
-  ManifestSchema,
-  CoChangeGraphSchema,
-  ImportScanResultSchema,
-  CouplingMatrixSchema,
-} from "./types.js";
+import { TaskDefinitionSchema, CodebaseGraphSchema } from "./types.js";
 
 describe("TaskDefinitionSchema", () => {
   test("accepts valid TaskDefinition", () => {

@@ -1,9 +1,11 @@
 import { dirname, resolve } from "path";
 
-import type { CouplingClassification, CoChangeEdge, Manifest } from "@varp/core/lib";
+import type { CouplingClassification, CoChangeEdge, Manifest, TrendInfo } from "@varp/core/lib";
 import {
   buildCouplingMatrix,
   componentCouplingProfile,
+  computeComplexityTrends,
+  fileNeighborhood,
   findHiddenCoupling,
   findOwningComponent,
   buildComponentPaths,
@@ -18,6 +20,7 @@ export interface CouplingArgs {
   manifest: string;
   format: "text" | "json";
   component?: string;
+  neighborhood?: string;
   hotspots: boolean;
   files: boolean;
   noColor: boolean;
@@ -27,6 +30,7 @@ export function parseCouplingArgs(argv: string[]): CouplingArgs {
   let manifest = DEFAULT_MANIFEST;
   let format: "text" | "json" = "text";
   let component: string | undefined;
+  let neighborhood: string | undefined;
   let hotspots = false;
   let files = false;
   let noColor = false;
@@ -39,6 +43,8 @@ export function parseCouplingArgs(argv: string[]): CouplingArgs {
       format = parseEnum(argv[++i], ["text", "json"] as const, "format");
     } else if (arg === "--component" && argv[i + 1]) {
       component = argv[++i];
+    } else if (arg === "--neighborhood" && argv[i + 1]) {
+      neighborhood = argv[++i];
     } else if (arg === "--hotspots") {
       hotspots = true;
     } else if (arg === "--files") {
@@ -48,7 +54,7 @@ export function parseCouplingArgs(argv: string[]): CouplingArgs {
     }
   }
 
-  return { manifest, format, component, hotspots, files, noColor };
+  return { manifest, format, component, neighborhood, hotspots, files, noColor };
 }
 
 // ── File-level edge list ──
@@ -165,7 +171,74 @@ const QUADRANT_COLORS: Record<CouplingClassification, string> = {
   unrelated: ANSI.dim,
 };
 
-function formatFileEdges(entries: FileEdgeEntry[], useColor: boolean): string {
+// ── Trend sparklines ──
+
+function renderSparkline(trend: TrendInfo | undefined): string {
+  if (!trend || trend.direction === "stable") return "\u2583\u2583\u2583 (stable)";
+  if (trend.direction === "increasing") return "\u2582\u2585\u2588 (increasing)";
+  return "\u2588\u2585\u2582 (decreasing)";
+}
+
+// ── Neighborhood rendering ──
+
+interface NeighborTier {
+  label: string;
+  entries: Array<{
+    file: string;
+    weight: number;
+    tag: string;
+    trend: TrendInfo | undefined;
+  }>;
+}
+
+function formatNeighborhood(
+  file: string,
+  owningComponent: string | undefined,
+  tiers: NeighborTier[],
+  _useColor: boolean,
+): string {
+  const lines: string[] = [];
+  const header = owningComponent ? `${file} (${owningComponent})` : file;
+  lines.push(header);
+  lines.push("");
+
+  for (const tier of tiers) {
+    if (tier.entries.length === 0) continue;
+    lines.push(`${tier.label}:`);
+
+    let maxFileLen = 0;
+    for (const e of tier.entries) {
+      if (e.file.length > maxFileLen) maxFileLen = e.file.length;
+    }
+
+    for (const entry of tier.entries) {
+      const padded = entry.file.padEnd(maxFileLen);
+      const weightStr = entry.weight.toFixed(2).padStart(6);
+      const tag = `[${entry.tag}]`.padEnd(18);
+      const spark = renderSparkline(entry.trend);
+      lines.push(`  ${padded}  ${weightStr}  ${tag}  ${spark}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+function pickTrend(a: TrendInfo | undefined, b: TrendInfo | undefined): TrendInfo | undefined {
+  if (!a && !b) return undefined;
+  if (!a) return b;
+  if (!b) return a;
+  // Prefer non-stable
+  if (a.direction !== "stable" && b.direction === "stable") return a;
+  if (b.direction !== "stable" && a.direction === "stable") return b;
+  return a.magnitude >= b.magnitude ? a : b;
+}
+
+function formatFileEdges(
+  entries: FileEdgeEntry[],
+  useColor: boolean,
+  trends?: Record<string, TrendInfo>,
+): string {
   const groups = new Map<CouplingClassification, FileEdgeEntry[]>();
   for (const entry of entries) {
     const list = groups.get(entry.classification) ?? [];
@@ -205,7 +278,12 @@ function formatFileEdges(entries: FileEdgeEntry[], useColor: boolean): string {
       const padded = pair.padEnd(maxPairLen);
       const weightStr = entry.weight.toFixed(2).padStart(6);
       const bar = renderBar(entry.weight, maxWeight);
-      lines.push(`${color}  ${padded}  ${weightStr}  ${bar}${reset}`);
+      const trendA = trends?.[entry.fileA];
+      const trendB = trends?.[entry.fileB];
+      // Pick the more interesting trend (non-stable, or higher magnitude)
+      const trend = pickTrend(trendA, trendB);
+      const spark = trends ? `  ${renderSparkline(trend)}` : "";
+      lines.push(`${color}  ${padded}  ${weightStr}  ${bar}${spark}${reset}`);
     }
     lines.push("");
   }
@@ -222,8 +300,90 @@ export async function runCouplingCommand(argv: string[]): Promise<void> {
   const manifest = parseManifest(manifestPath);
   const coChange = scanCoChangesWithCache(manifestDir);
   const imports = scanImports(manifest, manifestDir);
+
+  // ── Neighborhood mode ──
+  if (args.neighborhood) {
+    const file = args.neighborhood;
+    const neighbors = fileNeighborhood(file, coChange.edges, imports);
+    const allFiles = [file, ...neighbors.map((n) => n.file)];
+    const trends = computeComplexityTrends(manifestDir, allFiles);
+    const compPaths = buildComponentPaths(manifest);
+    const absFile = resolve(manifestDir, file);
+    const owningComponent = findOwningComponent(absFile, manifest, compPaths);
+
+    const matrix = buildCouplingMatrix(coChange, imports, manifest, { repo_dir: manifestDir });
+    const bThreshold = matrix.behavioral_threshold;
+
+    if (args.format === "json") {
+      const direct = neighbors
+        .filter((n) => n.coChangeWeight >= bThreshold)
+        .map((n) => ({ ...n, trend: trends[n.file] }));
+      const moderate = neighbors
+        .filter((n) => n.coChangeWeight > 0 && n.coChangeWeight < bThreshold)
+        .map((n) => ({ ...n, trend: trends[n.file] }));
+      const structuralOnly = neighbors
+        .filter((n) => n.coChangeWeight === 0 && n.hasImportRelation)
+        .map((n) => ({ ...n, trend: trends[n.file] }));
+      console.log(
+        JSON.stringify(
+          {
+            file,
+            component: owningComponent,
+            tiers: { direct, moderate, structural_only: structuralOnly },
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
+
+    const classify = (n: { hasImportRelation: boolean }) =>
+      n.hasImportRelation ? "explicit" : "hidden";
+
+    const tiers: NeighborTier[] = [
+      {
+        label: `Direct (co-change \u2265 ${bThreshold.toFixed(2)})`,
+        entries: neighbors
+          .filter((n) => n.coChangeWeight >= bThreshold)
+          .map((n) => ({
+            file: n.file,
+            weight: n.coChangeWeight,
+            tag: classify(n),
+            trend: trends[n.file],
+          })),
+      },
+      {
+        label: `Moderate (0 < co-change < ${bThreshold.toFixed(2)})`,
+        entries: neighbors
+          .filter((n) => n.coChangeWeight > 0 && n.coChangeWeight < bThreshold)
+          .map((n) => ({
+            file: n.file,
+            weight: n.coChangeWeight,
+            tag: classify(n),
+            trend: trends[n.file],
+          })),
+      },
+      {
+        label: "Structural only (imports, no co-change)",
+        entries: neighbors
+          .filter((n) => n.coChangeWeight === 0 && n.hasImportRelation)
+          .map((n) => ({
+            file: n.file,
+            weight: 0,
+            tag: "stable interface",
+            trend: trends[n.file],
+          })),
+      },
+    ];
+
+    console.log(formatNeighborhood(file, owningComponent, tiers, !args.noColor));
+    return;
+  }
+
   const matrix = buildCouplingMatrix(coChange, imports, manifest, { repo_dir: manifestDir });
 
+  // ── File-level edges ──
   if (args.files) {
     const compPaths = buildComponentPaths(manifest);
     const importPairs = buildImportPairSet(imports);
@@ -240,6 +400,14 @@ export async function runCouplingCommand(argv: string[]): Promise<void> {
       ),
     );
 
+    // Compute trends for all files in edges
+    const allFiles = new Set<string>();
+    for (const e of entries) {
+      allFiles.add(e.fileA);
+      allFiles.add(e.fileB);
+    }
+    const trends = computeComplexityTrends(manifestDir, [...allFiles]);
+
     if (args.format === "json") {
       const groups: Record<string, FileEdgeEntry[]> = {};
       for (const entry of entries) {
@@ -248,12 +416,12 @@ export async function runCouplingCommand(argv: string[]): Promise<void> {
       for (const list of Object.values(groups)) {
         list.sort((a, b) => b.weight - a.weight);
       }
-      console.log(JSON.stringify({ edges: entries.length, groups }, null, 2));
+      console.log(JSON.stringify({ edges: entries.length, groups, trends }, null, 2));
       return;
     }
 
     const useColor = !args.noColor;
-    const output = formatFileEdges(entries, useColor);
+    const output = formatFileEdges(entries, useColor, trends);
     if (output.trim()) {
       console.log(output);
     } else {
