@@ -35,7 +35,7 @@ export const ConfigLive = (repoDir: string): Layer.Layer<Config, ConfigError> =>
           const exists = await file.exists();
           if (!exists) return {};
           const text = await file.text();
-          return Bun.YAML.parse(text) as Record<string, unknown>;
+          return (Bun.YAML.parse(text) as Record<string, unknown>) ?? {};
         },
         catch: (err) => new ConfigError({ message: `Failed to read config: ${err}` }),
       });
