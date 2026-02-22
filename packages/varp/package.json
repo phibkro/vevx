@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/phibkro/vevx.git",
+    "url": "git+https://github.com/phibkro/vevx.git",
     "directory": "packages/varp"
   },
   "engines": {
@@ -19,7 +19,7 @@
     "README.md"
   ],
   "bin": {
-    "varp": "./dist/cli.js"
+    "varp": "dist/cli.js"
   },
   "exports": {
     "./lib": {

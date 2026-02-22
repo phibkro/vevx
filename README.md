@@ -15,16 +15,16 @@ Varp manages the gap between what agents know and what's actually true. It track
 **Prerequisites:** [Bun](https://bun.sh), [Claude Code](https://claude.ai/claude-code) with plugin support.
 
 ```bash
-# From the marketplace
-/plugin marketplace add phibkro/vevx
+# From GitHub
+claude plugin add https://github.com/phibkro/vevx/tree/main/packages/varp
 ```
 
 Or install from source:
 
 ```bash
-git clone <repo-url> varp && cd varp
+git clone https://github.com/phibkro/vevx.git && cd vevx
 bun install && turbo build
-claude plugin add /path/to/varp
+claude plugin add packages/varp
 ```
 
 ## Setup
