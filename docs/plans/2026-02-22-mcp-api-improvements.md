@@ -13,6 +13,7 @@
 ### Task 1: Extend ToolDef with annotations and outputSchema
 
 **Files:**
+
 - Modify: `packages/mcp/src/tool-registry.ts`
 
 **Step 1: Read the current file**
@@ -67,6 +68,7 @@ feat(mcp): extend ToolDef with annotations and outputSchema support
 ### Task 2: Add annotations to all existing tools
 
 **Files:**
+
 - Modify: `packages/mcp/src/index.ts`
 
 **Context:** 27 of 28 tools are read-only and idempotent. The one exception is `varp_ack_freshness` which writes to `.varp-freshness.json`.
@@ -136,6 +138,7 @@ feat(mcp): add tool annotations to all 28 tools
 ### Task 3: Consolidate scheduler tools into varp_schedule
 
 **Files:**
+
 - Modify: `packages/mcp/src/index.ts`
 - Modify: `packages/mcp/src/index.test.ts`
 
@@ -230,6 +233,7 @@ feat(mcp): consolidate scheduler tools into varp_schedule with mode param
 ### Task 4: Consolidate health tools into varp_health
 
 **Files:**
+
 - Modify: `packages/mcp/src/index.ts`
 - Modify: `packages/mcp/src/index.test.ts`
 
@@ -351,6 +355,7 @@ feat(mcp): consolidate manifest/freshness/lint into varp_health with mode param
 ### Task 5: Consolidate coupling tools into varp_coupling
 
 **Files:**
+
 - Modify: `packages/mcp/src/index.ts`
 - Modify: `packages/mcp/src/index.test.ts`
 
@@ -488,6 +493,7 @@ feat(mcp): consolidate coupling tools into varp_coupling with mode param
 ### Task 6: Add varp_list_files tool
 
 **Files:**
+
 - Modify: `packages/mcp/src/index.ts`
 - Modify: `packages/mcp/src/index.test.ts`
 
@@ -568,6 +574,7 @@ feat(mcp): add varp_list_files tool for component-to-file lookup
 ### Task 7: Add outputSchema to tools with stable return shapes
 
 **Files:**
+
 - Modify: `packages/mcp/src/index.ts`
 - Modify: `packages/mcp/src/index.test.ts`
 
@@ -634,6 +641,7 @@ feat(mcp): add outputSchema to 5 tools with stable return shapes
 ### Task 8: Final validation and build
 
 **Files:**
+
 - Build: `packages/mcp/`
 
 **Step 1: Run full test suite**
@@ -686,14 +694,14 @@ chore(mcp): fix lint/format issues
 
 ## Summary
 
-| Task | What | Tools Removed | Tools Added | Net |
-|------|------|---------------|-------------|-----|
-| 1 | Extend ToolDef type | 0 | 0 | 0 |
-| 2 | Add annotations | 0 | 0 | 0 |
-| 3 | Scheduler consolidation | 3 | 1 | -2 |
-| 4 | Health consolidation | 3 | 1 | -2 |
-| 5 | Coupling consolidation | 3 | 1 | -2 |
-| 6 | List files tool | 0 | 1 | +1 |
-| 7 | Output schemas | 0 | 0 | 0 |
-| 8 | Final validation | 0 | 0 | 0 |
-| **Total** | | **9** | **4** | **-5 (28→23)** |
+| Task      | What                    | Tools Removed | Tools Added | Net            |
+| --------- | ----------------------- | ------------- | ----------- | -------------- |
+| 1         | Extend ToolDef type     | 0             | 0           | 0              |
+| 2         | Add annotations         | 0             | 0           | 0              |
+| 3         | Scheduler consolidation | 3             | 1           | -2             |
+| 4         | Health consolidation    | 3             | 1           | -2             |
+| 5         | Coupling consolidation  | 3             | 1           | -2             |
+| 6         | List files tool         | 0             | 1           | +1             |
+| 7         | Output schemas          | 0             | 0           | 0              |
+| 8         | Final validation        | 0             | 0           | 0              |
+| **Total** |                         | **9**         | **4**       | **-5 (28→23)** |

@@ -13,6 +13,7 @@
 ### Task 1: Define AnalysisConfigSchema
 
 **Files:**
+
 - Create: `packages/core/src/analysis/config.ts`
 - Test: `packages/core/src/analysis/config.test.ts`
 
@@ -77,13 +78,7 @@ export const CoChangeConfigSchema = z.object({
     .default(["chore", "style", "format", "lint", "merge", "rebase"]),
   file_excludes: z
     .array(z.string())
-    .default([
-      "**/package-lock.json",
-      "**/bun.lock",
-      "**/bun.lockb",
-      "**/*.d.ts",
-      "**/.varp/**",
-    ]),
+    .default(["**/package-lock.json", "**/bun.lock", "**/bun.lockb", "**/*.d.ts", "**/.varp/**"]),
   type_multipliers: z.record(z.string(), z.number().min(0).max(2)).optional(),
 });
 
@@ -117,6 +112,7 @@ git commit -m "feat(analysis): add AnalysisConfigSchema with sparse defaults"
 ### Task 2: Add loadAnalysisConfig and toFilterConfig bridge
 
 **Files:**
+
 - Modify: `packages/core/src/analysis/config.ts`
 - Modify: `packages/core/src/analysis/config.test.ts`
 
@@ -228,6 +224,7 @@ git commit -m "feat(analysis): add loadAnalysisConfig and toFilterConfig bridge"
 ### Task 3: Wire config into scanCoChangesWithCache
 
 **Files:**
+
 - Modify: `packages/core/src/analysis/cache.ts`
 - Modify: `packages/core/src/analysis/cache.test.ts` (if tests reference hardcoded defaults)
 
@@ -267,6 +264,7 @@ git commit -m "feat(analysis): wire .varp/config.json into cached co-change scan
 ### Task 4: Add conventional commit type multiplier support
 
 **Files:**
+
 - Modify: `packages/core/src/analysis/co-change.ts`
 - Modify: `packages/core/src/analysis/co-change.test.ts`
 
@@ -291,9 +289,7 @@ it("applies type multipliers to edge weights", () => {
 });
 
 it("uses base weight when no type match", () => {
-  const commits = [
-    { sha: "a", subject: "random message", files: ["a.ts", "b.ts"] },
-  ];
+  const commits = [{ sha: "a", subject: "random message", files: ["a.ts", "b.ts"] }];
   const multipliers = { feat: 1.0 };
   const edges = computeCoChangeEdges(commits, multipliers);
 
@@ -350,6 +346,7 @@ git commit -m "feat(analysis): support conventional commit type multipliers in c
 ### Task 5: Wire hotspot config
 
 **Files:**
+
 - Modify: `packages/core/src/analysis/hotspots.ts`
 
 **Context:** `computeComplexityTrends` has `maxCommits` defaulting to 500 and `computeComplexityTrendsFromStats` has a hardcoded trend threshold of 1. These should accept the values from analysis config. Since these are already optional parameters, this is just changing where defaults come from — callers that pass explicit values are unaffected.
@@ -377,6 +374,7 @@ git commit -m "feat(analysis): make hotspot trend threshold configurable"
 ### Task 6: Export from lib.ts and update lib.d.ts
 
 **Files:**
+
 - Modify: `packages/core/src/lib.ts`
 - Modify: `packages/core/lib.d.ts`
 
@@ -429,6 +427,7 @@ git commit -m "feat(analysis): export config types and functions from @varp/core
 ### Task 7: Add "Analysis Configuration" section to design doc
 
 **Files:**
+
 - Modify: `docs/designs/002-relational-architecture-analysis.md`
 
 **Context:** Add the new section after "Incremental Analysis and Caching" (after line 232). Also resolve the open question about default commit size ceiling (answer: 50) and default noise filter patterns (answer: the current defaults).
@@ -437,10 +436,10 @@ git commit -m "feat(analysis): export config types and functions from @varp/core
 
 Insert after the `---` on line 233:
 
-```markdown
+````markdown
 ## Analysis Configuration
 
-Analysis tuning lives in `.varp/config.json`, not in the manifest. The manifest (`varp.yaml`) describes *what the project looks like* — components, paths, dependencies, tags. Analysis config describes *how varp analyzes the project* — weighting formulas, thresholds, noise filters. Different audiences, different change cadences. A developer reading the manifest to understand component topology shouldn't encounter engine tuning knobs.
+Analysis tuning lives in `.varp/config.json`, not in the manifest. The manifest (`varp.yaml`) describes _what the project looks like_ — components, paths, dependencies, tags. Analysis config describes _how varp analyzes the project_ — weighting formulas, thresholds, noise filters. Different audiences, different change cadences. A developer reading the manifest to understand component topology shouldn't encounter engine tuning knobs.
 
 ### Sparse Defaults
 
@@ -465,7 +464,13 @@ If `.varp/config.json` doesn't exist, all parameters use hardcoded defaults. If 
       "ci": 0.1
     },
     "message_excludes": ["chore", "style", "format", "lint", "merge", "rebase"],
-    "file_excludes": ["**/package-lock.json", "**/bun.lock", "**/bun.lockb", "**/*.d.ts", "**/.varp/**"]
+    "file_excludes": [
+      "**/package-lock.json",
+      "**/bun.lock",
+      "**/bun.lockb",
+      "**/*.d.ts",
+      "**/.varp/**"
+    ]
   },
   "hotspots": {
     "max_commits": 500,
@@ -473,6 +478,7 @@ If `.varp/config.json` doesn't exist, all parameters use hardcoded defaults. If 
   }
 }
 ```
+````
 
 All fields are optional. Omitted fields use the defaults shown.
 
@@ -491,7 +497,8 @@ This is opt-in enhanced signal, not a requirement. Projects without conventional
 ### Relationship to FilterConfig
 
 The existing `FilterConfig` type (used by `scanCoChanges`, `analyzeCoChanges`) maps directly to a subset of the analysis config. A `toFilterConfig()` bridge converts between them, so existing function signatures are unchanged. New code should prefer `AnalysisConfig`; `FilterConfig` remains for backward compatibility.
-```
+
+````
 
 **Step 2: Update Open Questions**
 
@@ -500,7 +507,7 @@ Change the open questions about defaults to resolved:
 ```markdown
 - ~~What's the right default commit size ceiling?~~ Resolved: 50 files. See Analysis Configuration section.
 - ~~What commit message patterns should the default noise filter include?~~ Resolved: `["chore", "style", "format", "lint", "merge", "rebase"]`. See Analysis Configuration section.
-```
+````
 
 **Step 3: Commit**
 

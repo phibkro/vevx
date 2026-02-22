@@ -65,7 +65,7 @@ The three plugins (varp, kiste, kart) work independently but could compose:
 
 Not started. Deferred from prior session.
 
-- Rename GitHub repo (currently `phibkro/varp`, should be `phibkro/vevx` or similar)
+- ~~Rename GitHub repo~~ Done — now `phibkro/vevx`
 - npm publish setup (scope `@vevx`, changesets publish workflow)
 - Per-package README polish for npm landing pages
 

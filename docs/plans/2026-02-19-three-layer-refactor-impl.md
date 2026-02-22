@@ -13,6 +13,7 @@
 ### Task 1: Add `TaskDefinitionSchema` to shared types
 
 **Files:**
+
 - Modify: `packages/core/src/shared/types.ts:127-148` (Scheduler section)
 
 **Step 1: Add the schema and type**
@@ -72,6 +73,7 @@ scheduler never sees execution intent (action, values, description).
 ### Task 2: Add `CodebaseGraphSchema` to shared types
 
 **Files:**
+
 - Modify: `packages/core/src/shared/types.ts` (after the Co-Change Analysis section, ~line 286)
 
 **Step 1: Add the schema and type**
@@ -111,6 +113,7 @@ CouplingMatrix?) — the analysis layer's unified output for consumers.
 ### Task 3: Update scheduler modules to use `TaskDefinition`
 
 **Files:**
+
 - Modify: `packages/core/src/scheduler/hazards.ts:1-3`
 - Modify: `packages/core/src/scheduler/waves.ts:1-6`
 - Modify: `packages/core/src/scheduler/critical-path.ts:1-5`
@@ -160,13 +163,14 @@ import { detectHazards } from "./hazards.js";
 ```
 
 Replace `SchedulableTask` with `TaskDefinition` in:
+
 - Function signature (line 15): `export function computeWaves(tasks: TaskDefinition[]): Wave[]`
 - Map type (line 64): `const waveGroups = new Map<number, TaskDefinition[]>()`
 
 Remove the `as Task[]` cast on line 86. After narrowing `WaveSchema.tasks` to `TaskDefinitionSchema`, the types align without casting:
 
 ```typescript
-    waves.push({ id: waveId, tasks: waveTasks });
+waves.push({ id: waveId, tasks: waveTasks });
 ```
 
 **Step 3: Update `critical-path.ts`**
@@ -216,6 +220,7 @@ cast in computeWaves — Wave.tasks is now TaskDefinition[], no cast needed.
 ### Task 4: Add `makeTaskDef` test helper
 
 **Files:**
+
 - Modify: `packages/core/src/shared/test-helpers.ts`
 
 **Step 1: Add the helper**
@@ -260,6 +265,7 @@ Note: Existing tests can continue using `makeTask()` — the wider `Task` type i
 ### Task 5: Update MCP tool handlers
 
 **Files:**
+
 - Modify: `packages/mcp/src/index.ts:44-66` (shared schemas)
 - Modify: `packages/mcp/src/index.ts:159-189` (tool handlers)
 
@@ -335,6 +341,7 @@ handler to make the layer boundary explicit.
 ### Task 6: Update `lib.ts` exports
 
 **Files:**
+
 - Modify: `packages/core/src/lib.ts:10,64-114`
 
 **Step 1: Export new schemas**
@@ -342,7 +349,12 @@ handler to make the layer boundary explicit.
 Add `TaskDefinitionSchema` and `CodebaseGraphSchema` to the schema export on line 10:
 
 ```typescript
-export { componentPaths, TouchesSchema, TaskDefinitionSchema, CodebaseGraphSchema } from "./shared/types.js";
+export {
+  componentPaths,
+  TouchesSchema,
+  TaskDefinitionSchema,
+  CodebaseGraphSchema,
+} from "./shared/types.js";
 ```
 
 Add the new types to the type re-exports block (after line 98):
@@ -369,6 +381,7 @@ feat(lib): export TaskDefinition and CodebaseGraph schemas and types
 ### Task 7: Update hand-maintained `lib.d.ts`
 
 **Files:**
+
 - Modify: `packages/core/lib.d.ts`
 
 **Step 1: Add `TaskDefinition` type**

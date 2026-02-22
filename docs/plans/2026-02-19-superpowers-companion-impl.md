@@ -14,16 +14,16 @@
 
 ### What exists today
 
-| Location | Contains |
-|----------|----------|
-| `packages/core/src/analysis/` | Co-change parser, coupling matrix, hotspot scoring, incremental cache, CodebaseGraph builder |
-| `packages/cli/src/coupling.ts` | `varp coupling` — full matrix, hotspots, file-level edges, component profiles |
-| `packages/plugin/hooks/scripts/session-start.sh` | Component listing, stale doc check, broken link check, cost tracking |
-| `packages/plugin/hooks/scripts/freshness-track.sh` | PostToolUse: identifies owning component of modified file |
-| `packages/plugin/hooks/hooks.json` | SessionStart (command), SubagentStart (command), Stop (prompt: lint), PostToolUse (freshness-track + auto-format) |
-| `packages/plugin/skills/` | 5 skills: init, status, plan, execute, review |
-| `packages/core/src/lib.ts` | Exports `findHiddenCoupling`, `buildCodebaseGraph`, `fileNeighborhood`, `computeHotspots`, `countLines`, etc. |
-| `.varp/co-change.json` | Cached co-change graph (incremental, keyed by HEAD SHA) |
+| Location                                           | Contains                                                                                                          |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/analysis/`                      | Co-change parser, coupling matrix, hotspot scoring, incremental cache, CodebaseGraph builder                      |
+| `packages/cli/src/coupling.ts`                     | `varp coupling` — full matrix, hotspots, file-level edges, component profiles                                     |
+| `packages/plugin/hooks/scripts/session-start.sh`   | Component listing, stale doc check, broken link check, cost tracking                                              |
+| `packages/plugin/hooks/scripts/freshness-track.sh` | PostToolUse: identifies owning component of modified file                                                         |
+| `packages/plugin/hooks/hooks.json`                 | SessionStart (command), SubagentStart (command), Stop (prompt: lint), PostToolUse (freshness-track + auto-format) |
+| `packages/plugin/skills/`                          | 5 skills: init, status, plan, execute, review                                                                     |
+| `packages/core/src/lib.ts`                         | Exports `findHiddenCoupling`, `buildCodebaseGraph`, `fileNeighborhood`, `computeHotspots`, `countLines`, etc.     |
+| `.varp/co-change.json`                             | Cached co-change graph (incremental, keyed by HEAD SHA)                                                           |
 
 ### What we're building
 
@@ -48,6 +48,7 @@
 The foundation. All hooks will consume this output.
 
 **Files:**
+
 - Create: `packages/cli/src/summary.ts`
 - Create: `packages/cli/src/__tests__/summary.test.ts`
 - Modify: `packages/cli/src/cli.ts`
@@ -212,7 +213,13 @@ export function computeSummary(manifestPath: string): ProjectSummary {
     // No git history or shallow clone — skip coupling
   }
 
-  return { components, stale_docs: stale, total_docs: total, coupling_hotspots: couplingHotspots, hotspot_files: hotspotFiles };
+  return {
+    components,
+    stale_docs: stale,
+    total_docs: total,
+    coupling_hotspots: couplingHotspots,
+    hotspot_files: hotspotFiles,
+  };
 }
 
 // ── Formatting ──
@@ -294,11 +301,13 @@ Expected: PASS (4 tests)
 **Step 5: Wire into CLI**
 
 In `packages/cli/src/cli.ts`:
+
 - Add import: `import { runSummaryCommand } from "./summary.js";`
 - Add to HELP_TEXT commands section: `  summary             Project health digest (coupling, freshness, stability)`
 - Add dispatch: `if (firstArg === "summary") return run(() => runSummaryCommand(restArgs));`
 
 In `packages/cli/src/completions.ts`:
+
 - Add `"summary"` to the command completions array.
 
 **Step 6: Build and verify**
@@ -320,11 +329,13 @@ git commit -m "feat(cli): add varp summary command for project health digest"
 Replace the bash-native component parsing with a call to `varp summary`, injecting coupling diagnostics and health indicators into the session.
 
 **Files:**
+
 - Modify: `packages/plugin/hooks/scripts/session-start.sh`
 
 **Step 1: Understand current behavior**
 
 The current `session-start.sh` does:
+
 1. Parse varp.yaml with grep/sed (component list)
 2. Check for stale docs (find + timestamp compare)
 3. Check for broken links (grep markdown links)
@@ -429,6 +440,7 @@ git commit -m "feat(hooks): inject graph context via varp summary in SessionStar
 When a file is modified, check if it's in a coupling hotspot. If so, note which files typically co-change with it.
 
 **Files:**
+
 - Modify: `packages/plugin/hooks/scripts/freshness-track.sh`
 
 **Step 1: Understand the coupling data source**
@@ -467,14 +479,17 @@ fi
 **Step 3: Test manually**
 
 Build CLI and run summary to populate cache:
+
 ```bash
 turbo build && bun run packages/cli/dist/cli.js summary
 ```
 
 Then simulate a PostToolUse event:
+
 ```bash
 echo '{"tool_name":"Write","tool_input":{"file_path":"packages/core/src/analysis/matrix.ts"}}' | bash packages/plugin/hooks/scripts/freshness-track.sh
 ```
+
 Expected: Shows component scope note + coupling note (if the file is in a hotspot).
 
 Run: `shellcheck packages/plugin/hooks/scripts/freshness-track.sh`
@@ -494,6 +509,7 @@ git commit -m "feat(hooks): add coupling awareness to PostToolUse hook"
 On-demand coupling diagnostics via MCP tools, for when the user wants deeper insight mid-session.
 
 **Files:**
+
 - Create: `packages/plugin/skills/coupling/SKILL.md`
 
 **Step 1: Write the skill**
@@ -516,12 +532,14 @@ You are a coupling analyst. Surface architectural coupling insights for the user
 ### Step 1: Determine scope
 
 If the user provided a file or component path as an argument, use that. Otherwise, check recent git changes:
+
 - Run `git diff --name-only HEAD` (or `git diff --name-only` for unstaged) to find recently modified files.
 - Use `varp_suggest_touches` with those file paths to identify affected components.
 
 ### Step 2: Run coupling analysis
 
 Call `varp_coupling_matrix` with `component` set to each affected component. This reveals:
+
 - **hidden_coupling**: High co-change but no import relationship — implicit dependencies to investigate.
 - **explicit_module**: High co-change and high imports — expected, well-documented coupling.
 - **stable_interface**: High imports but low co-change — good abstraction boundaries.
@@ -531,28 +549,32 @@ Call `varp_coupling_matrix` with `component` set to each affected component. Thi
 For the specific files being worked on, call `varp_build_codebase_graph` with `with_coupling: true`, then report which files typically co-change with the modified files.
 
 If the user is modifying a file in a hidden_coupling pair, flag this prominently:
+
 > "⚠ `auth/session.ts` has hidden coupling with `db/migrations/024.sql` (co-change weight 0.87, no import link). Changes here often require coordinated changes there."
 
 ### Step 4: Recommendations
 
 Based on the coupling analysis:
+
 - If hidden coupling exists: suggest checking those files for needed updates
 - If modifying a stable interface: note that dependents are unlikely to break
 - If adding new cross-component imports: note whether this creates a new coupling relationship
 
 ### Output format
-
 ```
+
 Coupling diagnostic for: <component or file list>
 
 Component-level:
-  <component> <-> <component>  <classification>  behavioral=<weight>
+<component> <-> <component> <classification> behavioral=<weight>
 
 File-level (top 5 co-changers):
-  <file> ↔ <file>  weight=<n>  <has-import|no-import>
+<file> ↔ <file> weight=<n> <has-import|no-import>
 
 Recommendations:
-  - <actionable items>
+
+- <actionable items>
+
 ```
 
 Keep output concise. The user is mid-task — give them what they need to make decisions, not a full audit report.
@@ -563,6 +585,7 @@ Keep output concise. The user is mid-task — give them what they need to make d
 Skills are auto-discovered from `packages/plugin/skills/`. The directory name `coupling` and frontmatter `name: coupling` make it accessible as `/varp:coupling`.
 
 Check that the plugin still loads:
+
 ```bash
 ls packages/plugin/skills/coupling/SKILL.md
 ```
@@ -581,6 +604,7 @@ git commit -m "feat(skills): add /varp:coupling for in-session coupling diagnost
 Replace the current prompt-based Stop hook (which just runs lint) with a command hook that summarizes what changed during the session.
 
 **Files:**
+
 - Create: `packages/plugin/hooks/scripts/session-stop.sh`
 - Modify: `packages/plugin/hooks/hooks.json`
 
@@ -691,9 +715,11 @@ In `packages/plugin/hooks/hooks.json`, change the Stop section to:
 **Step 3: Test manually**
 
 Make a trivial change to a tracked file, then:
+
 ```bash
 bash packages/plugin/hooks/scripts/session-stop.sh
 ```
+
 Expected: "Session impact: modified components: ..." + optional coupling warning + file count.
 
 Run: `shellcheck packages/plugin/hooks/scripts/session-stop.sh`
@@ -713,6 +739,7 @@ git commit -m "feat(hooks): add session impact summary to Stop hook"
 Reflect ADR-003's companion positioning across project docs.
 
 **Files:**
+
 - Modify: `packages/plugin/.claude-plugin/plugin.json`
 - Modify: `packages/plugin/.claude-plugin/marketplace.json` (if exists)
 - Modify: `packages/plugin/hooks/README.md`
@@ -726,6 +753,7 @@ Change description to: "Graph-aware project analysis: coupling diagnostics, depe
 **Step 2: Update hooks README**
 
 Document the enhanced hook lifecycle:
+
 - SessionStart: graph context injection (coupling hotspots, freshness, component health)
 - PostToolUse: component scope tracking + coupling neighborhood awareness
 - SubagentStart: convention injection for subagents
@@ -734,6 +762,7 @@ Document the enhanced hook lifecycle:
 **Step 3: Update CLAUDE.md**
 
 Add a brief note in the Architecture section:
+
 > Varp is a graph-aware companion to workflow plugins like superpowers. It provides structural awareness (coupling diagnostics, scope enforcement, contract verification) while deferring to workflow plugins for process methodology (TDD, brainstorming, code review). See ADR-003.
 
 **Step 4: Mark ADR phases done**

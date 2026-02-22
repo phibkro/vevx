@@ -14,12 +14,12 @@
 
 ### What exists today
 
-| Location | Contains |
-|----------|----------|
-| `packages/core/src/execution/types.ts` | `ModelCallerResultSchema`, `ModelCaller` type |
-| `packages/core/src/execution/chunker.ts` | `FileContentSchema`, `ChunkSchema`, `estimateTokens()`, `createChunks()` |
-| `packages/core/src/shared/types.ts` | `ExecutionMetricsSchema` (unused producer), `TaskLogSchema` (plan execution) |
-| `packages/audit/src/planner/executor.ts` | `runWithConcurrency()` (audit-specific types hardcoded) |
+| Location                                 | Contains                                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `packages/core/src/execution/types.ts`   | `ModelCallerResultSchema`, `ModelCaller` type                                |
+| `packages/core/src/execution/chunker.ts` | `FileContentSchema`, `ChunkSchema`, `estimateTokens()`, `createChunks()`     |
+| `packages/core/src/shared/types.ts`      | `ExecutionMetricsSchema` (unused producer), `TaskLogSchema` (plan execution) |
+| `packages/audit/src/planner/executor.ts` | `runWithConcurrency()` (audit-specific types hardcoded)                      |
 
 ### What we're building
 
@@ -39,6 +39,7 @@
 ### Task 1: Define TaskResultSchema
 
 **Files:**
+
 - Modify: `packages/core/src/execution/types.ts`
 - Test: `packages/core/src/execution/types.test.ts` (create)
 
@@ -148,6 +149,7 @@ git commit -m "feat(execution): add TaskResultSchema for executor output contrac
 ### Task 2: Extract runWithConcurrency to core
 
 **Files:**
+
 - Create: `packages/core/src/execution/concurrency.ts`
 - Test: `packages/core/src/execution/concurrency.test.ts` (create)
 
@@ -299,6 +301,7 @@ git commit -m "feat(execution): extract generic runWithConcurrency worker pool"
 ### Task 3: Export from lib.ts and update lib.d.ts
 
 **Files:**
+
 - Modify: `packages/core/src/lib.ts`
 - Modify: `packages/core/lib.d.ts`
 
@@ -367,6 +370,7 @@ git commit -m "feat(execution): export TaskResult and runWithConcurrency from @v
 ### Task 4: Migrate audit to use core's runWithConcurrency
 
 **Files:**
+
 - Modify: `packages/audit/src/planner/executor.ts`
 
 **Step 1: Replace audit's local runWithConcurrency with core's**
@@ -374,6 +378,7 @@ git commit -m "feat(execution): export TaskResult and runWithConcurrency from @v
 In `packages/audit/src/planner/executor.ts`:
 
 1. Add import at top:
+
 ```typescript
 import { runWithConcurrency } from "@varp/core/lib";
 ```
@@ -408,6 +413,7 @@ git commit -m "refactor(audit): use core's runWithConcurrency instead of local c
 ### Task 5: Update docs and ADR
 
 **Files:**
+
 - Modify: `packages/core/src/execution/README.md`
 - Modify: `docs/decisions/adr-002-three-layer-architecture.md`
 - Modify: `packages/core/README.md` (add TaskResult to type reference)
@@ -416,22 +422,25 @@ git commit -m "refactor(audit): use core's runWithConcurrency instead of local c
 
 Add to the Key Exports table in `packages/core/src/execution/README.md`:
 
-| Export | File | Purpose |
-|--------|------|---------|
-| `TaskResultSchema` / `TaskResult` | `types.ts` | Executor output: status, metrics, files, observations |
-| `TaskResultMetricsSchema` / `TaskResultMetrics` | `types.ts` | Resource usage: tokens, duration, cost |
-| `runWithConcurrency()` | `concurrency.ts` | Generic bounded worker pool (shared task queue pattern) |
-| `ConcurrencyCallbacks` | `concurrency.ts` | Progress callbacks for the worker pool |
+| Export                                          | File             | Purpose                                                 |
+| ----------------------------------------------- | ---------------- | ------------------------------------------------------- |
+| `TaskResultSchema` / `TaskResult`               | `types.ts`       | Executor output: status, metrics, files, observations   |
+| `TaskResultMetricsSchema` / `TaskResultMetrics` | `types.ts`       | Resource usage: tokens, duration, cost                  |
+| `runWithConcurrency()`                          | `concurrency.ts` | Generic bounded worker pool (shared task queue pattern) |
+| `ConcurrencyCallbacks`                          | `concurrency.ts` | Progress callbacks for the worker pool                  |
 
 Update the Consumers section to mention the worker pool.
 
 **Step 2: Mark ADR step 4 as done**
 
 In `docs/decisions/adr-002-three-layer-architecture.md`, change line 116:
+
 ```
 4. Define `TaskResult` schema and wire it through the execution layer — deferred until executor adapters stabilize
 ```
+
 to:
+
 ```
 4. ~~Define `TaskResult` schema and wire it through the execution layer~~ **DONE** — `TaskResultSchema` + `runWithConcurrency()` in `execution/`; audit migrated
 ```

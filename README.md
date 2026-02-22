@@ -16,7 +16,7 @@ Varp manages the gap between what agents know and what's actually true. It track
 
 ```bash
 # From the marketplace
-/plugin marketplace add phibkro/varp
+/plugin marketplace add phibkro/vevx
 ```
 
 Or install from source:

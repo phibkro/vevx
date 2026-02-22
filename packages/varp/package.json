@@ -1,7 +1,23 @@
 {
   "name": "@vevx/varp",
   "version": "0.1.0",
+  "description": "Graph-aware project analysis and manifest-driven agent orchestration",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/phibkro/vevx.git",
+    "directory": "packages/varp"
+  },
+  "engines": {
+    "bun": ">=1.3"
+  },
+  "files": [
+    "build/",
+    "dist/",
+    "lib.d.ts",
+    "README.md"
+  ],
   "bin": {
     "varp": "./dist/cli.js"
   },

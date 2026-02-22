@@ -55,6 +55,7 @@ The consumer maps `Wave.tasks` back to full `Task` objects for dispatch using th
 ### 3. Update scheduler functions
 
 Replace file-local `Pick<Task, ...>` types with `TaskDefinition`:
+
 - `hazards.ts`: `TaskRef` → `TaskDefinition`
 - `waves.ts`: `SchedulableTask` → `TaskDefinition`
 - `critical-path.ts`: `SchedulableTask` → `TaskDefinition`
@@ -81,13 +82,13 @@ Export `CodebaseGraph`, `TaskDefinition`, and the updated `Wave` type. Update th
 
 ## Blast radius
 
-| Area | Impact |
-|---|---|
-| `shared/types.ts` | Additive (new schemas) + narrowing (`WaveSchema.tasks`) |
-| `scheduler/*.ts` | Type-only (replace local `Pick<>` with `TaskDefinition`) |
-| `MCP tool handlers` | Minor mapping (extract `TaskDefinition[]` from `Task[]`) |
-| `lib.ts` / `lib.d.ts` | Additive (new exports) + update (`Wave` type change) |
-| Tests | Scheduler tests may need fixture updates if they construct full `Task` objects where `TaskDefinition` now suffices |
+| Area                  | Impact                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `shared/types.ts`     | Additive (new schemas) + narrowing (`WaveSchema.tasks`)                                                            |
+| `scheduler/*.ts`      | Type-only (replace local `Pick<>` with `TaskDefinition`)                                                           |
+| `MCP tool handlers`   | Minor mapping (extract `TaskDefinition[]` from `Task[]`)                                                           |
+| `lib.ts` / `lib.d.ts` | Additive (new exports) + update (`Wave` type change)                                                               |
+| Tests                 | Scheduler tests may need fixture updates if they construct full `Task` objects where `TaskDefinition` now suffices |
 
 ## Verification
 

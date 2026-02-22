@@ -273,7 +273,7 @@ The foundation. Build the relational analysis engine and hook integration surfac
 
 ## References
 
-- Varp: https://github.com/phibkro/varp
+- Varp: https://github.com/phibkro/vevx
 - Superpowers: https://github.com/obra/superpowers
 - ADR-002: Three-Layer Architecture (analysis/scheduler/executor)
 - Relational Architecture Analysis Design Doc v5
