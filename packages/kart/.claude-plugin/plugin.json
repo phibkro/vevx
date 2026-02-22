@@ -1,0 +1,5 @@
+{
+  "name": "kart",
+  "version": "0.1.0",
+  "description": "Progressive code disclosure and behavioral coupling analysis via LSP and git history"
+}
