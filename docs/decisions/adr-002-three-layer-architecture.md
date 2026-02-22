@@ -6,7 +6,7 @@
 
 ## Context
 
-Varp currently packages codebase analysis (manifest parsing, import scanning, dependency graphs, freshness tracking) alongside agent orchestration (plans, wave scheduling, hazard detection, capability enforcement) and execution concerns (chunking, token estimation, model calling) within two packages: `@varp/core` and `@varp/audit`.
+Varp currently packages codebase analysis (manifest parsing, import scanning, dependency graphs, freshness tracking) alongside agent orchestration (plans, wave scheduling, hazard detection, capability enforcement) and execution concerns (chunking, token estimation, model calling) within two packages: `@vevx/varp` and `@vevx/audit`.
 
 This worked for initial development — the scheduler needs analysis, so they shipped together. But the coupling creates three problems:
 
@@ -27,6 +27,7 @@ Separate varp into three architectural layers with well-defined interface contra
 Understand the codebase. Pure functions over files and git history. No AI, no tokens, no scheduling.
 
 Contains two internal phases (see The Compiler Analogy):
+
 - **Parsing:** Manifest parsing, import scanning, git log walking, file enumeration → raw `CodebaseGraph`
 - **Analysis passes:** Co-change weighting, hotspot scoring, complexity trends, coupling diagnostics, component inference → enriched `CodebaseGraph`
 
@@ -80,13 +81,14 @@ The layers compose through schemas, not through shared code:
 
 The scheduler is a pure function: `TaskDefinition[] → Wave[]`. It has no knowledge of executors or analysis. The consumer bridges the layers — it queries analysis to understand what to work on, submits task definitions to the scheduler, and dispatches waves to an executor.
 
-Domain packages (audit, migrate, document) are *consumers* that compose all three layers. The layers don't depend on each other directly — the consumer is the composition point.
+Domain packages (audit, migrate, document) are _consumers_ that compose all three layers. The layers don't depend on each other directly — the consumer is the composition point.
 
 The Claude Code plugin becomes a thin adapter in the execution layer, not the core product.
 
 ## Consequences
 
 **Positive:**
+
 - Analysis tools become independently useful (coupling diagnostics without AI)
 - Scheduler becomes executor-agnostic (same Wave[] output for humans, LLMs, or scripts — only the evaluation strategy differs)
 - Execution concerns are isolated (different LLM adapters, human task assignment)
@@ -95,11 +97,13 @@ The Claude Code plugin becomes a thin adapter in the execution layer, not the co
 - The co-change analysis and coupling diagnostics have a clean home in the analysis layer
 
 **Negative:**
+
 - Package restructuring required (though the internal module boundaries already approximate this split)
 - Interface contracts need careful design — too rigid and they limit extensibility, too loose and they don't guarantee composability
 - Some current conveniences (e.g., tools that combine analysis + scheduling in one call) may need to be reimplemented as compositions
 
 **Neutral:**
+
 - The existing `varp.yaml` manifest format is unaffected — it's an analysis-layer concern
 - The existing `plan.xml` format is unaffected — it's a scheduler-layer concern
 - The MCP tool surface can remain the same externally while the internal organization shifts
@@ -112,31 +116,31 @@ This separation can be gradual. The internal module boundaries (`manifest/`, `sc
 
 1. ~~Define the interface schemas (`CodebaseGraph`, `TaskDefinition`, `Wave`, `TaskResult`) as Zod schemas~~ **DONE** — `TaskDefinitionSchema` and `CodebaseGraphSchema` in `shared/types.ts`
 2. ~~Ensure existing modules conform to layer boundaries (no analysis module importing scheduling concepts)~~ **DONE** — `buildCodebaseGraph()` in `analysis/graph.ts`, exposed via `varp_build_codebase_graph` MCP tool
-3. ~~Extract chunking and token estimation from audit into an execution-layer module~~ **DONE** — `execution/chunker.ts` and `execution/types.ts` in core; audit re-exports from `@varp/core/lib`
+3. ~~Extract chunking and token estimation from audit into an execution-layer module~~ **DONE** — `execution/chunker.ts` and `execution/types.ts` in core; audit re-exports from `@vevx/varp/lib`
 4. ~~Define `TaskResult` schema and wire it through the execution layer~~ **DONE** — `TaskResultSchema` in `execution/types.ts`, `runWithConcurrency` in `execution/concurrency.ts`; audit migrated to use core's implementation
 
 ## Relationship to Existing Architecture
 
 This refines rather than replaces the three-graph separation described in the architecture doc (§3.5):
 
-| Existing Graph | Layer | Relationship |
-|---|---|---|
-| Project graph (manifest) | Analysis | The persistent codebase model |
-| Task graph (plan) | Scheduler | The work schedule |
-| Action graph (execution) | Execution | The concrete dispatch |
+| Existing Graph           | Layer     | Relationship                  |
+| ------------------------ | --------- | ----------------------------- |
+| Project graph (manifest) | Analysis  | The persistent codebase model |
+| Task graph (plan)        | Scheduler | The work schedule             |
+| Action graph (execution) | Execution | The concrete dispatch         |
 
-The three-graph model described *what* the graphs are. This ADR describes *where they live* and *how they compose*.
+The three-graph model described _what_ the graphs are. This ADR describes _where they live_ and _how they compose_.
 
 ## The Compiler Analogy
 
 The system maps precisely to compiler architecture:
 
-| Phase | Compiler Analog | Input → Output |
-|---|---|---|
-| **Parser** | Lexer + Parser | codebase → graph (DAG) |
-| **Analysis** | Optimization passes | graph → enriched graph |
+| Phase         | Compiler Analog       | Input → Output                |
+| ------------- | --------------------- | ----------------------------- |
+| **Parser**    | Lexer + Parser        | codebase → graph (DAG)        |
+| **Analysis**  | Optimization passes   | graph → enriched graph        |
 | **Scheduler** | Instruction selection | enriched graph + goal → waves |
-| **Executor** | Interpreter / Runtime | waves → side effects |
+| **Executor**  | Interpreter / Runtime | waves → side effects          |
 
 The **analysis layer** (see Layer 1) contains two internal phases:
 

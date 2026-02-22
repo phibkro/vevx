@@ -4,12 +4,12 @@ Current state of Varp relative to the design documents. Updated February 2026.
 
 ## What's Built
 
-| Layer | Details |
-|-------|---------|
-| MCP tools | Manifest, Scheduler, Plan, Enforcement, Analysis |
-| Skills | init, plan, execute, review, status |
-| Hooks | SessionStart, SubagentStart, PostToolUse (freshness + auto-format), Stop (lint advisory) |
-| Tests | Co-located `*.test.ts` files, run with `bun test` |
+| Layer     | Details                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------- |
+| MCP tools | Manifest, Scheduler, Plan, Enforcement, Analysis                                         |
+| Skills    | init, plan, execute, review, status                                                      |
+| Hooks     | SessionStart, SubagentStart, PostToolUse (freshness + auto-format), Stop (lint advisory) |
+| Tests     | Co-located `*.test.ts` files, run with `bun test`                                        |
 
 ### MCP Tools by Category
 
@@ -25,23 +25,23 @@ Current state of Varp relative to the design documents. Updated February 2026.
 
 ### Skills
 
-| Skill | Status | Notes |
-|-------|--------|-------|
-| `/varp:init` | Complete | Scaffolds `varp.yaml`. Supports Nx, Turborepo, moon graph import. Scans root `docs/` for component matches. |
-| `/varp:plan` | Complete | Planner protocol (budget step removed per ADR-001). Suggests Turbo/Nx test runners. |
-| `/varp:execute` | Complete | Orchestrator protocol. Advisory monorepo scope checks. OTel correlation guidance. |
-| `/varp:review` | Complete | Medium loop: diff plan vs log.xml. OTel dashboard guidance for external metrics. |
-| `/varp:status` | Complete | Project state report. |
+| Skill           | Status   | Notes                                                                                                       |
+| --------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `/varp:init`    | Complete | Scaffolds `varp.yaml`. Supports Nx, Turborepo, moon graph import. Scans root `docs/` for component matches. |
+| `/varp:plan`    | Complete | Planner protocol (budget step removed per ADR-001). Suggests Turbo/Nx test runners.                         |
+| `/varp:execute` | Complete | Orchestrator protocol. Advisory monorepo scope checks. OTel correlation guidance.                           |
+| `/varp:review`  | Complete | Medium loop: diff plan vs log.xml. OTel dashboard guidance for external metrics.                            |
+| `/varp:status`  | Complete | Project state report.                                                                                       |
 
 ### Hooks
 
-| Hook | Trigger | Type | Purpose |
-|------|---------|------|---------|
-| SessionStart | Session start | command | Load manifest, display project state and cost tracking status |
-| SubagentStart | Subagent dispatch | command | Inject conventions from `.claude/rules/subagent-conventions.md` |
-| PostToolUse (Write/Edit) | File modification | command | Flag component docs for freshness review |
-| PostToolUse (Write/Edit) | File modification | command | Auto-format modified files with oxfmt |
-| Stop | Claude finishes turn | prompt | Run `varp_lint` to check for stale docs, broken links, missing deps |
+| Hook                     | Trigger              | Type    | Purpose                                                             |
+| ------------------------ | -------------------- | ------- | ------------------------------------------------------------------- |
+| SessionStart             | Session start        | command | Load manifest, display project state and cost tracking status       |
+| SubagentStart            | Subagent dispatch    | command | Inject conventions from `.claude/rules/subagent-conventions.md`     |
+| PostToolUse (Write/Edit) | File modification    | command | Flag component docs for freshness review                            |
+| PostToolUse (Write/Edit) | File modification    | command | Auto-format modified files with oxfmt                               |
+| Stop                     | Claude finishes turn | prompt  | Run `varp_lint` to check for stale docs, broken links, missing deps |
 
 ## Changes from Design Doc
 
@@ -56,6 +56,7 @@ Not in original design. Components auto-discover `{path}/README.md` and `{path}/
 ### Monorepo Tool Integration
 
 Added post-design. Three integration points:
+
 - **init** imports dependency graphs from Nx, Turborepo, or moon CLI
 - **plan** suggests monorepo-aware test runners for verification commands
 - **execute** performs advisory scope checks via `nx affected` or `turbo query`
@@ -75,6 +76,7 @@ Design doc specified per-task token/time budgets enforced at runtime. Dropped en
 ### Expanded Orchestrator Protocol
 
 Design doc specified steps select through advance. Implementation adds:
+
 - **Step 3b** (Check Environment Prerequisites): Verify component `env` fields before dispatch
 - **Step 6** (Verify Freshness): Check doc freshness after task completion, resume subagent if stale
 - **Step 7b** (Advisory Scope Check): Cross-check via `nx affected` or `turbo query` when monorepo tools available
@@ -88,7 +90,7 @@ Data source priority: OpenTelemetry (`CLAUDE_CODE_ENABLE_TELEMETRY=1`) provides 
 
 ### Single Library Entry Point
 
-Design doc (§3.4) described two entry points: `@varp/core/lib` (Bun-free, pure functions) and `@varp/core/bun` (Bun-dependent functions). These were collapsed into a single `@varp/core/lib` entry point that exports everything. The split was unnecessary — all consumers (`@varp/audit`, `@varp/cli`) already require Bun at runtime. One entry point, one hand-maintained `lib.d.ts`.
+Design doc (§3.4) described two entry points: `@vevx/varp/lib` (Bun-free, pure functions) and `@vevx/varp/bun` (Bun-dependent functions). These were collapsed into a single `@vevx/varp/lib` entry point that exports everything. The split was unnecessary — all consumers (`@vevx/audit`, `@vevx/varp`) already require Bun at runtime. One entry point, one hand-maintained `lib.d.ts`.
 
 ### MCP Server Delivery
 
@@ -98,28 +100,28 @@ Design doc (§3.4) describes the MCP server delivered via the plugin's `plugin.j
 
 ### From Design Doc
 
-| Feature | Design Section | Status | Notes |
-|---------|---------------|--------|-------|
-| Git worktrees for parallel isolation | 4.3 | Deferred | Requires Claude Code worktree support |
-| WAR context snapshotting | 4.2 | Deferred | Depends on worktree isolation |
-| Prompt caching integration | 3.4 | Deferred | Requires Anthropic SDK cache breakpoint API |
-| Batch API for verification | 3.4 | Deferred | Optimization, not blocking |
-| ~~Budget enforcement at runtime~~ | 2.2 | Dropped | Reframed as observability metrics — see [ADR-001](../decisions/adr-001-budget-observability.md) |
-| Warm agent staleness detection | 7.7 | Implemented | `varp_check_warm_staleness` tool checks component mtimes against baseline |
-| Medium loop UX | 7.1 | Partial | `/varp:review` skill exists but UX is underspecified |
-| Decision authority matrix | 7.3 | Open | Escalation thresholds need empirical tuning |
+| Feature                              | Design Section | Status      | Notes                                                                                           |
+| ------------------------------------ | -------------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| Git worktrees for parallel isolation | 4.3            | Deferred    | Requires Claude Code worktree support                                                           |
+| WAR context snapshotting             | 4.2            | Deferred    | Depends on worktree isolation                                                                   |
+| Prompt caching integration           | 3.4            | Deferred    | Requires Anthropic SDK cache breakpoint API                                                     |
+| Batch API for verification           | 3.4            | Deferred    | Optimization, not blocking                                                                      |
+| ~~Budget enforcement at runtime~~    | 2.2            | Dropped     | Reframed as observability metrics — see [ADR-001](../decisions/adr-001-budget-observability.md) |
+| Warm agent staleness detection       | 7.7            | Implemented | `varp_check_warm_staleness` tool checks component mtimes against baseline                       |
+| Medium loop UX                       | 7.1            | Partial     | `/varp:review` skill exists but UX is underspecified                                            |
+| Decision authority matrix            | 7.3            | Open        | Escalation thresholds need empirical tuning                                                     |
 
 ### Extensions (Not in Original Design Doc)
 
-| Extension | Purpose | Status |
-|-----------|---------|--------|
-| `tags` on components | Freeform labels for filtering and grouping | Implemented |
-| `test` on components | Per-component test command (overrides `*.test.ts` discovery in `varp_scoped_tests`) | Implemented |
-| `env` on components | Runtime prerequisites (informational) | Implemented |
-| `stability` on components | `stable` / `active` / `experimental` | Implemented |
-| Three-graph separation | Project/task/action graph decomposition | Documented in architecture |
-| Named mutexes on tasks | Exclusive resource locks beyond component graph | Implemented |
-| OTel status detection | Session-start hook detects `CLAUDE_CODE_ENABLE_TELEMETRY` and exporter config | Implemented |
+| Extension                 | Purpose                                                                             | Status                     |
+| ------------------------- | ----------------------------------------------------------------------------------- | -------------------------- |
+| `tags` on components      | Freeform labels for filtering and grouping                                          | Implemented                |
+| `test` on components      | Per-component test command (overrides `*.test.ts` discovery in `varp_scoped_tests`) | Implemented                |
+| `env` on components       | Runtime prerequisites (informational)                                               | Implemented                |
+| `stability` on components | `stable` / `active` / `experimental`                                                | Implemented                |
+| Three-graph separation    | Project/task/action graph decomposition                                             | Documented in architecture |
+| Named mutexes on tasks    | Exclusive resource locks beyond component graph                                     | Implemented                |
+| OTel status detection     | Session-start hook detects `CLAUDE_CODE_ENABLE_TELEMETRY` and exporter config       | Implemented                |
 
 ### Type-Aware Linting
 
@@ -127,4 +129,4 @@ oxlint runs with `--type-aware` across all packages (via `oxlint-tsgolint`). Cor
 
 ## Architecture
 
-See [Design Principles](design-principles.md) for foundations, [Architecture](design-architecture.md) for the full design, and [Internal Architecture](../../packages/core/docs/architecture.md) for module-level implementation details.
+See [Design Principles](design-principles.md) for foundations, [Architecture](design-architecture.md) for the full design, and [Internal Architecture](../../packages/varp/docs/architecture.md) for module-level implementation details.

@@ -8,6 +8,7 @@
   "scripts": {
     "build": "bun build ./src/Cli.ts ./src/Mcp.ts --outdir ./dist --target bun",
     "test": "bun test --concurrent",
+    "test:coverage": "bun test --concurrent --coverage",
     "lint": "oxlint --type-aware",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",

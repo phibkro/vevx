@@ -25,6 +25,7 @@ Three issues emerged during implementation:
 **Drop budget enforcement from the plan schema and orchestrator protocol.** Reframe token/time tracking as process accounting — an observability concern, not a control mechanism.
 
 Specifically:
+
 - Remove `<budget>` elements from the plan XML schema
 - Remove budget-setting from the planner protocol
 - Remove Budget and Monitor steps from the orchestrator's chain of thought
@@ -34,16 +35,19 @@ Specifically:
 ## Consequences
 
 **Positive:**
+
 - Simpler plan schema (fewer fields for the planner to estimate incorrectly)
 - Simpler orchestrator protocol (12 steps instead of 14)
 - No false sense of control from unenforceable limits
 - Execution cost data still available for medium loop calibration
 
 **Negative:**
+
 - No automated protection against runaway tasks (relies on Claude Code's own context window limits and user spend controls)
 - The planner loses a structured field for communicating "this task should be small" — must express scope constraints in the task description instead
 
 **Neutral:**
+
 - The audit package's `--budget` flag is unaffected — that's a user-specified cost ceiling for a whole audit run, a different concept from per-task estimation
 - If Claude Code later exposes token counting and subagent termination APIs, enforcement can be reconsidered as an additive feature without schema changes
 

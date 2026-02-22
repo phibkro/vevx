@@ -21,30 +21,30 @@ Resolution precedence: component name (exact match) > tag > error. This prevents
 
 ## Two Expansion Layers
 
-### 1. Parse-time: `resolveDeps` in `packages/core/src/manifest/parser.ts`
+### 1. Parse-time: `resolveDeps` in `packages/varp/src/manifest/parser.ts`
 
 `deps` entries expand when the manifest is parsed. Downstream code (graph traversal, lint, imports, render) only sees resolved component names. Self-exclusion applies: a component tagged `core` with `deps: [core]` does not depend on itself.
 
 ```yaml
 cli:
-  path: ./packages/cli/src
-  deps: [core]  # expands to all core-tagged components
+  path: ./packages/varp/src/cli/src
+  deps: [core] # expands to all core-tagged components
 ```
 
-### 2. API-boundary: `resolveComponentRefs` in `packages/core/src/shared/ownership.ts`
+### 2. API-boundary: `resolveComponentRefs` in `packages/varp/src/shared/ownership.ts`
 
 MCP tool parameters that accept component name arrays expand tags before delegating to core functions. No self-exclusion (no "self" concept at the API boundary).
 
 **Affected tools:**
 
-| Tool | Parameters |
-|------|-----------|
-| `varp_resolve_docs` | `reads`, `writes` |
-| `varp_invalidation_cascade` | `changed` |
-| `varp_ack_freshness` | `components` |
-| `varp_verify_capabilities` | `reads`, `writes` |
-| `varp_check_env` | `components` |
-| `varp_check_warm_staleness` | `components` |
+| Tool                        | Parameters        |
+| --------------------------- | ----------------- |
+| `varp_resolve_docs`         | `reads`, `writes` |
+| `varp_invalidation_cascade` | `changed`         |
+| `varp_ack_freshness`        | `components`      |
+| `varp_verify_capabilities`  | `reads`, `writes` |
+| `varp_check_env`            | `components`      |
+| `varp_check_warm_staleness` | `components`      |
 
 ### Where expansion does NOT apply
 

@@ -18,13 +18,13 @@ languages: [typescript, python, go]
 ---
 ```
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `framework` | Yes | Name of the compliance framework |
-| `version` | Yes | Version of the standard being encoded |
-| `ruleset_version` | No | Version of this ruleset file (default: `0.1.0`) |
-| `scope` | No | What kinds of codebases this applies to |
-| `languages` | No | Target programming languages (informational) |
+| Field             | Required | Description                                     |
+| ----------------- | -------- | ----------------------------------------------- |
+| `framework`       | Yes      | Name of the compliance framework                |
+| `version`         | Yes      | Version of the standard being encoded           |
+| `ruleset_version` | No       | Version of this ruleset file (default: `0.1.0`) |
+| `scope`           | No       | What kinds of codebases this applies to         |
+| `languages`       | No       | Target programming languages (informational)    |
 
 ### Rules
 
@@ -45,6 +45,7 @@ Description of the category (optional, ignored by parser).
 **Violation:** Description of what incorrect code looks like.
 
 **What to look for:**
+
 - Specific pattern or code smell to check
 - Another pattern to check
 - A third thing to look for
@@ -54,21 +55,23 @@ Description of the category (optional, ignored by parser).
 
 **Field reference:**
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `Severity` | Yes | `Critical`, `High`, `Medium`, `Low`, or `Informational` |
-| `Applies to` | Yes | Comma-separated list of component types this rule targets |
-| `Compliant` | Yes | What correct behavior looks like |
-| `Violation` | Yes | What incorrect behavior looks like |
-| `What to look for` | No | Bulleted list of specific patterns to check |
-| `Guidance` | No | Interpretation hints, false positive notes, edge cases |
+| Field              | Required | Description                                               |
+| ------------------ | -------- | --------------------------------------------------------- |
+| `Severity`         | Yes      | `Critical`, `High`, `Medium`, `Low`, or `Informational`   |
+| `Applies to`       | Yes      | Comma-separated list of component types this rule targets |
+| `Compliant`        | Yes      | What correct behavior looks like                          |
+| `Violation`        | Yes      | What incorrect behavior looks like                        |
+| `What to look for` | No       | Bulleted list of specific patterns to check               |
+| `Guidance`         | No       | Interpretation hints, false positive notes, edge cases    |
 
 **Rule ID conventions:**
+
 - Short, uppercase, hyphenated: `BAC-01`, `CRYPTO-03`, `ORG-SEC-01`
 - Prefix groups related rules: `BAC-*` for access control, `INJ-*` for injection
 - These IDs are used in suppressions (`// audit-suppress BAC-01`) and drift tracking
 
 **Severity levels** (used for prioritization and reporting):
+
 - **Critical** — actively exploitable, immediate risk
 - **High** — significant risk, should fix before release
 - **Medium** — moderate risk, fix when practical
@@ -100,16 +103,17 @@ Define them under a `## Cross-Cutting` category heading (the heading must contai
 **Objective:** What this cross-cutting analysis should determine.
 
 **What to verify:**
+
 - Check that spans multiple components
 - Another cross-component check
 ```
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `Scope` | No | What parts of the codebase to analyze (default: `Full codebase`) |
-| `Relates to` | No | Comma-separated rule IDs this pattern relates to |
-| `Objective` | Yes | What the analysis should determine |
-| `What to verify` | Yes | Bulleted list of cross-component checks |
+| Field            | Required | Description                                                      |
+| ---------------- | -------- | ---------------------------------------------------------------- |
+| `Scope`          | No       | What parts of the codebase to analyze (default: `Full codebase`) |
+| `Relates to`     | No       | Comma-separated rule IDs this pattern relates to                 |
+| `Objective`      | Yes      | What the analysis should determine                               |
+| `What to verify` | Yes      | Bulleted list of cross-component checks                          |
 
 Cross-cutting pattern IDs must start with `CROSS-` followed by a number.
 
@@ -148,6 +152,7 @@ languages: [typescript]
 **Violation:** JWT tokens decoded without signature verification, or only the payload is read without checking `exp` and `iss` claims.
 
 **What to look for:**
+
 - Use of `jwt.decode()` instead of `jwt.verify()` for authentication decisions
 - Missing `algorithms` option in verify calls (allows algorithm confusion attacks)
 - No check on `exp` claim (accepts expired tokens)
@@ -165,6 +170,7 @@ languages: [typescript]
 **Objective:** Verify that authentication tokens are propagated correctly between services and not logged, cached in plaintext, or passed via URL query parameters.
 
 **What to verify:**
+
 - Tokens are passed in Authorization headers, not URL parameters
 - Tokens are not included in log output or error messages
 - Token caching (if any) uses encrypted storage with TTL

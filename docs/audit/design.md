@@ -86,7 +86,7 @@ The report is structured data (JSON/YAML) that can be rendered into human-readab
 
 ### Composition with Varp Core
 
-Varp Audit depends on `@varp/core/lib` for manifest types, chunking utilities, and concurrency primitives (`runWithConcurrency`). It imports `ModelCaller` and `ModelCallerResult` types from core. However, audit owns its own execution pipeline — a 3-wave planner/executor that runs directly, not via Core's strategy layer.
+Varp Audit depends on `@vevx/varp/lib` for manifest types, chunking utilities, and concurrency primitives (`runWithConcurrency`). It imports `ModelCaller` and `ModelCallerResult` types from core. However, audit owns its own execution pipeline — a 3-wave planner/executor that runs directly, not via Core's strategy layer.
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -108,7 +108,7 @@ Varp Audit depends on `@varp/core/lib` for manifest types, chunking utilities, a
 │  Generic Review (separate path):                   │
 │  files → orchestrator → weighted agents → report   │
 ├──────────────────────────────────────────────────┤
-│                  @varp/core/lib                    │
+│                  @vevx/varp/lib                    │
 │                                                   │
 │  Manifest types, componentPaths, estimateTokens,  │
 │  createChunks, runWithConcurrency,                │
@@ -121,6 +121,7 @@ Varp Audit depends on `@varp/core/lib` for manifest types, chunking utilities, a
 Varp Audit is responsible for:
 
 **Two execution modes:**
+
 1. **Generic review** — `runAudit()` runs 7 weighted agents (correctness, security, performance, maintainability, edge-cases, accessibility, documentation) in parallel, producing scored findings with a weighted-average overall score.
 2. **Compliance audit** — `executeAuditPlan()` runs a 3-wave plan against a parsed ruleset, producing a structured compliance report with coverage tracking and corroboration.
 
@@ -136,7 +137,7 @@ Varp Audit is responsible for:
 
 **CLI** — `varp-audit` binary with `audit`, `login`, `logout` subcommands. Calls Claude via the Claude Code CLI (`claude -p`), not the Anthropic API directly.
 
-**Backend abstraction** — `ModelCaller` interface (imported from `@varp/core/lib`) lets consumers inject any LLM backend. The CLI injects a Claude Code CLI caller; tests can inject mocks.
+**Backend abstraction** — `ModelCaller` interface (imported from `@vevx/varp/lib`) lets consumers inject any LLM backend. The CLI injects a Claude Code CLI caller; tests can inject mocks.
 
 ### Manifest Handling
 
@@ -167,13 +168,14 @@ Wave 3: Synthesis (in-process, no API call)
 
 Each task in waves 1-2: generate prompt (`generatePrompt()`) with rules/code context, call `ModelCaller` with JSON schema for constrained decoding (`AUDIT_FINDINGS_SCHEMA`), parse response into `AuditTaskResult`.
 
-Concurrency is controlled via `runWithConcurrency()` from `@varp/core/lib` (default: 5 concurrent API calls per wave).
+Concurrency is controlled via `runWithConcurrency()` from `@vevx/varp/lib` (default: 5 concurrent API calls per wave).
 
 Risk-priority ordering within waves ensures critical-severity rules are scanned first. Budget enforcement (`--budget`) tracks cumulative estimated tokens and skips low-priority tasks when exceeded.
 
 ### Synthesis
 
 Wave 3 runs in-process (no API call):
+
 1. `deduplicateFindings()` — groups overlapping findings (same ruleId + overlapping file/line range), picks canonical finding by severity then confidence, computes corroboration count and effective confidence
 2. `applySuppressions()` — applies config-file and inline suppressions
 3. `computeCoverage()` — tracks which (component, rule) pairs were checked
@@ -238,7 +240,7 @@ packages/audit/
     cli.ts                — CLI entry point (varp-audit binary)
     orchestrator.ts       — Generic review: run weighted agents in parallel
     discovery.ts          — File discovery (Bun.Glob, gitignore-aware)
-    chunker.ts            — Re-exports chunking utilities from @varp/core/lib
+    chunker.ts            — Re-exports chunking utilities from @vevx/varp/lib
     errors.ts             — Domain errors (RateLimitError, AuthenticationError, ValidationError, AgentError)
     agents/
       index.ts            — 7 weighted agents (correctness 22%, security 22%, performance 13%, ...)

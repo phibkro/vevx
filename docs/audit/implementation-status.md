@@ -6,57 +6,57 @@ Current state of Varp Audit relative to the [design document](design.md). Update
 
 Two audit modes, a CLI, and one ruleset.
 
-| Layer | Details |
-|-------|---------|
-| Compliance audit | 3-wave planner, executor, prompt generator, findings schema, reporter, drift tracking |
-| Generic review | 7 weighted agents, parallel orchestrator, report synthesizer |
-| CLI | `varp audit` with ruleset, diff, budget, format, concurrency flags |
-| Suppressions | Inline (`// audit-suppress`) + config file (`.audit-suppress.yaml`) |
-| Incremental | `--diff [ref]` with manifest-aware invalidation cascade |
-| Rulesets | OWASP Top 10 |
-| Tests | 11 test files covering parser, planner, executor, findings, drift, suppressions, diff-filter, manifest-adapter, reporter, orchestrator, chunker |
+| Layer            | Details                                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compliance audit | 3-wave planner, executor, prompt generator, findings schema, reporter, drift tracking                                                           |
+| Generic review   | 7 weighted agents, parallel orchestrator, report synthesizer                                                                                    |
+| CLI              | `varp audit` with ruleset, diff, budget, format, concurrency flags                                                                              |
+| Suppressions     | Inline (`// audit-suppress`) + config file (`.audit-suppress.yaml`)                                                                             |
+| Incremental      | `--diff [ref]` with manifest-aware invalidation cascade                                                                                         |
+| Rulesets         | OWASP Top 10                                                                                                                                    |
+| Tests            | 11 test files covering parser, planner, executor, findings, drift, suppressions, diff-filter, manifest-adapter, reporter, orchestrator, chunker |
 
 ### Compliance Audit Pipeline
 
-| Module | Exports | Status |
-|--------|---------|--------|
-| `planner/types.ts` | `Rule`, `Ruleset`, `AuditTask`, `AuditPlan`, `ModelCaller` | Complete |
-| `planner/ruleset-parser.ts` | `parseRuleset()` | Complete |
-| `planner/planner.ts` | `generatePlan()` | Complete — manifest-aware with heuristic fallback |
-| `planner/executor.ts` | `executeAuditPlan()` | Complete — bounded concurrency, budget enforcement, progress callbacks |
-| `planner/findings.ts` | `AuditFinding`, `deduplicateFindings()`, `ComplianceReport` | Complete — corroboration boosting, coverage tracking |
-| `planner/prompt-generator.ts` | `generatePrompt()`, `parseAuditResponse()`, `AUDIT_FINDINGS_SCHEMA` | Complete — structured output + text fallback |
-| `planner/suppressions.ts` | `applySuppressions()` | Complete — inline + config file |
-| `planner/diff-filter.ts` | `getChangedFiles()`, `expandWithDependents()` | Complete — git diff + manifest cascade |
-| `planner/manifest-adapter.ts` | `loadManifestComponents()`, `matchRulesByTags()` | Complete — uses `@varp/core/lib` types |
-| `planner/compliance-reporter.ts` | `printComplianceReport()`, `generateComplianceMarkdown()`, `generateComplianceJson()` | Complete — terminal, markdown, JSON |
-| `planner/drift.ts` | `diffReports()`, `printDriftReport()`, `generateDriftMarkdown()`, `generateDriftJson()` | Complete — finding identity via overlap, trend detection |
+| Module                           | Exports                                                                                 | Status                                                                 |
+| -------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `planner/types.ts`               | `Rule`, `Ruleset`, `AuditTask`, `AuditPlan`, `ModelCaller`                              | Complete                                                               |
+| `planner/ruleset-parser.ts`      | `parseRuleset()`                                                                        | Complete                                                               |
+| `planner/planner.ts`             | `generatePlan()`                                                                        | Complete — manifest-aware with heuristic fallback                      |
+| `planner/executor.ts`            | `executeAuditPlan()`                                                                    | Complete — bounded concurrency, budget enforcement, progress callbacks |
+| `planner/findings.ts`            | `AuditFinding`, `deduplicateFindings()`, `ComplianceReport`                             | Complete — corroboration boosting, coverage tracking                   |
+| `planner/prompt-generator.ts`    | `generatePrompt()`, `parseAuditResponse()`, `AUDIT_FINDINGS_SCHEMA`                     | Complete — structured output + text fallback                           |
+| `planner/suppressions.ts`        | `applySuppressions()`                                                                   | Complete — inline + config file                                        |
+| `planner/diff-filter.ts`         | `getChangedFiles()`, `expandWithDependents()`                                           | Complete — git diff + manifest cascade                                 |
+| `planner/manifest-adapter.ts`    | `loadManifestComponents()`, `matchRulesByTags()`                                        | Complete — uses `@vevx/varp/lib` types                                 |
+| `planner/compliance-reporter.ts` | `printComplianceReport()`, `generateComplianceMarkdown()`, `generateComplianceJson()`   | Complete — terminal, markdown, JSON                                    |
+| `planner/drift.ts`               | `diffReports()`, `printDriftReport()`, `generateDriftMarkdown()`, `generateDriftJson()` | Complete — finding identity via overlap, trend detection               |
 
 ### Generic Review Pipeline
 
-| Module | Exports | Status |
-|--------|---------|--------|
-| `orchestrator.ts` | `runAudit()` | Complete — parallel agents, weighted scoring |
-| `agents/` | 7 agents (correctness, security, performance, maintainability, edge-cases, accessibility, documentation) | Complete — weights sum to 1.0 |
-| `chunker.ts` | `createChunks()` | Complete — token-based bin packing |
-| `report/synthesizer.ts` | `synthesizeReport()` | Complete — aggregation + scoring |
-| `discovery.ts` | `discoverFiles()` | Complete — gitignore-aware, language detection |
+| Module                  | Exports                                                                                                  | Status                                         |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `orchestrator.ts`       | `runAudit()`                                                                                             | Complete — parallel agents, weighted scoring   |
+| `agents/`               | 7 agents (correctness, security, performance, maintainability, edge-cases, accessibility, documentation) | Complete — weights sum to 1.0                  |
+| `chunker.ts`            | `createChunks()`                                                                                         | Complete — token-based bin packing             |
+| `report/synthesizer.ts` | `synthesizeReport()`                                                                                     | Complete — aggregation + scoring               |
+| `discovery.ts`          | `discoverFiles()`                                                                                        | Complete — gitignore-aware, language detection |
 
 ### CLI
 
-| Flag | Purpose | Status |
-|------|---------|--------|
-| `--ruleset <name>` | Compliance framework | Complete (default: owasp-top-10) |
-| `--model <name>` | LLM model | Complete (default: claude-sonnet-4-5-20250929) |
-| `--concurrency <n>` | Parallel tasks per wave | Complete (default: 5) |
-| `--format text\|json\|markdown` | Output format | Complete (default: text) |
-| `--output <path>` | Write report to file | Complete |
-| `--quiet` | Suppress progress output | Complete |
-| `--diff [ref]` | Incremental audit | Complete (default ref: HEAD) |
-| `--budget <tokens>` | Max token spend | Complete — skips low-priority tasks when exhausted (kept despite ADR-001 dropping budgets from core) |
-| `--baseline <path>` | Drift comparison | Complete — loads baseline JSON, runs `diffReports()`, renders in chosen format |
-| `--quick` / `--thorough` | Coverage bias | Not implemented |
-| `--scope <path>` | Audit subset | Not implemented (positional path arg serves same purpose) |
+| Flag                            | Purpose                  | Status                                                                                               |
+| ------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `--ruleset <name>`              | Compliance framework     | Complete (default: owasp-top-10)                                                                     |
+| `--model <name>`                | LLM model                | Complete (default: claude-sonnet-4-5-20250929)                                                       |
+| `--concurrency <n>`             | Parallel tasks per wave  | Complete (default: 5)                                                                                |
+| `--format text\|json\|markdown` | Output format            | Complete (default: text)                                                                             |
+| `--output <path>`               | Write report to file     | Complete                                                                                             |
+| `--quiet`                       | Suppress progress output | Complete                                                                                             |
+| `--diff [ref]`                  | Incremental audit        | Complete (default ref: HEAD)                                                                         |
+| `--budget <tokens>`             | Max token spend          | Complete — skips low-priority tasks when exhausted (kept despite ADR-001 dropping budgets from core) |
+| `--baseline <path>`             | Drift comparison         | Complete — loads baseline JSON, runs `diffReports()`, renders in chosen format                       |
+| `--quick` / `--thorough`        | Coverage bias            | Not implemented                                                                                      |
+| `--scope <path>`                | Audit subset             | Not implemented (positional path arg serves same purpose)                                            |
 
 ## Changes from Design Doc
 
@@ -72,21 +72,20 @@ Two audit modes, a CLI, and one ruleset.
 
 ### Not Implemented
 
-| Design Feature | Status | Notes |
-|----------------|--------|-------|
-| Core strategy layer (goal submission) | Not implemented | Audit executes directly; no strategy/routing in Core |
-| `--quick` / `--thorough` flags | Not implemented | Single execution mode |
-| `--scope <path>` flag | Not needed | Positional `<path>` argument |
-| Redundant agent passes | Not implemented | No `--thorough` mode |
-| CI integration (GitHub Action) | Not implemented | CLI only |
-| Auto-manifest generation for unknown codebases | Not implemented | Requires manifest or falls back to heuristics |
-| HIPAA/PCI-DSS/GDPR rulesets | Not implemented | OWASP Top 10 only |
-| Custom organizational rulesets | Not implemented | Framework supports it; no examples/docs |
+| Design Feature                                 | Status          | Notes                                                |
+| ---------------------------------------------- | --------------- | ---------------------------------------------------- |
+| Core strategy layer (goal submission)          | Not implemented | Audit executes directly; no strategy/routing in Core |
+| `--quick` / `--thorough` flags                 | Not implemented | Single execution mode                                |
+| `--scope <path>` flag                          | Not needed      | Positional `<path>` argument                         |
+| Redundant agent passes                         | Not implemented | No `--thorough` mode                                 |
+| CI integration (GitHub Action)                 | Not implemented | CLI only                                             |
+| Auto-manifest generation for unknown codebases | Not implemented | Requires manifest or falls back to heuristics        |
+| HIPAA/PCI-DSS/GDPR rulesets                    | Not implemented | OWASP Top 10 only                                    |
+| Custom organizational rulesets                 | Not implemented | Framework supports it; no examples/docs              |
 
 ### Build System
 
 Design doc doesn't specify build tooling. Initial implementation used `tsc` (TypeScript compiler). Switched to `bun build` (commit `6a39aba`) to match core's build system and simplify the monorepo — all packages now build with Bun.
-
 
 ## Architecture
 

@@ -4,30 +4,30 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 
 ## Key Exports
 
-| Export | Purpose |
-|--------|---------|
-| `parseRuleset()` | Parses a markdown ruleset into structured rules |
-| `generatePlan()` | Creates an `AuditPlan` from a ruleset and file list (manifest-aware) |
-| `generatePrompt()` | Builds system/user prompts for an audit task |
-| `parseAuditResponse()` | Extracts findings from LLM responses (structured or text) |
-| `AUDIT_FINDINGS_SCHEMA` | JSON Schema for structured output (constrained decoding) |
-| `executeAuditPlan()` | Runs a plan end-to-end (waves → ModelCaller → report, with optional budget enforcement) |
-| `printComplianceReport()` | Renders report to terminal with ANSI colors |
-| `generateComplianceMarkdown()` | Renders report as markdown |
-| `generateComplianceJson()` | Renders report as JSON |
-| `findManifest()` | Walks up directories looking for `varp.yaml` |
-| `loadManifestComponents()` | Converts manifest components to `AuditComponent[]` |
-| `matchRulesByTags()` | Tag-based rule→component matching (replaces filename heuristics) |
-| `parseSuppressConfig()` | Parses `.audit-suppress.yaml` config file |
-| `parseInlineSuppressions()` | Scans files for `// audit-suppress` comments |
-| `applySuppressions()` | Partitions findings into active and suppressed |
-| `getChangedFiles()` | Gets changed files from `git diff` |
-| `filterToChanged()` | Filters discovered files to diff set |
-| `expandWithDependents()` | Adds files from dependent components (invalidation cascade) |
-| `diffReports()` | Diffs two `ComplianceReport`s — new, resolved, changed findings + trend |
-| `printDriftReport()` | Renders drift report to terminal with ANSI colors |
-| `generateDriftMarkdown()` | Renders drift report as markdown |
-| `generateDriftJson()` | Renders drift report as JSON |
+| Export                         | Purpose                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------------- |
+| `parseRuleset()`               | Parses a markdown ruleset into structured rules                                         |
+| `generatePlan()`               | Creates an `AuditPlan` from a ruleset and file list (manifest-aware)                    |
+| `generatePrompt()`             | Builds system/user prompts for an audit task                                            |
+| `parseAuditResponse()`         | Extracts findings from LLM responses (structured or text)                               |
+| `AUDIT_FINDINGS_SCHEMA`        | JSON Schema for structured output (constrained decoding)                                |
+| `executeAuditPlan()`           | Runs a plan end-to-end (waves → ModelCaller → report, with optional budget enforcement) |
+| `printComplianceReport()`      | Renders report to terminal with ANSI colors                                             |
+| `generateComplianceMarkdown()` | Renders report as markdown                                                              |
+| `generateComplianceJson()`     | Renders report as JSON                                                                  |
+| `findManifest()`               | Walks up directories looking for `varp.yaml`                                            |
+| `loadManifestComponents()`     | Converts manifest components to `AuditComponent[]`                                      |
+| `matchRulesByTags()`           | Tag-based rule→component matching (replaces filename heuristics)                        |
+| `parseSuppressConfig()`        | Parses `.audit-suppress.yaml` config file                                               |
+| `parseInlineSuppressions()`    | Scans files for `// audit-suppress` comments                                            |
+| `applySuppressions()`          | Partitions findings into active and suppressed                                          |
+| `getChangedFiles()`            | Gets changed files from `git diff`                                                      |
+| `filterToChanged()`            | Filters discovered files to diff set                                                    |
+| `expandWithDependents()`       | Adds files from dependent components (invalidation cascade)                             |
+| `diffReports()`                | Diffs two `ComplianceReport`s — new, resolved, changed findings + trend                 |
+| `printDriftReport()`           | Renders drift report to terminal with ANSI colors                                       |
+| `generateDriftMarkdown()`      | Renders drift report as markdown                                                        |
+| `generateDriftJson()`          | Renders drift report as JSON                                                            |
 
 ## How It Works
 
@@ -42,14 +42,14 @@ Generates and executes compliance audit plans from markdown rulesets and discove
 
 ## Types
 
-| Type | Fields |
-|------|--------|
-| `Ruleset` | `meta`, `rules[]`, `crossCutting[]` |
-| `Rule` | `id`, `title`, `severity`, `category`, `appliesTo`, `whatToLookFor`, `guidance` |
-| `AuditPlan` | `ruleset`, `components[]`, `waves[]`, `stats` |
-| `AuditTask` | `id`, `type`, `wave`, `priority`, `component`, `files[]`, `rules[]`, `estimatedTokens` |
-| `ComplianceReport` | `ruleset`, `summary`, `findings[]`, `coverage`, `metadata` |
-| `DriftReport` | `baseline`, `current`, `new[]`, `resolved[]`, `changed[]`, `summary` |
+| Type               | Fields                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `Ruleset`          | `meta`, `rules[]`, `crossCutting[]`                                                    |
+| `Rule`             | `id`, `title`, `severity`, `category`, `appliesTo`, `whatToLookFor`, `guidance`        |
+| `AuditPlan`        | `ruleset`, `components[]`, `waves[]`, `stats`                                          |
+| `AuditTask`        | `id`, `type`, `wave`, `priority`, `component`, `files[]`, `rules[]`, `estimatedTokens` |
+| `ComplianceReport` | `ruleset`, `summary`, `findings[]`, `coverage`, `metadata`                             |
+| `DriftReport`      | `baseline`, `current`, `new[]`, `resolved[]`, `changed[]`, `summary`                   |
 
 ## Rulesets
 

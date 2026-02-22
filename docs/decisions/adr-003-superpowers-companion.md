@@ -3,26 +3,26 @@
 **Status:** Accepted
 **Date:** 2026-02-19  
 **Author:** Philip  
-**Deciders:** Philip (sole maintainer)  
+**Deciders:** Philip (sole maintainer)
 
 ## Context
 
 Varp is a Claude Code plugin that combines codebase analysis with manifest-aware agent orchestration. It consists of four packages:
 
-- **@varp/core** — MCP server: manifest parsing, graph analysis, dependency-aware scheduler, capability enforcement
-- **@varp/audit** — compliance audit engine and CLI for multi-agent code review
-- **@varp/plugin** — Claude Code plugin: skills, hooks, plugin manifest
-- **@varp/cli** — deterministic manifest tooling: init, graph, lint, freshness, validate, coupling
+- **@vevx/varp** — MCP server: manifest parsing, graph analysis, dependency-aware scheduler, capability enforcement
+- **@vevx/audit** — compliance audit engine and CLI for multi-agent code review
+- **@vevx/varp** — Claude Code plugin: skills, hooks, plugin manifest
+- **@vevx/varp** — deterministic manifest tooling: init, graph, lint, freshness, validate, coupling
 
 The central artifacts are `varp.yaml` (a manifest declaring project components, paths, dependencies, tags, and stability levels) and the `CodebaseGraph` (a weighted graph combining structural, behavioral, and semantic signals to surface architectural insights). Plans (`plan.xml`) declare tasks with explicit read/write scopes and contracts, and the scheduler emits execution waves respecting the dependency graph.
 
 Varp's architecture separates into three layers (see ADR-002):
 
-| Layer | Compiler Analog | Input → Output |
-|---|---|---|
-| **Analysis** (parser + passes) | Lexer + Optimization | codebase → enriched `CodebaseGraph` |
-| **Scheduler** | Instruction selection | graph + goal → `Wave[]` |
-| **Executor** | Interpreter / Runtime | waves → side effects |
+| Layer                          | Compiler Analog       | Input → Output                      |
+| ------------------------------ | --------------------- | ----------------------------------- |
+| **Analysis** (parser + passes) | Lexer + Optimization  | codebase → enriched `CodebaseGraph` |
+| **Scheduler**                  | Instruction selection | graph + goal → `Wave[]`             |
+| **Executor**                   | Interpreter / Runtime | waves → side effects                |
 
 The analysis layer is independently valuable: "point this at a repo, get a coupling diagnostic" is a product before any AI is involved.
 
@@ -32,10 +32,10 @@ Varp's core analytical differentiator is the relational architecture analysis sy
 
 The primary output is a **coupling diagnostic matrix**:
 
-|  | High Co-Change | Low Co-Change |
-|--|--|--|
-| **High Import Coupling** | Explicit module (expected) | Stable interface (good design) |
-| **Low Import Coupling** | **Hidden coupling (investigate)** | Unrelated (expected) |
+|                          | High Co-Change                    | Low Co-Change                  |
+| ------------------------ | --------------------------------- | ------------------------------ |
+| **High Import Coupling** | Explicit module (expected)        | Stable interface (good design) |
+| **Low Import Coupling**  | **Hidden coupling (investigate)** | Unrelated (expected)           |
 
 The highest-value findings live in the "hidden coupling" quadrant: files coupled through implicit contracts (shared DB schemas, API boundaries, conventions) invisible to static analysis. No existing tool surfaces this specific diagnostic.
 
@@ -47,8 +47,8 @@ Superpowers (github.com/obra/superpowers, 41k stars, 18k installs) is the domina
 
 Both plugins have planning and execution capabilities, but they solve different problems:
 
-- **Superpowers** optimizes for *how agents work*: disciplined process (TDD, code review, systematic debugging), task decomposition, and quality enforcement.
-- **Varp** optimizes for *what the project looks like*: structural awareness (component topology, coupling patterns, drift detection), scope enforcement, contract verification, and architectural consistency.
+- **Superpowers** optimizes for _how agents work_: disciplined process (TDD, code review, systematic debugging), task decomposition, and quality enforcement.
+- **Varp** optimizes for _what the project looks like_: structural awareness (component topology, coupling patterns, drift detection), scope enforcement, contract verification, and architectural consistency.
 
 These are complementary, not competing. But varp currently also ships brainstorming and general-purpose planning UX that overlaps with superpowers' stronger offering in that space.
 
@@ -72,33 +72,33 @@ Position varp as a **graph-aware companion to superpowers** (and other workflow 
 
 ### What varp keeps
 
-| Capability | Why |
-|---|---|
+| Capability                                   | Why                                                                                                                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `CodebaseGraph` (relational analysis engine) | **Core differentiator.** Co-change parser, coupling diagnostics, hotspot scoring, signal independence. No other plugin builds a behavioral dependency graph. |
-| `varp.yaml` manifest | Semantic signal layer. Declares intent (components, dependencies, tags, stability) that the graph validates against observed behavior. |
-| Dependency-aware wave scheduler | Enables safe parallel execution that respects component relationships. `TaskDefinition[] → Wave[]` as a pure function. |
-| Capability enforcement (read/write scopes) | Prevents tasks from touching files outside their declared scope. |
-| Contract verification (pre/post/invariants) | Ensures structural guarantees hold across task execution. |
-| `@varp/audit` compliance engine | Multi-agent code review against standards (OWASP, HIPAA, PCI-DSS), enriched by graph-derived architectural context. |
-| `@varp/cli` deterministic tooling | `varp init`, `varp graph`, `varp lint`, `varp coupling`, `varp freshness`, `varp validate`. |
-| `plan.xml` for manifest-aware execution | Structured plans with scopes and contracts — used when varp executes directly. |
+| `varp.yaml` manifest                         | Semantic signal layer. Declares intent (components, dependencies, tags, stability) that the graph validates against observed behavior.                       |
+| Dependency-aware wave scheduler              | Enables safe parallel execution that respects component relationships. `TaskDefinition[] → Wave[]` as a pure function.                                       |
+| Capability enforcement (read/write scopes)   | Prevents tasks from touching files outside their declared scope.                                                                                             |
+| Contract verification (pre/post/invariants)  | Ensures structural guarantees hold across task execution.                                                                                                    |
+| `@vevx/audit` compliance engine              | Multi-agent code review against standards (OWASP, HIPAA, PCI-DSS), enriched by graph-derived architectural context.                                          |
+| `@vevx/varp` deterministic tooling            | `varp init`, `varp graph`, `varp lint`, `varp coupling`, `varp freshness`, `varp validate`.                                                                  |
+| `plan.xml` for manifest-aware execution      | Structured plans with scopes and contracts — used when varp executes directly.                                                                               |
 
 ### What varp drops
 
-| Capability | Why |
-|---|---|
+| Capability                   | Why                                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Socratic brainstorming skill | Superpowers' brainstorming is mature, community-tested, and deeply integrated. Competing here adds no value. |
-| General-purpose planning UX | Superpowers' `/write-plan` and plan format have adoption. Varp should enrich plans, not replace them. |
+| General-purpose planning UX  | Superpowers' `/write-plan` and plan format have adoption. Varp should enrich plans, not replace them.        |
 
 ### What varp adds
 
-| Capability | Purpose |
-|---|---|
-| SessionStart graph injection | Load manifest topology, coupling diagnostics, hotspot data, and relevant component docs into session context. Any planner (superpowers or otherwise) gets structural awareness automatically. |
-| PostToolUse coupling monitoring | After file-modifying operations, query the graph: "what else typically changes with this file?" Lightweight timestamp-based staleness check as fast signal, with on-demand graph-based drift detection for richer diagnostics. |
-| Post-execution audit dispatch | After a subagent completes, dispatch audit to verify architectural consistency using the graph as evidence. |
-| `/varp:coupling` in-session command | Surface coupling diagnostics mid-session: "what files are behaviorally coupled to the ones I'm touching?" |
-| Stop session summary | Summarize session impact: which components modified, coupling patterns affected, drift indicators, scope violations. |
+| Capability                          | Purpose                                                                                                                                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SessionStart graph injection        | Load manifest topology, coupling diagnostics, hotspot data, and relevant component docs into session context. Any planner (superpowers or otherwise) gets structural awareness automatically.                                  |
+| PostToolUse coupling monitoring     | After file-modifying operations, query the graph: "what else typically changes with this file?" Lightweight timestamp-based staleness check as fast signal, with on-demand graph-based drift detection for richer diagnostics. |
+| Post-execution audit dispatch       | After a subagent completes, dispatch audit to verify architectural consistency using the graph as evidence.                                                                                                                    |
+| `/varp:coupling` in-session command | Surface coupling diagnostics mid-session: "what files are behaviorally coupled to the ones I'm touching?"                                                                                                                      |
+| Stop session summary                | Summarize session impact: which components modified, coupling patterns affected, drift indicators, scope violations.                                                                                                           |
 
 ## Integration architecture
 
@@ -140,12 +140,12 @@ The scheduler adds value when tasks have **cross-component dependencies** — wa
 
 ### Hook integration points
 
-| Hook event | Matcher | Varp action | Latency target |
-|---|---|---|---|
-| `SessionStart` | — | Load `varp.yaml`, compute graph summary (coupling hotspots, freshness state, component health), inject as `additionalContext` | < 200ms |
-| `PostToolUse` | `Write\|Edit\|MultiEdit` | Timestamp-based staleness check (fast). If file is in a coupling hotspot, append "files that typically co-change" note. | < 50ms |
-| `SubagentStop` | — | Optionally dispatch graph-based drift audit for affected components. | On-demand |
-| `Stop` | — | Session impact summary: components modified, coupling implications, freshness state. | < 100ms |
+| Hook event     | Matcher                  | Varp action                                                                                                                   | Latency target |
+| -------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `SessionStart` | —                        | Load `varp.yaml`, compute graph summary (coupling hotspots, freshness state, component health), inject as `additionalContext` | < 200ms        |
+| `PostToolUse`  | `Write\|Edit\|MultiEdit` | Timestamp-based staleness check (fast). If file is in a coupling hotspot, append "files that typically co-change" note.       | < 50ms         |
+| `SubagentStop` | —                        | Optionally dispatch graph-based drift audit for affected components.                                                          | On-demand      |
+| `Stop`         | —                        | Session impact summary: components modified, coupling implications, freshness state.                                          | < 100ms        |
 
 The PostToolUse hook deliberately uses the cheap signal (timestamps) for inline feedback. The expensive signal (full graph re-analysis) runs on-demand via CLI, audit dispatch, or explicit `/varp:coupling` queries. This avoids the latency concern of running graph queries on every file write.
 
@@ -158,6 +158,7 @@ The PostToolUse hook deliberately uses the cheap signal (timestamps) for inline 
 - Works with any other workflow plugin that produces plans and executes tasks
 
 What varp provides that superpowers doesn't have:
+
 - `CodebaseGraph` with multi-signal coupling diagnostics
 - Manifest-declared project topology with dependency validation
 - Scope enforcement (tasks can only touch declared files)
@@ -165,6 +166,7 @@ What varp provides that superpowers doesn't have:
 - Compliance audit engine
 
 What superpowers provides that varp doesn't compete with:
+
 - Socratic brainstorming methodology
 - TDD enforcement (red-green-refactor)
 - Two-stage code review (spec compliance + code quality)
@@ -197,7 +199,7 @@ Enrichment is automatic and invisible. Plans produced in a varp-aware session ar
 
 ### Alternative 5: Ignore superpowers, target enterprise compliance only
 
-**Considered.** Varp could target enterprise teams doing compliance-focused development (via `@varp/audit`) rather than individual developers using superpowers. This isn't mutually exclusive — the audit engine and relational analysis are independently valuable for compliance. But the superpowers integration provides faster validation and broader reach, and the graph-based analysis benefits both audiences.
+**Considered.** Varp could target enterprise teams doing compliance-focused development (via `@vevx/audit`) rather than individual developers using superpowers. This isn't mutually exclusive — the audit engine and relational analysis are independently valuable for compliance. But the superpowers integration provides faster validation and broader reach, and the graph-based analysis benefits both audiences.
 
 ## Consequences
 
@@ -275,7 +277,7 @@ The foundation. Build the relational analysis engine and hook integration surfac
 - Superpowers: https://github.com/obra/superpowers
 - ADR-002: Three-Layer Architecture (analysis/scheduler/executor)
 - Relational Architecture Analysis Design Doc v5
-- CodeScene (Adam Tornhill, *Your Code as a Crime Scene*, *Software Design X-Rays*): prior art for behavioral code analysis
+- CodeScene (Adam Tornhill, _Your Code as a Crime Scene_, _Software Design X-Rays_): prior art for behavioral code analysis
 - Anthropic "Measuring AI agent autonomy in practice" (2026-02-18): https://anthropic.com/research/measuring-agent-autonomy
 - Claude Code hooks API: https://code.claude.com/docs/en/hooks-guide
 - Claude Code plugin system: https://code.claude.com/docs/en/discover-plugins

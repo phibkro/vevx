@@ -28,6 +28,7 @@ Access control enforces that users cannot act outside their intended permissions
 **Violation:** Endpoints that accept a user ID, resource ID, or other identifier from the request and use it to fetch/modify data without verifying the authenticated user owns or has access to that resource.
 
 **What to look for:**
+
 - Route handlers that read `req.params.id` or `req.body.userId` and pass directly to a database query without checking ownership
 - Middleware that checks authentication (is the user logged in?) but not authorization (can this user access this resource?)
 - Admin-only routes that check for a role but don't validate it server-side
@@ -45,6 +46,7 @@ Access control enforces that users cannot act outside their intended permissions
 **Violation:** Sequential or predictable resource IDs (numeric auto-increment) exposed in APIs without ownership checks, allowing enumeration.
 
 **What to look for:**
+
 - Routes like `/api/users/:id/data` where `:id` is used directly in queries
 - Database queries like `findById(req.params.id)` without a `WHERE userId = ...` clause
 - File paths constructed from user input: `path.join(uploads, req.params.filename)`
@@ -62,6 +64,7 @@ Access control enforces that users cannot act outside their intended permissions
 **Violation:** Admin functionality protected only by hiding UI elements, relying on client-side route guards, or using a shared endpoint without role validation.
 
 **What to look for:**
+
 - Admin API routes without middleware that checks `user.role === 'admin'`
 - Privilege checks only in frontend code (React route guards, Vue navigation guards) without corresponding backend checks
 - Endpoints that perform different actions based on a `role` field in the request body (user-controllable)
@@ -76,11 +79,13 @@ Access control enforces that users cannot act outside their intended permissions
 **Compliant:** CORS `Access-Control-Allow-Origin` is set to a specific list of trusted origins. Credentials are only allowed for trusted origins. Wildcard (`*`) is not used with credentials.
 
 **Violation:**
+
 - `Access-Control-Allow-Origin: *` on endpoints that handle authenticated requests
 - Reflecting the request's `Origin` header back as `Access-Control-Allow-Origin` without validation
 - `Access-Control-Allow-Credentials: true` with a wildcard or reflected origin
 
 **What to look for:**
+
 - CORS middleware configuration with `origin: '*'` or `origin: true`
 - Dynamic origin that reads from request and reflects without allowlist check
 - Credentials enabled without origin restriction
@@ -103,6 +108,7 @@ Previously "Sensitive Data Exposure." Focuses on failures related to cryptograph
 **Violation:** Passwords stored as plaintext or with weak hashing (MD5, SHA-1, SHA-256 without salt). API keys stored as plaintext in the database. Sensitive fields without encryption.
 
 **What to look for:**
+
 - Database columns named `password`, `secret`, `apiKey`, `token` stored as plain `VARCHAR`/`TEXT` without corresponding hashing logic in the write path
 - Use of `md5()`, `sha1()`, or unsalted `sha256()` for password hashing
 - Comparison like `user.password === inputPassword` (plaintext comparison)
@@ -120,6 +126,7 @@ Previously "Sensitive Data Exposure." Focuses on failures related to cryptograph
 **Violation:** HTTP URLs (not HTTPS) in API client configurations, database connection strings without SSL parameters, or explicit TLS disabling.
 
 **What to look for:**
+
 - Hardcoded `http://` URLs for API endpoints (not localhost/development)
 - Database connection strings without `?ssl=true`, `?sslmode=require`, or equivalent
 - `rejectUnauthorized: false` or `NODE_TLS_REJECT_UNAUTHORIZED=0` in production code
@@ -137,6 +144,7 @@ Previously "Sensitive Data Exposure." Focuses on failures related to cryptograph
 **Violation:** DES, 3DES, RC4, Blowfish for encryption. MD5 or SHA-1 for integrity or signatures. RSA with key size < 2048 bits. ECB mode for block ciphers.
 
 **What to look for:**
+
 - `createCipheriv('des', ...)`, `createCipheriv('aes-128-ecb', ...)`
 - `createHash('md5')` or `createHash('sha1')` used for security purposes (not checksums)
 - JWT signed with `HS256` using a short or hardcoded secret
@@ -154,6 +162,7 @@ Previously "Sensitive Data Exposure." Focuses on failures related to cryptograph
 **Violation:** API keys, passwords, tokens, private keys, or connection strings with credentials hardcoded in source files.
 
 **What to look for:**
+
 - String literals that match patterns: `sk_live_`, `sk_test_`, `AKIA`, `ghp_`, `-----BEGIN`, `Bearer `, long base64 strings assigned to variables named `key`, `secret`, `token`, `password`
 - Database URLs with embedded credentials: `postgres://user:password@host`
 - JWT secrets as string literals: `jwt.sign(payload, 'my-secret')`
@@ -177,6 +186,7 @@ Injection flaws occur when untrusted data is sent to an interpreter as part of a
 **Violation:** String concatenation, template literals, or string formatting used to build SQL queries with values derived from user input.
 
 **What to look for:**
+
 - `` `SELECT * FROM users WHERE id = ${userId}` `` (template literal SQL)
 - `"SELECT * FROM users WHERE id = " + req.params.id` (concatenation)
 - `query("SELECT * FROM users WHERE name = '" + name + "'")`
@@ -195,6 +205,7 @@ Injection flaws occur when untrusted data is sent to an interpreter as part of a
 **Violation:** User input passed directly as MongoDB query objects, allowing operator injection (`$gt`, `$ne`, `$regex`).
 
 **What to look for:**
+
 - `collection.find(req.body)` or `collection.find({ email: req.body.email })` where `req.body.email` could be `{ "$ne": "" }`
 - `Model.find(req.query)` passing request query params directly as Mongoose filter
 - Missing type validation: expecting a string but accepting an object
@@ -211,6 +222,7 @@ Injection flaws occur when untrusted data is sent to an interpreter as part of a
 **Violation:** User input concatenated into strings passed to `exec()`, `system()`, `os.popen()`, `child_process.exec()`, or shell-interpreted commands.
 
 **What to look for:**
+
 - `exec("git clone " + userUrl)`, `exec(\`convert ${filename}\`)`
 - `child_process.exec()` with interpolated user input (use `execFile()` or `spawn()` instead)
 - Python `os.system()`, `subprocess.run(shell=True)` with user input
@@ -228,6 +240,7 @@ Injection flaws occur when untrusted data is sent to an interpreter as part of a
 **Violation:** User input inserted into HTML without escaping. Use of `innerHTML`, `dangerouslySetInnerHTML`, `v-html`, or `{!! !!}` with unsanitized user content.
 
 **What to look for:**
+
 - `element.innerHTML = userInput`
 - React: `dangerouslySetInnerHTML={{ __html: userContent }}` without DOMPurify or equivalent
 - Vue: `v-html="userContent"` without sanitization
@@ -247,6 +260,7 @@ Injection flaws occur when untrusted data is sent to an interpreter as part of a
 **Violation:** User input concatenated into file paths without validation, allowing access to files outside the intended directory.
 
 **What to look for:**
+
 - `fs.readFile(path.join(uploadDir, req.params.filename))` without checking the resolved path stays within `uploadDir`
 - `res.sendFile(req.query.file)` with no path validation
 - Template inclusion: `render(req.params.template)` allowing `../../etc/passwd`
@@ -270,6 +284,7 @@ Design-level flaws that cannot be fixed by implementation alone. These are archi
 **Violation:** Login endpoints, password reset endpoints, or OTP verification with no rate limiting, allowing brute force attacks.
 
 **What to look for:**
+
 - Authentication route handlers without rate limiting middleware
 - Password reset endpoints that don't limit request frequency per email/IP
 - OTP/2FA verification without attempt limiting (allows brute force of 6-digit codes)
@@ -287,6 +302,7 @@ Design-level flaws that cannot be fixed by implementation alone. These are archi
 **Violation:** Unlimited authentication attempts with no lockout, delay, or CAPTCHA escalation.
 
 **What to look for:**
+
 - Login handlers that only check credentials and return success/failure with no tracking of failed attempts
 - No database field or cache entry tracking consecutive failures per account
 - No conditional logic that changes behavior after repeated failures
@@ -303,6 +319,7 @@ Design-level flaws that cannot be fixed by implementation alone. These are archi
 **Violation:** Step ordering enforced only client-side. Server accepts step 3 without verifying steps 1 and 2 completed. Workflow state stored in client-side tokens that could be tampered with.
 
 **What to look for:**
+
 - Payment flows where the price or plan is sent from the client rather than resolved server-side
 - Approval workflows where status transitions aren't validated (e.g., jumping from "draft" to "approved")
 - Checkout flows that accept a `price` field in the request body
@@ -326,6 +343,7 @@ Insecure default configurations, incomplete configurations, open cloud storage, 
 **Violation:** Stack traces returned to clients in production. Debug mode enabled without environment restriction. Detailed error objects serialized to HTTP responses.
 
 **What to look for:**
+
 - `app.use((err, req, res, next) => res.status(500).json({ error: err.message, stack: err.stack }))`
 - Express `DEBUG=*` or Django `DEBUG=True` without production guards
 - `console.error` output leaking into API responses
@@ -344,6 +362,7 @@ Insecure default configurations, incomplete configurations, open cloud storage, 
 **Violation:** No security headers configured. Missing HSTS on HTTPS sites. Missing CSP allowing inline scripts.
 
 **What to look for:**
+
 - No `helmet` (Node.js), security middleware, or manual header setting
 - Missing `Strict-Transport-Security` header on production HTTPS services
 - Missing `Content-Security-Policy` or CSP with `unsafe-inline`, `unsafe-eval`
@@ -361,6 +380,7 @@ Insecure default configurations, incomplete configurations, open cloud storage, 
 **Violation:** Default admin passwords in configuration, database seeds that create admin accounts with known passwords, Docker configurations with default credentials.
 
 **What to look for:**
+
 - Seed scripts: `createUser({ email: 'admin@example.com', password: 'admin' })`
 - Docker compose: `POSTGRES_PASSWORD=postgres`, `MYSQL_ROOT_PASSWORD=root`
 - Configuration files with `password: changeme`, `secret: default`
@@ -384,6 +404,7 @@ Using components with known vulnerabilities, or failing to keep dependencies upd
 **Violation:** Lock files containing packages with known CVEs. No evidence of dependency auditing (no `npm audit`, `pip-audit`, `govulncheck` in CI).
 
 **What to look for:**
+
 - This rule is best checked by tools (`npm audit`, `pip-audit`, `cargo audit`), not code review. An audit agent should note whether dependency auditing is part of the CI pipeline.
 - Check CI configuration files (`.github/workflows/`, `Jenkinsfile`, `.gitlab-ci.yml`) for audit steps
 - Check for `.npmrc`, `.npmaudit`, or similar configuration indicating audit practices
@@ -400,6 +421,7 @@ Using components with known vulnerabilities, or failing to keep dependencies upd
 **Violation:** Production dependencies that are abandoned (no commits in 2+ years), deprecated, or have known unfixed issues.
 
 **What to look for:**
+
 - Package.json dependencies with deprecation notices
 - Imports of packages known to be deprecated (e.g., `request` in Node.js, `moment` for new projects)
 - Forked or vendored packages that may not receive security updates
@@ -422,6 +444,7 @@ Failures in authentication mechanisms that allow attackers to compromise passwor
 **Violation:** No password strength requirements. Minimum length < 8 characters. No check against common passwords.
 
 **What to look for:**
+
 - Registration handlers that accept any non-empty password
 - Validation like `password.length >= 4` (too short)
 - No password strength library or policy enforcement
@@ -439,6 +462,7 @@ Failures in authentication mechanisms that allow attackers to compromise passwor
 **Violation:** Session cookies without `HttpOnly` (accessible to JavaScript), without `Secure` (sent over HTTP), without `SameSite` (CSRF risk). No session expiration.
 
 **What to look for:**
+
 - Cookie configuration: `httpOnly: false` or missing `httpOnly`
 - `secure: false` in production cookie settings
 - `sameSite: 'none'` without explicit justification
@@ -457,6 +481,7 @@ Failures in authentication mechanisms that allow attackers to compromise passwor
 **Violation:** Authentication requests logged with passwords in the body. Authorization headers logged verbatim. Error messages including credentials.
 
 **What to look for:**
+
 - `console.log(req.body)` on authentication endpoints (logs passwords)
 - `logger.info('Request', { headers: req.headers })` (logs Authorization header)
 - Error messages that include credentials: `throw new Error(\`Auth failed for ${password}\`)`
@@ -480,6 +505,7 @@ Failures related to code and infrastructure that does not protect against integr
 **Violation:** Untrusted data deserialized using methods that can execute code or instantiate arbitrary classes.
 
 **What to look for:**
+
 - Python: `pickle.loads(untrusted_data)`, `yaml.load(data)` without `Loader=SafeLoader`
 - Java: `ObjectInputStream.readObject()` on untrusted input
 - Node.js: `eval(JSON.parse(...))`, `node-serialize`, `funcster`
@@ -498,6 +524,7 @@ Failures related to code and infrastructure that does not protect against integr
 **Violation:** Webhook endpoints that process events without verifying the `X-Hub-Signature`, `Stripe-Signature`, or equivalent header.
 
 **What to look for:**
+
 - Webhook route handlers that read the body and process it immediately without signature verification
 - Stripe webhooks: missing `stripe.webhooks.constructEvent()` call
 - GitHub webhooks: missing HMAC-SHA256 signature verification
@@ -522,12 +549,13 @@ Insufficient logging of security-relevant events, or failure to detect and respo
 **Violation:** Login handlers with no logging. Failed authentication attempts silently returning 401. No audit trail for privilege changes.
 
 **What to look for:**
+
 - Login handlers that return success/failure without any logging call
 - Password reset flows with no logging of who requested the reset
 - Role/permission changes with no audit log entry
 - Absence of structured logging in authentication code paths
 
-**Guidance:** The logging itself doesn't need to be in the route handler — centralized middleware or event-based logging is fine. The check is whether authentication events are captured *somewhere* in the system.
+**Guidance:** The logging itself doesn't need to be in the route handler — centralized middleware or event-based logging is fine. The check is whether authentication events are captured _somewhere_ in the system.
 
 ### LOG-02: Sensitive Data in Logs
 
@@ -539,6 +567,7 @@ Insufficient logging of security-relevant events, or failure to detect and respo
 **Violation:** Logging raw request bodies that contain credentials. Logging full user objects that include password hashes. Logging PII without redaction.
 
 **What to look for:**
+
 - `logger.info('User created', user)` where `user` object includes `passwordHash` or `ssn`
 - `console.log('Payment', { cardNumber, cvv })` or equivalent
 - Error logging that includes full request context: `logger.error('Failed', { req })` dumping headers/body
@@ -562,6 +591,7 @@ SSRF occurs when a web application fetches a remote resource without validating 
 **Violation:** Server-side HTTP requests made to user-supplied URLs without validation of the target host, allowing requests to internal services, cloud metadata endpoints, or localhost.
 
 **What to look for:**
+
 - `fetch(userProvidedUrl)`, `axios.get(userUrl)`, `http.get(userUrl)` where `userUrl` comes from request input
 - Webhook delivery: `fetch(webhook.url)` where the URL was registered by a user
 - Image processing: downloading images from user-provided URLs
@@ -584,6 +614,7 @@ These are not OWASP categories but analysis patterns that span multiple rules an
 **Objective:** Trace personally identifiable information (names, emails, phone numbers, addresses, SSNs, health data) from input (API endpoints, form submissions, data imports) through processing and storage to output (API responses, logs, error messages, exports).
 
 **What to verify:**
+
 - PII is encrypted at rest (CRYPTO-01)
 - PII is not logged (LOG-02)
 - PII is not included in error messages sent to clients
@@ -598,6 +629,7 @@ These are not OWASP categories but analysis patterns that span multiple rules an
 **Objective:** Verify that every API endpoint that should require authentication actually has authentication middleware or checks. Enumerate all routes and verify coverage.
 
 **What to verify:**
+
 - Every route is either explicitly public or has authentication middleware
 - No route was accidentally added without auth (common in rapid development)
 - Authentication middleware runs before business logic
@@ -611,6 +643,7 @@ These are not OWASP categories but analysis patterns that span multiple rules an
 **Objective:** Verify no secrets are present in source code, and that the application has a consistent pattern for loading secrets from the environment.
 
 **What to verify:**
+
 - No hardcoded secrets (CRYPTO-04)
 - Consistent pattern for secret access (env vars, secret manager, encrypted config)
 - No secrets in committed configuration files

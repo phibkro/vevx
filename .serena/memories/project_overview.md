@@ -3,6 +3,7 @@
 Monorepo for manifest-aware agent orchestration: MCP server (core), compliance audit engine, skills, and hooks.
 
 ## Tech Stack
+
 - **Runtime**: Bun (install, test, run, build)
 - **Build**: Turborepo (task orchestration across packages)
 - **Language**: TypeScript (ES2022, ESM only, bundler moduleResolution)
@@ -14,10 +15,13 @@ Monorepo for manifest-aware agent orchestration: MCP server (core), compliance a
 - **Format**: oxfmt (100-char width, double quotes, trailing commas)
 
 ## Architecture
+
 Monorepo with Bun workspaces (`packages/*`):
 
 ### @varp/core (packages/core/)
+
 Components defined in `varp.yaml`:
+
 - `shared` (packages/core/src/shared/) — Zod schemas, ownership utils
 - `server` (packages/core/src/) — MCP server wiring, tool definitions
 - `manifest` (packages/core/src/manifest/) — Parser, resolver, freshness, graph, imports, links, lint, scoped-tests, env-check, touches, discovery
@@ -29,10 +33,13 @@ Components defined in `varp.yaml`:
 - `hooks` (hooks/) — 3 lifecycle shell scripts
 
 ### @varp/audit (packages/audit/)
+
 Compliance audit engine (experimental):
+
 - `audit` (packages/audit/src/) — Single component: orchestrator, planner, agents, chunker, client
 
 ### @varp/cli (packages/cli/)
+
 CLI wrapping core and audit with I/O, file discovery, and Anthropic SDK. Depends on @varp/audit (workspace).
 
 Import alias `#shared/*` → `packages/core/src/shared/` (tsconfig paths in packages/core/).

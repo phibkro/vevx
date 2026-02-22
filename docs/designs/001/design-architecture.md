@@ -1,6 +1,6 @@
 # Varp Architecture
 
-*From the Design Document — v0.1.0 — February 2026*
+_From the Design Document — v0.1.0 — February 2026_
 
 See [Design Principles](design-principles.md) for the foundational concepts (static/dynamic, 3D model, tiered knowledge, supervision tree).
 
@@ -42,7 +42,7 @@ web:
     - ./docs/web/internal.md
 ```
 
-**The manifest is flat.** The `varp` key holds the version string. Every other top-level key is a component name. No `components:` wrapper, no `name:` field. Docs are plain string paths, not objects. Optional fields (`tags`, `test`, `env`, `stability`) provide richer signals to the planner and orchestrator — see [Manifest Schema](../../packages/core/src/manifest/README.md) for the full reference.
+**The manifest is flat.** The `varp` key holds the version string. Every other top-level key is a component name. No `components:` wrapper, no `name:` field. Docs are plain string paths, not objects. Optional fields (`tags`, `test`, `env`, `stability`) provide richer signals to the planner and orchestrator — see [Manifest Schema](../../packages/varp/src/manifest/README.md) for the full reference.
 
 **Doc visibility uses the README.md convention.** Docs named `README.md` are public — loaded when a task reads from or writes to the component. All other docs are private — loaded only when a task writes. This replaces the previous `load_on` tag system. Auto-discovery: if `{component.path}/README.md` exists on disk, it's included automatically as a public doc.
 
@@ -128,7 +128,7 @@ Varp does not implement its own orchestrator runtime. Claude Code already provid
 
 **Capability enforcement.** `touches` declarations are not just scheduling hints — they are capability grants. After a subagent completes, the orchestrator verifies that actual file modifications fall within the declared write set by checking the git diff against component path boundaries from the manifest. A subagent dispatched with `touches writes="auth"` that modified files in `web/`'s path has violated its capabilities. This is caught before merge, not after — the worktree is quarantined and the task either retried with corrected scope or escalated to replanning.
 
-**Subagents are processes with functional interfaces.** They are *defined* functionally — domain, values, action, context — but *execute* as processes with lifecycles, resource consumption, and structured exit states. The orchestrator resolves doc paths and passes them to the subagent; the subagent reads the actual content. This keeps the orchestrator lean (meta-level only) while giving subagents full component context. Subagents own their entire scope — implementation, tests, and doc updates — and return a structured result. They don't know about other agents and don't manage state beyond their current session.
+**Subagents are processes with functional interfaces.** They are _defined_ functionally — domain, values, action, context — but _execute_ as processes with lifecycles, resource consumption, and structured exit states. The orchestrator resolves doc paths and passes them to the subagent; the subagent reads the actual content. This keeps the orchestrator lean (meta-level only) while giving subagents full component context. Subagents own their entire scope — implementation, tests, and doc updates — and return a structured result. They don't know about other agents and don't manage state beyond their current session.
 
 "Warm agents" are resumed subagent sessions — when a later task operates on the same component scope, the orchestrator can resume the previous subagent's session rather than starting cold, preserving the subagent's accumulated context about that component. This is analogous to fork-and-COW: the new task starts with the previous subagent's component knowledge (shared pages), then diverges only where the new work requires it (copy-on-write). This is distinct from orchestrator session persistence: the orchestrator session lives across the whole plan, while subagent sessions are per-component and optionally resumed.
 
@@ -163,11 +163,11 @@ Varp's architecture decomposes into three distinct graphs, each operating at a d
 
 The separation matters because each graph has different consumers and different correctness criteria:
 
-| Graph | Source | Rate of change | Consumer | Correctness check |
-|-------|--------|----------------|----------|-------------------|
-| Project | `varp.yaml` | Slow (project structure) | Planner, orchestrator | `varp_lint`, cycle detection |
-| Task | `plan.xml` | Medium (per feature) | Orchestrator | `varp_validate_plan`, hazard detection |
-| Action | Runtime | Fast (per execution) | Orchestrator internals | Postconditions, capability verification |
+| Graph   | Source      | Rate of change           | Consumer               | Correctness check                       |
+| ------- | ----------- | ------------------------ | ---------------------- | --------------------------------------- |
+| Project | `varp.yaml` | Slow (project structure) | Planner, orchestrator  | `varp_lint`, cycle detection            |
+| Task    | `plan.xml`  | Medium (per feature)     | Orchestrator           | `varp_validate_plan`, hazard detection  |
+| Action  | Runtime     | Fast (per execution)     | Orchestrator internals | Postconditions, capability verification |
 
 The project graph constrains the task graph: `varp_validate_plan` checks that task `touches` reference components that exist and are reachable through `deps`. The task graph constrains the action graph: `varp_compute_waves` derives execution order from data hazards. Information flows down (project constrains task constrains action); feedback flows up (execution metrics inform planning which informs manifest evolution).
 
@@ -179,17 +179,17 @@ This mirrors moonrepo's separation of project graph, task graph, and action grap
 
 Varp's concurrency model borrows directly from database management systems because it solves the same fundamental problem: multiple actors changing shared state safely.
 
-| DBMS Concept | Varp Equivalent |
-|---|---|
-| Schema | Component manifest |
-| Transaction | Plan (set of tasks) |
-| Transaction manager | Orchestrator |
-| MVCC / Write-ahead log | Git branches and worktrees |
-| Materialized views | Component documentation (interface + internal) |
-| Constraint checking | Postcondition verification |
-| View maintenance | Invalidation cascade |
+| DBMS Concept           | Varp Equivalent                                |
+| ---------------------- | ---------------------------------------------- |
+| Schema                 | Component manifest                             |
+| Transaction            | Plan (set of tasks)                            |
+| Transaction manager    | Orchestrator                                   |
+| MVCC / Write-ahead log | Git branches and worktrees                     |
+| Materialized views     | Component documentation (interface + internal) |
+| Constraint checking    | Postcondition verification                     |
+| View maintenance       | Invalidation cascade                           |
 
-The critical insight is that Varp doesn't care what your software project *does*, just as a DBMS doesn't care what data *means*. Varp manages component structure, documentation consistency, and work concurrency generically. The domain knowledge lives in the plans and docs, not in the framework.
+The critical insight is that Varp doesn't care what your software project _does_, just as a DBMS doesn't care what data _means_. Varp manages component structure, documentation consistency, and work concurrency generically. The domain knowledge lives in the plans and docs, not in the framework.
 
 ### 4.2 Data Hazards
 

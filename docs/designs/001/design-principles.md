@@ -1,6 +1,6 @@
 # Varp Design Principles
 
-*From the Design Document — v0.1.0 — February 2026*
+_From the Design Document — v0.1.0 — February 2026_
 
 ## 1. Problem
 
@@ -28,7 +28,7 @@ The architectural decision follows directly: **trust static encoding, obsess ove
 
 ### 2.2 The Dual Agent Model: Functional Interface, Process Execution
 
-Agents exhibit two distinct natures that map to different engineering traditions. Their *interface* is functional — you define what an agent does the same way you define a function. Their *runtime behavior* is process-like — they have lifecycles, accumulate state, consume resources, and fail in ways that need structured handling. Varp models both explicitly.
+Agents exhibit two distinct natures that map to different engineering traditions. Their _interface_ is functional — you define what an agent does the same way you define a function. Their _runtime behavior_ is process-like — they have lifecycles, accumulate state, consume resources, and fail in ways that need structured handling. Varp models both explicitly.
 
 #### The Functional Interface (3D Model)
 
@@ -46,11 +46,11 @@ Effective prompting often compresses multiple dimensions into a single phrase. "
 
 **Saved prompts work best when action is static.** Fix the transformation, parameterize everything else. This is currying — partially apply the action, get back a reusable function that takes (domain, values, context) as arguments.
 
-The 3D model governs how agents are *defined* and *dispatched*. The manifest and plan are the functional layer — declarative, compositional, concerned with what agents should do.
+The 3D model governs how agents are _defined_ and _dispatched_. The manifest and plan are the functional layer — declarative, compositional, concerned with what agents should do.
 
 #### The Process Execution Model
 
-Agents *execute* as processes. They have duration, accumulate state during execution, consume resources (tokens, time, API calls), can be suspended and resumed, and fail in ways more complex than "return or throw." A function either returns a value or raises an exception. A process can hang, leak resources, produce partial results, corrupt shared state, or fail silently.
+Agents _execute_ as processes. They have duration, accumulate state during execution, consume resources (tokens, time, API calls), can be suspended and resumed, and fail in ways more complex than "return or throw." A function either returns a value or raises an exception. A process can hang, leak resources, produce partial results, corrupt shared state, or fail silently.
 
 This distinction has concrete architectural consequences:
 
@@ -66,7 +66,7 @@ This distinction has concrete architectural consequences:
 
 The orchestrator is the process manager — the scheduler, supervisor, and resource controller. It operates on the functional definitions (3D model, plans, manifests) but manages execution using process semantics.
 
-This pattern is well-established: Erlang processes have functional interfaces but process semantics. Goroutines are launched with function calls but have thread-like lifecycles. OS threads start by passing a function pointer. The function defines *what*; the process defines *how it executes*.
+This pattern is well-established: Erlang processes have functional interfaces but process semantics. Goroutines are launched with function calls but have thread-like lifecycles. OS threads start by passing a function pointer. The function defines _what_; the process defines _how it executes_.
 
 ### 2.3 Tiered Knowledge Architecture
 
@@ -92,7 +92,7 @@ The orchestrator can pass **observations** from completed tasks to upcoming task
 
 **Restart strategies** (borrowed from Erlang/OTP) determine what happens when a subagent fails:
 
-- **Isolated retry:** The failed task's write set doesn't overlap with any completed task's read set in subsequent waves. Safe to retry — delete the worktree, redispatch. The nondeterminism concern is bounded: retry is unsafe if you need *identical* output, but valid if you're checking *postconditions*. A retry that produces different code but passes the same postconditions is a successful recovery. Contract-mode tasks are particularly retry-friendly.
+- **Isolated retry:** The failed task's write set doesn't overlap with any completed task's read set in subsequent waves. Safe to retry — delete the worktree, redispatch. The nondeterminism concern is bounded: retry is unsafe if you need _identical_ output, but valid if you're checking _postconditions_. A retry that produces different code but passes the same postconditions is a successful recovery. Contract-mode tasks are particularly retry-friendly.
 - **Cascade restart:** The failed task's output is consumed by later tasks that have already been dispatched or completed. The failure invalidates downstream work. The orchestrator must cancel the affected wave (if in progress) and restart from the failed task forward.
 - **Escalate to human:** The failure indicates a planning problem, not an execution problem — preconditions were wrong, the task was misscoped, or postconditions are unsatisfiable. No amount of retry helps. Kick to medium loop.
 

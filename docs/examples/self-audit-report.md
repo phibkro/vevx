@@ -1,21 +1,21 @@
 # Compliance Audit Report
 
-| | |
-|---|---|
-| **Ruleset** | OWASP Top 10 v0.1.0 |
-| **Files** | 41 across 1 components |
-| **Date** | 2026-02-18T06:29:52.953Z |
-| **Duration** | 138.6s |
+|              |                          |
+| ------------ | ------------------------ |
+| **Ruleset**  | OWASP Top 10 v0.1.0      |
+| **Files**    | 41 across 1 components   |
+| **Date**     | 2026-02-18T06:29:52.953Z |
+| **Duration** | 138.6s                   |
 
 ## Summary
 
-| Severity | Count |
-|----------|-------|
-| Critical | 3 |
-| High | 5 |
-| Low | 1 |
-| Informational | 6 |
-| **Total** | **15** |
+| Severity      | Count  |
+| ------------- | ------ |
+| Critical      | 3      |
+| High          | 5      |
+| Low           | 1      |
+| Informational | 6      |
+| **Total**     | **15** |
 
 ## Findings
 
@@ -104,7 +104,7 @@ The audit engine reads arbitrary source code files (discovery.ts / discovery-nod
 
 **Evidence:** discoverFiles() reads file.content = readFileSync(fullPath, 'utf-8'); this content flows into userPromptTemplate(files) / auditUserPrompt(files, task) which embeds it verbatim in the prompt passed to callClaude(systemPrompt, userPrompt, options) which spawns the claude CLI with userPrompt as a CLI argument, making the full file content an argument to an external process.
 
-**Remediation:** Add a disclosure notice to the CLI/API surface that file content (potentially including PII in test fixtures or config files) is transmitted to the Claude CLI. Consider adding a --exclude-patterns option to skip files matching patterns like *.env, seed.*, fixture.*, or files containing known PII patterns. At minimum, document this data flow in the tool's privacy documentation.
+**Remediation:** Add a disclosure notice to the CLI/API surface that file content (potentially including PII in test fixtures or config files) is transmitted to the Claude CLI. Consider adding a --exclude-patterns option to skip files matching patterns like _.env, seed._, fixture.\*, or files containing known PII patterns. At minimum, document this data flow in the tool's privacy documentation.
 
 ---
 
@@ -159,7 +159,7 @@ This is a positive finding confirming compliance. The client.ts deliberately avo
 
 Full scan of all submitted source files found no hardcoded API keys, passwords, tokens, private keys, connection strings with embedded credentials, or JWT secrets. All files follow the correct pattern of either using no credentials (CLI session auth) or delegating to environment variables.
 
-**Evidence:** Searched all TypeScript source files for patterns: sk_live_, sk_test_, AKIA, ghp_, -----BEGIN, Bearer , postgres://*:*@, jwt.sign(*, '). No matches found. The only credential-adjacent string is 'ANTHROPIC_API_KEY' appearing as a string literal in a test fixture (client.test.ts line 15), which is a field name in a ValidationError test, not an actual key value.
+**Evidence:** Searched all TypeScript source files for patterns: sk*live*, sk*test*, AKIA, ghp\_, -----BEGIN, Bearer , postgres://_:_@, jwt.sign(\*, '). No matches found. The only credential-adjacent string is 'ANTHROPIC_API_KEY' appearing as a string literal in a test fixture (client.test.ts line 15), which is a field name in a ValidationError test, not an actual key value.
 
 **Remediation:** No action required.
 
@@ -203,7 +203,7 @@ The analysis cannot confirm whether .env files and credential files are included
 
 **Evidence:** parseGitignore() reads .gitignore at runtime but the .gitignore file itself was not included in the audit scope. Cannot verify that .env, credential files, and CI/CD secrets are excluded from version control.
 
-**Remediation:** Include .gitignore in the audit scope and verify it contains entries for: .env, .env.*, *.pem, *.key, id_rsa, credentials.json, and similar credential files.
+**Remediation:** Include .gitignore in the audit scope and verify it contains entries for: .env, .env._, _.pem, \*.key, id_rsa, credentials.json, and similar credential files.
 
 ---
 
@@ -212,7 +212,7 @@ The analysis cannot confirm whether .env files and credential files are included
 - **Rule:** CROSS-03
 - **Confidence:** 50%
 
-No CI/CD configuration files (.github/workflows/*.yml, .gitlab-ci.yml, Jenkinsfile, etc.) were included in the audit scope. Cannot verify whether pipeline configurations contain hardcoded secrets, API keys, or tokens committed to the repository.
+No CI/CD configuration files (.github/workflows/\*.yml, .gitlab-ci.yml, Jenkinsfile, etc.) were included in the audit scope. Cannot verify whether pipeline configurations contain hardcoded secrets, API keys, or tokens committed to the repository.
 
 **Evidence:** CI/CD configuration files were not present in the submitted file set. The planner's TAG_PATTERNS includes patterns for CI/CD files (/\.github/i, /ci/i, /workflow/i) indicating the codebase is aware of their existence, but they were not submitted for review.
 

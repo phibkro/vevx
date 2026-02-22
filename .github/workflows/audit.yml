@@ -6,14 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       path:
-        description: 'Path to audit'
-        default: '.'
+        description: "Path to audit"
+        default: "."
       ruleset:
-        description: 'Ruleset to use'
-        default: 'owasp-top-10'
+        description: "Ruleset to use"
+        default: "owasp-top-10"
       diff:
-        description: 'Git ref for incremental audit (leave empty for full audit)'
-        default: ''
+        description: "Git ref for incremental audit (leave empty for full audit)"
+        default: ""
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for --diff
+          fetch-depth: 0 # Full history for --diff
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -56,7 +56,7 @@ jobs:
             ARGS="$ARGS --diff $AUDIT_DIFF"
           fi
 
-          bun apps/cli/dist/cli.js audit $ARGS
+          bun packages/audit/dist/cli.js audit $ARGS
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && hashFiles('audit-report.md') != ''

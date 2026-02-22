@@ -8,11 +8,11 @@
 
 ## Thesis: Insight Through Signal Combination
 
-The deepest architectural insights come not from any single analysis, but from the *tension between independent views* of the same system. Static analysis reveals structure. Semantic tagging captures intent. Git history exposes behavior. Each has different blind spots — and the interesting findings live exactly where these signals disagree.
+The deepest architectural insights come not from any single analysis, but from the _tension between independent views_ of the same system. Static analysis reveals structure. Semantic tagging captures intent. Git history exposes behavior. Each has different blind spots — and the interesting findings live exactly where these signals disagree.
 
-This is triangulation applied to software architecture. A single signal tells you what *is*. Two signals, when they conflict, tell you what's *wrong*.
+This is triangulation applied to software architecture. A single signal tells you what _is_. Two signals, when they conflict, tell you what's _wrong_.
 
-**Design principle:** Every analytical signal added to the system should have *different* blind spots from existing signals. More of the same signal adds noise. An independent signal with complementary blind spots multiplies insight.
+**Design principle:** Every analytical signal added to the system should have _different_ blind spots from existing signals. More of the same signal adds noise. An independent signal with complementary blind spots multiplies insight.
 
 ---
 
@@ -36,7 +36,7 @@ This is a category-theoretic framing: an object (file) is fully determined by it
 
 Parse import/require statements to build a directed dependency graph.
 
-**Captures:** Potential coupling — what *can* affect what.
+**Captures:** Potential coupling — what _can_ affect what.
 **Blind spots:** Overcounts stable interfaces as coupling. Misses implicit dependencies through shared databases, APIs, or conventions. Cannot distinguish intentional from accidental coupling.
 
 #### Layer 2: Behavioral (Git Co-Change Frequency)
@@ -68,23 +68,25 @@ File path exclude patterns (lockfiles, generated code, build artifacts) filter s
 **File inclusion:** All files in the repo are included by default — not just source code. Config files, docs, migrations, CI definitions, and other non-source files carry legitimate coupling signal. A `Dockerfile` co-changing tightly with one service's source tells you something real about deployment coupling. A config file co-changing in a 2-file commit is genuinely strong signal; in a 30-file commit, the graduated weighting ensures it barely registers.
 
 Default excludes are limited to purely mechanical files:
+
 - Lockfiles (`bun.lock`, `package-lock.json`, etc.)
 - Generated code (build artifacts, `.d.ts` outputs)
 - The `.varp/` cache itself
 
-**Captures:** Actual coupling — what *really* changes together in practice.
+**Captures:** Actual coupling — what _really_ changes together in practice.
 **Blind spots:** Noisy for monorepo-style large commits. Cannot distinguish correlation from causation. No signal for code that hasn't changed recently.
 
 **Temporal patterns (future):**
-- File A consistently changes *before* file B → directional dependency
+
+- File A consistently changes _before_ file B → directional dependency
 - A cluster changes together but one file occasionally changes alone → likely the cluster's interface
 
 #### Layer 3: Semantic (Tags and Declarations)
 
 Human-authored annotations: tags, component declarations, architectural intent.
 
-**Captures:** Intent — what things *mean* and how they *should* relate.
-**Blind spots:** Manual, drifts from reality, incomplete. Reflects what developers *believe* the architecture is, not necessarily what it *is*.
+**Captures:** Intent — what things _mean_ and how they _should_ relate.
+**Blind spots:** Manual, drifts from reality, incomplete. Reflects what developers _believe_ the architecture is, not necessarily what it _is_.
 
 #### Future Layers (extensible)
 
@@ -99,10 +101,10 @@ Each should have independent blind spots from existing layers:
 
 The core analytical output. Combining any two signal layers reveals a diagnostic matrix. The most immediately useful combination is structural (imports) vs behavioral (co-change):
 
-|  | **High Co-Change** | **Low Co-Change** |
-|--|--|--|
+|                          | **High Co-Change**                  | **Low Co-Change**              |
+| ------------------------ | ----------------------------------- | ------------------------------ |
 | **High Import Coupling** | Explicit module — expected, healthy | Stable interface — good design |
-| **Low Import Coupling** | **Hidden coupling — investigate** | Unrelated — expected |
+| **Low Import Coupling**  | **Hidden coupling — investigate**   | Unrelated — expected           |
 
 The **high co-change, low import coupling** quadrant is where the highest-value findings live. These are files coupled through implicit contracts (shared DB schemas, API boundaries, conventions) invisible to static analysis.
 
@@ -118,15 +120,15 @@ Real architecture isn't hierarchical. A module can simultaneously be "part of th
 
 ### Cross-Cutting File Declarations
 
-Components can declare membership of files across any directory boundary. A "feature" in a real codebase spans route handlers, migrations, utilities, types, and tests. Components describe what's *actually* a unit, not what the folder structure claims.
+Components can declare membership of files across any directory boundary. A "feature" in a real codebase spans route handlers, migrations, utilities, types, and tests. Components describe what's _actually_ a unit, not what the folder structure claims.
 
 ### Gradual Declaration
 
 Following TypeScript's key design insight — gradual adoption with inference filling gaps:
 
-1. **Fully inferred:** Zero configuration. Clustering algorithms (Louvain, spectral clustering) on the weighted graph identify natural groupings. The tool surfaces unnamed clusters: *"These 8 files are tightly coupled — what would you name their relationship?"*
+1. **Fully inferred:** Zero configuration. Clustering algorithms (Louvain, spectral clustering) on the weighted graph identify natural groupings. The tool surfaces unnamed clusters: _"These 8 files are tightly coupled — what would you name their relationship?"_
 
-2. **Partially declared:** Explicitly declare some components. Inference fills the rest. The tool flags disagreements: *"You declared these as one component, but they split into two disconnected subgraphs."*
+2. **Partially declared:** Explicitly declare some components. Inference fills the rest. The tool flags disagreements: _"You declared these as one component, but they split into two disconnected subgraphs."_
 
 3. **Fully declared:** Every file belongs to an explicit component. The tool validates declarations against the actual graph, surfacing architectural drift.
 
@@ -136,14 +138,14 @@ The interaction is **bottom-up discovery**: the code reveals its actual structur
 
 ## Architectural Validation
 
-The most valuable output isn't visualization — it's the *gap between declared intent and observed reality*:
+The most valuable output isn't visualization — it's the _gap between declared intent and observed reality_:
 
 - "Your architecture claims to be X but the dependency graph reveals it's actually Y"
 - "These files have no import relationship but always change together — hidden coupling"
 - "This component's internal cohesion is weakening — files A and B are drifting apart"
 - "You declared these as separate concerns, but they form a single tightly-coupled cluster"
 
-Visualization serves this — not as a raw graph dump (which is useless at scale) but as a way to present the *semantic compression*: "these 40 files are one state machine" rather than 40 nodes and 200 edges.
+Visualization serves this — not as a raw graph dump (which is useless at scale) but as a way to present the _semantic compression_: "these 40 files are one state machine" rather than 40 nodes and 200 edges.
 
 ---
 
@@ -174,9 +176,10 @@ This is a deliberate choice: an undeclared file that shows high co-change with d
 
 ## Signal Independence
 
-Signal layers are kept as **separate dimensions**, not combined into a single weight. The diagnostic power of the coupling matrix comes from *disagreement* between signals. Merging them into a single score destroys exactly what makes this useful.
+Signal layers are kept as **separate dimensions**, not combined into a single weight. The diagnostic power of the coupling matrix comes from _disagreement_ between signals. Merging them into a single score destroys exactly what makes this useful.
 
 Each query type combines signals differently:
+
 - **Hidden coupling detection:** High behavioral, low structural → investigate
 - **Architecture drift:** High behavioral, contradicts semantic → declared intent doesn't match reality
 - **Stable interfaces:** High structural, low behavioral → good design, working abstraction
@@ -188,6 +191,7 @@ Each query type combines signals differently:
 The co-change graph is computed incrementally. Git provides a natural mechanism: store the last analyzed commit SHA, then `git log <sha>..HEAD` yields only new commits. New edge weights are appended to existing ones.
 
 Cache is stored in `.varp/` (a new convention for varp-managed derived state). The cache is invalidated when:
+
 - HEAD has moved (new commits to analyze — append only)
 - Filter configuration has changed (full recompute required)
 
@@ -197,7 +201,7 @@ This means the expensive initial analysis runs once; subsequent runs process onl
 
 ## Relationship to varp Core
 
-This lives within varp core as a new `analysis` submodule (`packages/core/src/analysis/`). It extends varp's existing primitives:
+This lives within varp core as a new `analysis` submodule (`packages/varp/src/analysis/`). It extends varp's existing primitives:
 
 - **Tags** → labeling system for inferred and declared components
 - **Import graph** → the existing structural signal layer (already implemented in `manifest/`)
@@ -209,8 +213,8 @@ The co-change parser is a pure function (git log → edge weights) with no manif
 
 The analysis is exposed through three interfaces:
 
-- **MCP tools** — Agents query coupling scores during planning (cached, fast). *"What else changes when I touch this file?"*
-- **CLI commands** — Developers run diagnostics on demand. *"Show me hidden coupling hotspots."*
+- **MCP tools** — Agents query coupling scores during planning (cached, fast). _"What else changes when I touch this file?"_
+- **CLI commands** — Developers run diagnostics on demand. _"Show me hidden coupling hotspots."_
 - **Audit input** — The audit engine consumes the graph for batch architectural smell detection.
 
 All three share the same underlying cached graph; they differ in query patterns and presentation.
@@ -222,6 +226,7 @@ All three share the same underlying cached graph; they differ in query patterns 
 V1 delivers the co-change parser and the structural-vs-behavioral diagnostic matrix. This is the minimum surface that produces novel, actionable findings.
 
 **In scope:**
+
 - Co-change parser (git log → weighted edge graph)
 - Graduated commit weighting (1/(n-1))
 - Commit message noise filtering
@@ -230,6 +235,7 @@ V1 delivers the co-change parser and the structural-vs-behavioral diagnostic mat
 - MCP, CLI, and audit output surfaces
 
 **Out of scope (future):**
+
 - Clustering algorithms (Louvain, spectral) for component inference
 - Visualization beyond the matrix
 - Temporal directionality (A changes before B)

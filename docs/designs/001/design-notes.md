@@ -1,6 +1,6 @@
 # Varp Design Notes
 
-*From the Design Document — v0.1.0 — February 2026*
+_From the Design Document — v0.1.0 — February 2026_
 
 Feedback loops, documentation lifecycle, open questions, related work, and implementation history. See [Design Principles](design-principles.md) and [Architecture](design-architecture.md) for the core design.
 
@@ -54,7 +54,7 @@ When does the orchestrator proceed autonomously vs. ask the human? The restart s
 
 ### 7.4 `touches` Accuracy
 
-The concurrency model is only as good as the `touches` declarations. If a task declares `reads: auth` but actually modifies auth's behavior through a shared utility or transitive dependency, the hazard detection misses it. Capability verification catches *writes* to undeclared components after the fact, but undeclared *reads* — where a task depends on a component's behavior without declaring it — remain invisible until postcondition failures reveal the gap. Whether additional static analysis (e.g., scanning file-level imports to infer component boundaries) can improve `touches` accuracy without adding brittleness is worth investigating.
+The concurrency model is only as good as the `touches` declarations. If a task declares `reads: auth` but actually modifies auth's behavior through a shared utility or transitive dependency, the hazard detection misses it. Capability verification catches _writes_ to undeclared components after the fact, but undeclared _reads_ — where a task depends on a component's behavior without declaring it — remain invisible until postcondition failures reveal the gap. Whether additional static analysis (e.g., scanning file-level imports to infer component boundaries) can improve `touches` accuracy without adding brittleness is worth investigating.
 
 ### 7.5 Interface Completeness
 
@@ -66,11 +66,11 @@ The behavioral assumptions in interface docs are human-written because the impor
 
 ### 7.7 Warm Agent Staleness
 
-Resuming a subagent session preserves its accumulated context, but that context may be stale if other tasks have modified components in its scope since the session was suspended. The orchestrator checks doc freshness before dispatch, but a warm agent's *implicit* understanding (patterns it noticed, assumptions it formed) can't be freshness-checked. Whether warm agent resumption should be limited to cases where no intervening writes occurred, or whether a freshness summary injected at resumption is sufficient, is an open question.
+Resuming a subagent session preserves its accumulated context, but that context may be stale if other tasks have modified components in its scope since the session was suspended. The orchestrator checks doc freshness before dispatch, but a warm agent's _implicit_ understanding (patterns it noticed, assumptions it formed) can't be freshness-checked. Whether warm agent resumption should be limited to cases where no intervening writes occurred, or whether a freshness summary injected at resumption is sufficient, is an open question.
 
 ## 8. Manifest Extensions
 
-Four optional component fields that give the planner and orchestrator richer signals without changing the core scheduling model. All are implemented — see [Manifest Schema](../../packages/core/src/manifest/README.md) for the full reference.
+Four optional component fields that give the planner and orchestrator richer signals without changing the core scheduling model. All are implemented — see [Manifest Schema](../../packages/varp/src/manifest/README.md) for the full reference.
 
 ### 8.1 `tags` — Freeform Labels
 
@@ -154,7 +154,7 @@ Named **mutexes** are implemented as an optional `<mutexes>` element on plan tas
 
 ## 10. Implementation Path
 
-All build steps (1-8) are complete. See the [architecture doc](../../packages/core/docs/architecture.md) for current module structure and algorithms.
+All build steps (1-8) are complete. See the [architecture doc](../../packages/varp/docs/architecture.md) for current module structure and algorithms.
 
 ### 10.1 Technical Choices
 
