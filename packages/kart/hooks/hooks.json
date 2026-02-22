@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "You have kart MCP tools for progressive code disclosure. Prefer kart_zoom level 0 (exported symbols + signatures) over reading full files when exploring unfamiliar code. Escalate to level 1 (all symbols) or level 2 (full content) only when needed. Before modifying a file, check kart_cochange to find files that frequently change alongside it."
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "kart MCP tools are available. Use kart_zoom level 0 to see a module's exported API before reading full files. Use kart_cochange to check behavioral coupling before modifying files."
+          }
+        ]
+      }
+    ]
+  }
+}
