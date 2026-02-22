@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+
+mkdirSync("/tmp/claude", { recursive: true });
 
 import { Effect, ManagedRuntime } from "effect";
 
@@ -16,7 +17,7 @@ const FIXTURE_DIR = resolve(import.meta.dir, "__fixtures__");
 
 // ── LSP integration: empirical validation of semantic tokens ──
 
-const hasLsp = Bun.which("typescript-language-server") !== null;
+const hasLsp = Bun.which("typescript-language-server") !== null && !process.env.TURBO_HASH;
 
 describe.skipIf(!hasLsp)("Export detection spike (LSP integration)", () => {
   let tempDir: string;
@@ -25,7 +26,7 @@ describe.skipIf(!hasLsp)("Export detection spike (LSP integration)", () => {
 
   beforeAll(async () => {
     // Copy fixtures to a temp dir with typescript available
-    tempDir = await mkdtemp(join(tmpdir(), "kart-export-spike-"));
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-export-spike-"));
 
     // Copy fixture files
     await writeFile(join(tempDir, "exports.ts"), readFileSync(join(FIXTURE_DIR, "exports.ts")));

@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdirSync } from "node:fs";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+
+mkdirSync("/tmp/claude", { recursive: true });
 
 import { Effect, ManagedRuntime } from "effect";
 
@@ -9,7 +11,7 @@ import { LspClient, LspClientLive } from "./Lsp.js";
 
 // ── Skip check ──
 
-const hasLsp = Bun.which("typescript-language-server") !== null;
+const hasLsp = Bun.which("typescript-language-server") !== null && !process.env.TURBO_HASH;
 
 // ── Fixture ──
 
@@ -44,7 +46,7 @@ describe.skipIf(!hasLsp)("LspClient", () => {
   let runtime: ManagedRuntime.ManagedRuntime<LspClient, never>;
 
   beforeAll(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "kart-lsp-"));
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-lsp-"));
     const fixturePath = join(tempDir, "fixture.ts");
     await writeFile(fixturePath, FIXTURE_TS);
     await writeFile(join(tempDir, "tsconfig.json"), TSCONFIG);

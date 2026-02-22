@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+
+mkdirSync("/tmp/claude", { recursive: true });
 
 import { Effect, Either, Layer, ManagedRuntime } from "effect";
 
@@ -16,14 +17,14 @@ const FIXTURE_DIR = resolve(import.meta.dir, "__fixtures__");
 
 // ── LSP integration tests ──
 
-const hasLsp = Bun.which("typescript-language-server") !== null;
+const hasLsp = Bun.which("typescript-language-server") !== null && !process.env.TURBO_HASH;
 
 describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
   let tempDir: string;
   let runtime: ManagedRuntime.ManagedRuntime<SymbolIndex, never>;
 
   beforeAll(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "kart-symbols-"));
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-symbols-"));
 
     // Copy fixture files
     await writeFile(join(tempDir, "exports.ts"), readFileSync(join(FIXTURE_DIR, "exports.ts")));

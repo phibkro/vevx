@@ -1,8 +1,10 @@
 import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdirSync } from "node:fs";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+
+mkdirSync("/tmp/claude", { recursive: true });
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -41,7 +43,7 @@ function createFixtureDb(dbPath: string): void {
 
 // ── LSP availability ──
 
-const hasLsp = Bun.which("typescript-language-server") !== null;
+const hasLsp = Bun.which("typescript-language-server") !== null && !process.env.TURBO_HASH;
 
 // ── Cochange tests (no LSP needed) ──
 
@@ -51,7 +53,7 @@ describe("MCP integration — kart_cochange", () => {
   let cleanup: () => Promise<void>;
 
   beforeAll(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "kart-mcp-cochange-"));
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-cochange-"));
     const dbPath = join(tempDir, "cochange.db");
     createFixtureDb(dbPath);
 
@@ -121,7 +123,7 @@ describe("MCP integration — tool listing", () => {
   let cleanup: () => Promise<void>;
 
   beforeAll(async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "kart-mcp-list-"));
+    const tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-list-"));
     const server = createServer({ dbPath: join(tempDir, "x.db"), rootDir: tempDir });
     const [ct, st] = InMemoryTransport.createLinkedPair();
     client = new Client({ name: "test-list", version: "0.1.0" });
@@ -171,7 +173,7 @@ function internal() {}
 `;
 
   beforeAll(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "kart-mcp-zoom-"));
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-zoom-"));
 
     // Set up a minimal TS project so the language server works
     await writeFile(join(tempDir, "fixture.ts"), FIXTURE_TS);
