@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, watch } from "node:fs";
 import { resolve } from "node:path";
 
 import { Context, Effect, Layer, Scope } from "effect";
@@ -24,6 +24,7 @@ export class LspClient extends Context.Tag("kart/LspClient")<
     readonly semanticTokens: (
       uri: string,
     ) => Effect.Effect<SemanticTokensResult, LspError | LspTimeoutError>;
+    readonly updateOpenDocument: (uri: string) => Effect.Effect<void, LspError>;
     readonly shutdown: () => Effect.Effect<void, LspError>;
   }
 >() {}
@@ -293,6 +294,23 @@ const SEMANTIC_TOKEN_MODIFIERS = [
   "defaultLibrary",
 ] as const;
 
+// ── File watching ──
+
+/** Glob patterns to watch — matches TypeScript sources and config files. */
+const WATCHED_EXTENSIONS = new Set([".ts", ".tsx"]);
+const WATCHED_FILENAMES = new Set(["tsconfig.json", "package.json"]);
+
+/** LSP FileChangeType enum values. */
+const FileChangeType = { Created: 1, Changed: 2, Deleted: 3 } as const;
+
+function shouldWatch(filename: string): boolean {
+  if (WATCHED_FILENAMES.has(filename)) return true;
+  for (const ext of WATCHED_EXTENSIONS) {
+    if (filename.endsWith(ext)) return true;
+  }
+  return false;
+}
+
 // ── Layer ──
 
 export type LspConfig = {
@@ -335,7 +353,7 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
         transport.startReading();
 
         // Track open documents so we can close them on shutdown
-        const openDocuments = new Set<string>();
+        const openDocumentVersions = new Map<string, number>();
         let shutdownCalled = false;
 
         // Initialize handshake
@@ -355,10 +373,11 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
                     formats: ["relative"],
                   },
                 },
-                // TODO: Add workspace/didChangeWatchedFiles support. The client should
-                // watch *.ts, *.tsx, tsconfig.json, package.json via fs.watch and send
-                // workspace/didChangeWatchedFiles notifications to keep the server in sync.
-                // Omitted for v0.1 — the server falls back to polling or stale state.
+                workspace: {
+                  didChangeWatchedFiles: {
+                    dynamicRegistration: false,
+                  },
+                },
               },
               rootUri,
               workspaceFolders: [{ uri: rootUri, name: "workspace" }],
@@ -383,8 +402,11 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
             // Skip if explicit shutdown() already ran
             if (shutdownCalled) return;
 
+            // Stop file watcher
+            watcher.close();
+
             // Close any open documents
-            for (const uri of openDocuments) {
+            for (const uri of openDocumentVersions.keys()) {
               yield* Effect.try({
                 try: () =>
                   transport.notify("textDocument/didClose", {
@@ -418,7 +440,7 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
         // Helper: ensure document is open before requesting
         const ensureDocumentOpen = (uri: string): Effect.Effect<void, LspError | LspTimeoutError> =>
           Effect.gen(function* () {
-            if (openDocuments.has(uri)) return;
+            if (openDocumentVersions.has(uri)) return;
 
             const filePath = uri.startsWith("file://") ? uri.slice(7) : uri;
             const content = yield* Effect.try({
@@ -440,8 +462,64 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
                 new LspError({ message: `didOpen failed for ${uri}: ${String(e)}`, cause: e }),
             });
 
-            openDocuments.add(uri);
+            openDocumentVersions.set(uri, 1);
           });
+
+        // Helper: notify LSP that an already-open document changed on disk
+        const notifyDocumentChanged = (uri: string): void => {
+          const version = openDocumentVersions.get(uri);
+          if (version == null) return; // Not open — the next ensureDocumentOpen will read fresh content
+
+          const filePath = uri.startsWith("file://") ? uri.slice(7) : uri;
+          try {
+            const content = readFileSync(filePath, "utf-8");
+            const nextVersion = version + 1;
+            openDocumentVersions.set(uri, nextVersion);
+            transport.notify("textDocument/didChange", {
+              textDocument: { uri, version: nextVersion },
+              contentChanges: [{ text: content }],
+            });
+          } catch {
+            // File may have been deleted — remove from tracking so next access re-opens
+            openDocumentVersions.delete(uri);
+          }
+        };
+
+        // Start file watcher to keep LSP in sync with external edits
+        const watcher = yield* Effect.try({
+          try: () => {
+            const w = watch(rootDir, { recursive: true }, (eventType, filename) => {
+              if (!filename || !shouldWatch(filename)) return;
+
+              const absPath = resolve(rootDir, filename);
+              const uri = `file://${absPath}`;
+
+              // Notify LSP about filesystem change
+              const changeType =
+                eventType === "rename"
+                  ? existsSync(absPath)
+                    ? FileChangeType.Created
+                    : FileChangeType.Deleted
+                  : FileChangeType.Changed;
+
+              transport.notify("workspace/didChangeWatchedFiles", {
+                changes: [{ uri, type: changeType }],
+              });
+
+              // If the document is already open, send didChange so LSP picks up new content
+              if (changeType !== FileChangeType.Deleted) {
+                notifyDocumentChanged(uri);
+              } else {
+                openDocumentVersions.delete(uri);
+              }
+            });
+            // Ignore watcher errors (e.g. EMFILE on macOS) — stale state is acceptable fallback
+            w.on("error", () => {});
+            return w;
+          },
+          catch: (e) =>
+            new LspError({ message: `Failed to start file watcher: ${String(e)}`, cause: e }),
+        });
 
         return LspClient.of({
           documentSymbol: (uri) =>
@@ -493,15 +571,26 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
               };
             }),
 
+          updateOpenDocument: (uri) =>
+            Effect.try({
+              try: () => notifyDocumentChanged(uri),
+              catch: (e) =>
+                new LspError({
+                  message: `updateOpenDocument failed for ${uri}: ${String(e)}`,
+                  cause: e,
+                }),
+            }),
+
           shutdown: () =>
             Effect.tryPromise({
               try: async () => {
                 shutdownCalled = true;
+                watcher.close();
                 await transport.request("shutdown", null, 5_000);
                 transport.notify("exit");
                 transport.drain();
                 proc.kill();
-                openDocuments.clear();
+                openDocumentVersions.clear();
               },
               catch: (e) => new LspError({ message: `Shutdown failed: ${String(e)}`, cause: e }),
             }),

@@ -55,9 +55,10 @@ Manages a persistent `typescript-language-server` process over JSON-RPC/stdio.
 **Methods:**
 - `documentSymbol(uri)` — hierarchical symbol tree for a file
 - `semanticTokens(uri)` — decoded semantic tokens (delta-encoded from LSP)
+- `updateOpenDocument(uri)` — re-read file from disk and send `didChange` to the LS (for programmatic refresh)
 - `shutdown()` — explicit early termination (sets flag to prevent duplicate cleanup in finalizer)
 
-**File watching:** Deferred to v0.2. The LS falls back to polling or stale state. A TODO in the code marks where `workspace/didChangeWatchedFiles` registration should go.
+**File watching:** A recursive `fs.watch` on the workspace root monitors `*.ts`, `*.tsx`, `tsconfig.json`, and `package.json`. On change, the watcher sends `workspace/didChangeWatchedFiles` notifications to the LS. For already-open documents, it also sends `textDocument/didChange` with refreshed content. The watcher is attached to the Effect `Scope` finalizer and cleaned up with the LSP process. Watcher errors (e.g. EMFILE) are silently ignored — stale state is an acceptable fallback.
 
 ### SymbolIndex (`src/Symbols.ts`)
 
@@ -138,7 +139,7 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-56 tests across 7 files, split into pure (coverage-gated) and integration:
+57 tests across 7 files, split into pure (coverage-gated) and integration:
 
 **Pure tests** (`src/pure/`, 24 tests, `test:pure` with `--coverage`):
 
@@ -147,12 +148,12 @@ All error types defined in `src/pure/Errors.ts`.
 | `pure/ExportDetection.test.ts` | 12 | isExported text scanning against fixture |
 | `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
 
-**Integration tests** (`src/*.test.ts`, 32 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 33 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
-| `Lsp.test.ts` | 4 | documentSymbol, hierarchical children, semanticTokens, shutdown |
+| `Lsp.test.ts` | 5 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
 | `Symbols.test.ts` | 12 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap |
 | `Mcp.test.ts` | 10 | MCP integration via InMemoryTransport, structuredContent | |

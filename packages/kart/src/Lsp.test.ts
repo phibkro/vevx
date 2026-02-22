@@ -117,6 +117,47 @@ describe.skipIf(!hasLsp)("LspClient", () => {
     }
   }, 30_000);
 
+  test("LSP picks up didChange notification for open document", async () => {
+    // Get initial symbols — this opens the document
+    const initial = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.documentSymbol(fixtureUri);
+      }),
+    );
+    const initialNames = initial.map((s) => s.name);
+    expect(initialNames).toContain("greet");
+    expect(initialNames).not.toContain("farewell");
+
+    // Update the file and use updateOpenDocument to notify the LSP
+    const updatedContent =
+      FIXTURE_TS +
+      `\nexport function farewell(user: User): string {\n  return \`Goodbye, \${user.name}\`;\n}\n`;
+    const fixturePath = fixtureUri.slice(7);
+    await writeFile(fixturePath, updatedContent);
+
+    // Notify LSP via updateOpenDocument (exposed on LspClient)
+    await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        yield* lsp.updateOpenDocument(fixtureUri);
+      }),
+    );
+
+    // Give LSP a moment to process
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // Re-query — should see the new symbol
+    const updated = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.documentSymbol(fixtureUri);
+      }),
+    );
+    const updatedNames = updated.map((s) => s.name);
+    expect(updatedNames).toContain("farewell");
+  }, 30_000);
+
   test("shutdown() terminates the language server cleanly", async () => {
     // Separate runtime — shutdown kills the process, can't reuse the shared one
     const shutdownRuntime = ManagedRuntime.make(LspClientLive({ rootDir: tempDir }));

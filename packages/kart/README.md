@@ -76,7 +76,7 @@ Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. D
 | Errors | `src/pure/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
 | ExportDetection | `src/pure/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
 | Signatures | `src/pure/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
-| LspClient | `src/Lsp.ts` | TypeScript language server over stdio (JSON-RPC, Effect Layer) |
+| LspClient | `src/Lsp.ts` | TypeScript language server over stdio (JSON-RPC, Effect Layer, file watcher) |
 | SymbolIndex | `src/Symbols.ts` | Zoom service — workspace-scoped, combines LSP + pure functions |
 | CochangeDb | `src/Cochange.ts` | SQLite reader for co-change data (cached connections) |
 | Tools | `src/Tools.ts` | MCP tool definitions (Zod schemas + Effect handlers) |

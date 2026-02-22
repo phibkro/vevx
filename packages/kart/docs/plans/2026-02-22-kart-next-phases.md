@@ -11,33 +11,11 @@ Continuation plan for kart after phase 0 completion. Phase 0 shipped `kart_zoom`
 - Plugin: `.claude-plugin/plugin.json`, skill (`skills/zoom/`), prompt hooks (`hooks/hooks.json`), marketplace entry
 - Docs: README, design.md, architecture.md
 
-## Phase 0.1: file watcher (keep LSP in sync)
+## Phase 0.1: file watcher (keep LSP in sync) ✓
 
-**Problem.** The LSP has stale state after external edits. The `typescript-language-server` expects the client to send `workspace/didChangeWatchedFiles` notifications. Currently there's a TODO at `src/Lsp.ts:356`.
+**Shipped.** Recursive `fs.watch` on workspace root watches `*.ts`, `*.tsx`, `tsconfig.json`, `package.json`. On change, sends `workspace/didChangeWatchedFiles` to the LS. For already-open documents, also sends `textDocument/didChange` with refreshed content. Watcher errors (EMFILE) are silently ignored. `updateOpenDocument(uri)` exposed on `LspClient` for programmatic refresh. Watcher attached to Effect Scope finalizer.
 
-**Scope.** Small, contained change to `LspClient` layer acquisition.
-
-### Tasks
-
-1. **Register file watcher during LSP handshake** (`src/Lsp.ts`)
-   - After `initialized` notification, register `workspace/didChangeWatchedFiles` capability via `client/registerCapability`
-   - Watch patterns: `**/*.ts`, `**/*.tsx`, `tsconfig.json`, `package.json`
-
-2. **Implement file watcher** (`src/Lsp.ts`)
-   - Use Bun's `fs.watch` (recursive) on the workspace root
-   - Filter events to watched patterns
-   - Forward matching events as `workspace/didChangeWatchedFiles` notifications to the LS
-   - Attach watcher to Effect `Scope` finalizer so it's cleaned up with the LSP process
-
-3. **Test staleness recovery** (`src/Lsp.test.ts` or new `src/FileWatcher.test.ts`)
-   - Write a fixture file → zoom it → modify file externally → zoom again → verify updated symbols
-   - Use `describe.skipIf(!hasLsp)` since this requires a live LS
-
-**Acceptance**: after an external file edit, subsequent `kart_zoom` calls return updated symbols without MCP server restart.
-
-**Key decisions**:
-- Bun's `fs.watch` vs `@effect/platform` `FileSystem.watch`: prefer Bun native since the rest of the process management uses `Bun.spawn`. Check if `Bun.FileSystemRouter` or `fs.watch` with `{recursive: true}` works on macOS — if not, fall back to `@effect/platform`.
-- Debounce: LS handles batching, so forward events immediately. If noisy, add a 100ms debounce.
+**Decisions made**: Bun's `fs.watch` with `{recursive: true}` works on macOS. No debounce needed — events forwarded immediately. Watcher errors are non-fatal (stale state is acceptable fallback).
 
 ## Phase 1: `kart_impact` latency spike (research)
 
