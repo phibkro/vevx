@@ -44,6 +44,32 @@ export type IncomingCallItem = {
   readonly fromRanges: readonly LspRange[];
 };
 
+export type OutgoingCallItem = {
+  readonly to: CallHierarchyItem;
+  readonly fromRanges: readonly LspRange[];
+};
+
+// ── Impact types ──
+
+export type ImpactNode = {
+  readonly name: string;
+  readonly kind: number;
+  readonly uri: string;
+  readonly range: LspRange;
+  readonly fanOut: number;
+  readonly callers: ImpactNode[];
+};
+
+export type ImpactResult = {
+  readonly symbol: string;
+  readonly path: string;
+  readonly depth: number;
+  readonly maxDepth: number;
+  readonly totalNodes: number;
+  readonly highFanOut: boolean;
+  readonly root: ImpactNode;
+};
+
 // ── Zoom types ──
 
 export type ZoomSymbol = {

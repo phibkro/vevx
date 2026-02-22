@@ -139,10 +139,10 @@ describe("MCP integration — tool listing", () => {
     await cleanup();
   });
 
-  test("lists both kart_cochange and kart_zoom tools", async () => {
+  test("lists all kart tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
-    expect(names).toEqual(["kart_cochange", "kart_zoom"]);
+    expect(names).toEqual(["kart_cochange", "kart_impact", "kart_zoom"]);
   });
 
   test("all tools have read-only annotations", async () => {
@@ -256,4 +256,94 @@ function internal() {}
     const text = (result as { content: { text: string }[] }).content[0].text;
     expect(text).toContain("Error");
   });
+
+  // ── kart_impact tests (reuse the same LSP-enabled server) ──
+
+  test("kart_impact returns transitive callers", async () => {
+    // Create a caller file
+    await writeFile(
+      join(tempDir, "caller.ts"),
+      `import { greet } from "./fixture.js";\n\nexport function welcome() {\n  return greet("world");\n}\n`,
+    );
+    // Give watcher time
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // Open the caller file so LSP knows about it
+    await client.callTool({
+      name: "kart_zoom",
+      arguments: { path: join(tempDir, "caller.ts"), level: 0 },
+    });
+
+    // Wait for LSP to cross-reference
+    await new Promise((r) => setTimeout(r, 1000));
+
+    const result = await client.callTool({
+      name: "kart_impact",
+      arguments: {
+        path: join(tempDir, "fixture.ts"),
+        symbol: "greet",
+      },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as {
+      symbol: string;
+      depth: number;
+      maxDepth: number;
+      totalNodes: number;
+      highFanOut: boolean;
+      root: { name: string; fanOut: number; callers: { name: string }[] };
+    };
+
+    expect(data.symbol).toBe("greet");
+    expect(data.depth).toBe(3);
+    expect(data.maxDepth).toBe(5);
+    expect(data.totalNodes).toBeGreaterThanOrEqual(2); // root + at least 1 caller
+    expect(data.highFanOut).toBe(false);
+    expect(data.root.name).toBe("greet");
+    const callerNames = data.root.callers.map((c) => c.name);
+    expect(callerNames).toContain("welcome");
+  }, 30_000);
+
+  test("kart_impact returns structuredContent", async () => {
+    const result = await client.callTool({
+      name: "kart_impact",
+      arguments: {
+        path: join(tempDir, "fixture.ts"),
+        symbol: "greet",
+      },
+    });
+
+    const typed = result as { structuredContent?: { symbol: string } };
+    expect(typed.structuredContent).toBeDefined();
+    expect(typed.structuredContent!.symbol).toBe("greet");
+  }, 30_000);
+
+  test("kart_impact returns error for unknown symbol", async () => {
+    const result = await client.callTool({
+      name: "kart_impact",
+      arguments: {
+        path: join(tempDir, "fixture.ts"),
+        symbol: "nonexistent",
+      },
+    });
+    expect((result as { isError?: boolean }).isError).toBe(true);
+    const text = (result as { content: { text: string }[] }).content[0].text;
+    expect(text).toContain("nonexistent");
+  }, 30_000);
+
+  test("kart_impact respects custom depth", async () => {
+    const result = await client.callTool({
+      name: "kart_impact",
+      arguments: {
+        path: join(tempDir, "fixture.ts"),
+        symbol: "greet",
+        depth: 1,
+      },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as { depth: number };
+    expect(data.depth).toBe(1);
+  }, 30_000);
 });

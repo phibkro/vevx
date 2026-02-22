@@ -10,6 +10,7 @@ export type {
   DocumentSymbol,
   IncomingCallItem,
   LspRange,
+  OutgoingCallItem,
   SemanticToken,
   SemanticTokensResult,
 } from "./pure/types.js";
@@ -17,6 +18,7 @@ import type {
   CallHierarchyItem,
   DocumentSymbol,
   IncomingCallItem,
+  OutgoingCallItem,
   SemanticToken,
   SemanticTokensResult,
 } from "./pure/types.js";
@@ -40,6 +42,9 @@ export class LspClient extends Context.Tag("kart/LspClient")<
     readonly incomingCalls: (
       item: CallHierarchyItem,
     ) => Effect.Effect<IncomingCallItem[], LspError | LspTimeoutError>;
+    readonly outgoingCalls: (
+      item: CallHierarchyItem,
+    ) => Effect.Effect<OutgoingCallItem[], LspError | LspTimeoutError>;
     readonly updateOpenDocument: (uri: string) => Effect.Effect<void, LspError>;
     readonly shutdown: () => Effect.Effect<void, LspError>;
   }
@@ -628,6 +633,23 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
 
               if (!Array.isArray(result)) return [];
               return result as IncomingCallItem[];
+            }),
+
+          outgoingCalls: (item) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.tryPromise({
+                try: () => transport.request("callHierarchy/outgoingCalls", { item }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `outgoingCalls request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!Array.isArray(result)) return [];
+              return result as OutgoingCallItem[];
             }),
 
           updateOpenDocument: (uri) =>

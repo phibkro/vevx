@@ -2,10 +2,37 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
+/** Symbol used by Effect to store the Cause inside FiberFailure. */
+const FiberFailureCauseSymbol = Symbol.for("effect/Runtime/FiberFailure/Cause");
+
+/** Extract a useful error message from Effect errors (FiberFailure wrapping Data.TaggedError). */
+function errorMessage(e: unknown): string {
+  if (!e || typeof e !== "object") return String(e);
+
+  // FiberFailure: extract the cause via symbol
+  const obj = e as Record<symbol, unknown>;
+  const cause = obj[FiberFailureCauseSymbol] as
+    | { _tag?: string; error?: Record<string, unknown> }
+    | undefined;
+  if (cause && cause._tag === "Fail" && cause.error) {
+    const failure = cause.error;
+    const tag = failure._tag as string | undefined;
+    if (tag) {
+      if ("path" in failure && typeof failure.path === "string") return `${tag}: ${failure.path}`;
+      if ("message" in failure && failure.message !== "An error has occurred")
+        return `${tag}: ${failure.message}`;
+      return tag;
+    }
+  }
+
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
 import { CochangeDbLive } from "./Cochange.js";
 import { LspClientLive } from "./Lsp.js";
 import { SymbolIndexLive } from "./Symbols.js";
-import { kart_cochange, kart_zoom } from "./Tools.js";
+import { kart_cochange, kart_impact, kart_zoom } from "./Tools.js";
 
 // ── Config ──
 
@@ -46,12 +73,11 @@ function createServer(config: ServerConfig = {}): McpServer {
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
         return {
-          content: [
-            { type: "text" as const, text: `Error: ${e instanceof Error ? e.message : String(e)}` },
-          ],
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
         };
       }
@@ -73,12 +99,39 @@ function createServer(config: ServerConfig = {}): McpServer {
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
         return {
-          content: [
-            { type: "text" as const, text: `Error: ${e instanceof Error ? e.message : String(e)}` },
-          ],
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_impact
+  server.registerTool(
+    kart_impact.name,
+    {
+      description: kart_impact.description,
+      inputSchema: kart_impact.inputSchema,
+      annotations: kart_impact.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await zoomRuntime.runPromise(
+          kart_impact.handler(
+            args as { path: string; symbol: string; depth?: number },
+          ) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
         };
       }

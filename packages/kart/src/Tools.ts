@@ -52,4 +52,28 @@ export const kart_zoom = {
     }),
 } as const;
 
-export const tools = [kart_cochange, kart_zoom] as const;
+export const kart_impact = {
+  name: "kart_impact",
+  description:
+    "Compute the blast radius of changing a symbol. Returns transitive callers via BFS over the call hierarchy. Use to understand what might break before modifying a function, method, or class.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the symbol"),
+    symbol: z.string().describe("Name of the symbol to analyze"),
+    depth: z
+      .number()
+      .min(1)
+      .max(5)
+      .optional()
+      .describe(
+        "BFS depth limit (default: 3, max: 5). Higher depths may be slow on large codebases.",
+      ),
+  },
+  handler: (args: { path: string; symbol: string; depth?: number }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.impact(args.path, args.symbol, args.depth);
+    }),
+} as const;
+
+export const tools = [kart_cochange, kart_zoom, kart_impact] as const;
