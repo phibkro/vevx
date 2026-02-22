@@ -27,7 +27,7 @@ Or install via the vevx marketplace:
 
 | Entry | Build output | Purpose |
 |---|---|---|
-| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 2 read-only tools) |
+| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 3 read-only tools) |
 
 ## MCP Tools
 
@@ -35,6 +35,7 @@ Or install via the vevx marketplace:
 |---|---|
 | `kart_zoom` | Progressive disclosure of a file or directory's structure |
 | `kart_cochange` | Files that frequently change alongside a given file (from git history) |
+| `kart_impact` | Blast radius of changing a symbol — transitive callers via LSP call hierarchy |
 
 ### kart_zoom
 
@@ -51,6 +52,22 @@ kart_zoom(path, level?)
 When `path` is a directory, returns level-0 for each `.ts` file. Files with no exports are omitted.
 
 Paths are validated against the workspace root — requests outside the workspace boundary are rejected.
+
+### kart_impact
+
+```
+kart_impact(path, symbol, depth?)
+```
+
+Computes the blast radius of changing a symbol. BFS over LSP `incomingCalls` to find transitive callers.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `path` | required | File containing the symbol |
+| `symbol` | required | Name of the symbol to analyze |
+| `depth` | 3 | BFS depth limit (1–5). Higher depths may be slow on large codebases. |
+
+Returns a tree of callers with metadata: `totalNodes`, `highFanOut` (warns when any node exceeds 10 callers), `depth`, `maxDepth`. Uses `zoomRuntime` (shares LSP with `kart_zoom`).
 
 ### kart_cochange
 
@@ -72,12 +89,12 @@ Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. D
 
 | Module | File | Purpose |
 |---|---|---|
-| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult (plain data) |
+| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult |
 | Errors | `src/pure/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
 | ExportDetection | `src/pure/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
 | Signatures | `src/pure/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
 | LspClient | `src/Lsp.ts` | TypeScript language server over stdio (JSON-RPC, Effect Layer, file watcher) |
-| SymbolIndex | `src/Symbols.ts` | Zoom service — workspace-scoped, combines LSP + pure functions |
+| SymbolIndex | `src/Symbols.ts` | Zoom + impact services — workspace-scoped, combines LSP + pure functions |
 | CochangeDb | `src/Cochange.ts` | SQLite reader for co-change data (cached connections) |
 | Tools | `src/Tools.ts` | MCP tool definitions (Zod schemas + Effect handlers) |
 | Mcp | `src/Mcp.ts` | Server entrypoint, per-tool ManagedRuntime |

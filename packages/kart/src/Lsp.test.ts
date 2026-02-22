@@ -219,6 +219,48 @@ describe.skipIf(!hasLsp)("LspClient", () => {
     console.log(`incomingCalls latency: ${elapsed.toFixed(1)}ms for ${calls.length} callers`);
   }, 30_000);
 
+  test("outgoingCalls returns callees", async () => {
+    // greet calls nothing interesting, but welcome (in caller.ts) calls greet
+    // Get call hierarchy item for welcome
+    const callerPath = join(tempDir, "caller.ts");
+    const callerUri = `file://${callerPath}`;
+
+    // Ensure caller.ts exists (created by incomingCalls test above)
+    // Get document symbols to find welcome's position
+    const symbols = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.documentSymbol(callerUri);
+      }),
+    );
+    const welcome = symbols.find((s) => s.name === "welcome");
+    expect(welcome).toBeDefined();
+
+    const items = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.prepareCallHierarchy(
+          callerUri,
+          welcome!.selectionRange.start.line,
+          welcome!.selectionRange.start.character,
+        );
+      }),
+    );
+    expect(items.length).toBeGreaterThan(0);
+    expect(items[0].name).toBe("welcome");
+
+    const outgoing = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.outgoingCalls(items[0]);
+      }),
+    );
+
+    expect(outgoing.length).toBeGreaterThan(0);
+    const calleeNames = outgoing.map((c) => c.to.name);
+    expect(calleeNames).toContain("greet");
+  }, 30_000);
+
   test("shutdown() terminates the language server cleanly", async () => {
     // Separate runtime — shutdown kills the process, can't reuse the shared one
     const shutdownRuntime = ManagedRuntime.make(LspClientLive({ rootDir: tempDir }));

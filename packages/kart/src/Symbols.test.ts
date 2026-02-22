@@ -199,6 +199,85 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     expect(greet!.doc).toBe("/** Greet a user by name. */");
   }, 30_000);
 
+  // ── impact tests ──
+
+  test("impact: path traversal outside workspace root fails", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.impact("/etc/passwd", "greet"));
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+      expect((result.left as FileNotFoundError).path).toContain("Access denied");
+    }
+  }, 30_000);
+
+  test("impact: nonexistent file fails with FileNotFoundError", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.impact(join(tempDir, "nonexistent.ts"), "greet"));
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+    }
+  }, 30_000);
+
+  test("impact: unknown symbol fails with FileNotFoundError", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.impact(join(tempDir, "exports.ts"), "doesNotExist"));
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+      expect((result.left as FileNotFoundError).path).toContain("doesNotExist");
+    }
+  }, 30_000);
+
+  test("impact: constant with no call hierarchy returns FileNotFoundError", async () => {
+    // MAX_COUNT is a const — call hierarchy may not be available for it
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.impact(join(tempDir, "exports.ts"), "INTERNAL"));
+      }),
+    );
+
+    // INTERNAL is not exported and is a const — prepareCallHierarchy may return empty
+    // Either it succeeds with 0 callers or fails with FileNotFoundError
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+    } else {
+      expect(result.right.totalNodes).toBeGreaterThanOrEqual(1);
+    }
+  }, 30_000);
+
+  test("impact: returns valid tree for exported function", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.impact(join(tempDir, "exports.ts"), "greet");
+      }),
+    );
+
+    expect(result.symbol).toBe("greet");
+    expect(result.depth).toBe(3); // default
+    expect(result.maxDepth).toBe(5);
+    expect(result.totalNodes).toBeGreaterThanOrEqual(1);
+    expect(result.root.name).toBe("greet");
+  }, 30_000);
+
   test("human-readable kind names", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {

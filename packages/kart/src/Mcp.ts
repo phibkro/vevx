@@ -154,4 +154,4 @@ main().catch((e) => {
   process.exit(1);
 });
 
-export { createServer };
+export { createServer, errorMessage };
