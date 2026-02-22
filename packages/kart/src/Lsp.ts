@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { Context, Effect, Layer, Scope } from "effect";
@@ -81,7 +81,7 @@ class JsonRpcTransport {
     if (this.reading) return;
     this.reading = true;
     this.readLoop().catch((err) => {
-      for (const [id, p] of this.pending) {
+      for (const [_id, p] of this.pending) {
         p.reject(new LspError({ message: `Read loop failed: ${err}`, cause: err }));
         this.pending.delete(id);
       }
@@ -230,16 +230,10 @@ class JsonRpcTransport {
 
 // ── Binary resolution ──
 
-function findLspBinary(): string {
-  // Check node_modules/.bin first
-  const localPath = resolve("node_modules", ".bin", "typescript-language-server");
-  try {
-    // Check if the file exists and is executable
-    readFileSync(localPath);
-    return localPath;
-  } catch {
-    // Fall through to global
-  }
+function findLspBinary(rootDir: string): string {
+  // Check node_modules/.bin relative to rootDir first
+  const localPath = resolve(rootDir, "node_modules", ".bin", "typescript-language-server");
+  if (existsSync(localPath)) return localPath;
 
   // Try global — Bun.which is synchronous
   const globalPath = Bun.which("typescript-language-server");
@@ -336,7 +330,7 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
 
       // Find binary
       const binary = yield* Effect.try({
-        try: () => findLspBinary(),
+        try: () => findLspBinary(rootDir),
         catch: (e) => (e instanceof LspError ? e : new LspError({ message: String(e), cause: e })),
       });
 
@@ -360,6 +354,7 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
 
       // Track open documents so we can close them on shutdown
       const openDocuments = new Set<string>();
+      let shutdownCalled = false;
 
       // Initialize handshake
       yield* Effect.tryPromise({
@@ -403,6 +398,9 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
       yield* Scope.addFinalizer(
         scope,
         Effect.gen(function* () {
+          // Skip if explicit shutdown() already ran
+          if (shutdownCalled) return;
+
           // Close any open documents
           for (const uri of openDocuments) {
             yield* Effect.try({
@@ -516,6 +514,7 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
         shutdown: () =>
           Effect.tryPromise({
             try: async () => {
+              shutdownCalled = true;
               await transport.request("shutdown", null, 5_000);
               transport.notify("exit");
               transport.drain();
