@@ -124,16 +124,18 @@ Task scheduling analysis: compute execution waves, detect data hazards, find cri
 
 #### `varp_coupling`
 
-Component coupling analysis combining git co-change (behavioral) and import (structural) signals.
+Component coupling analysis combining git co-change (behavioral) and import (structural) signals. Six modes from component-level matrix down to per-file neighborhood queries.
 
-**Parameters:** `{ manifest_path?, mode?: "co_changes" | "matrix" | "hotspots" | "all", component?, structural_threshold?, behavioral_threshold?, limit?, max_commit_files?, skip_message_patterns?, exclude_paths? }`
+**Parameters:** `{ manifest_path?, mode?, file?, component?, structural_threshold?, behavioral_threshold?, limit?, max_commit_files?, skip_message_patterns?, exclude_paths? }`
 
 - `"co_changes"` — raw git co-change graph (cached in `.varp/co-change.json`)
 - `"matrix"` — coupling matrix classifying pairs into quadrants (explicit_module, stable_interface, hidden_coupling, unrelated). Thresholds auto-calibrate to median.
-- `"hotspots"` — hidden coupling hotspots sorted by behavioral weight
-- `"all"` (default) — all three
+- `"hotspots"` — hidden coupling hotspots sorted by behavioral weight (component-level)
+- `"neighborhood"` — per-file co-change neighbors with complexity trends. Requires `file` param. Returns `{ file, component, neighbors, trends, total_neighbors }`.
+- `"file_hotspots"` — file-level churn hotspots (frequency × LOC) with complexity trends. Filter by `component`. Returns `{ hotspots, total }`.
+- `"all"` (default) — co_changes + matrix + hotspots
 
-**Returns:** `{ co_changes?, matrix?, hotspots?, total_hotspots? }` — keys present based on mode
+**Returns:** varies by mode — see above
 
 ### Analysis
 

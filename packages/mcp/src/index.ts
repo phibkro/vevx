@@ -8,17 +8,24 @@ import {
   type LinkScanMode,
   ackFreshness,
   buildCodebaseGraph,
+  buildComponentPaths,
   buildCouplingMatrix,
   checkEnv,
   checkFreshness,
   checkWarmStaleness,
   componentCouplingProfile,
+  componentPaths,
+  computeComplexityTrends,
   computeCriticalPath,
+  computeHotspots,
   computeWaves,
+  countLines,
   deriveRestartStrategy,
   detectHazards,
   diffPlans,
+  fileNeighborhood,
   findHiddenCoupling,
+  findOwningComponent,
   findScopedTests,
   invalidationCascade,
   parseLogFile,
@@ -34,7 +41,6 @@ import {
   scanImports,
   scanLinks,
   suggestComponents,
-  componentPaths,
   suggestTouches,
   validateDependencyGraph,
   validatePlan,
@@ -562,19 +568,25 @@ const tools: ToolDef[] = [
   {
     name: "varp_coupling",
     description:
-      "Analyze component coupling: scan git co-changes, build structural+behavioral coupling matrix, or find hidden coupling hotspots. Use mode='hotspots' for quick hidden coupling check, mode='all' for full analysis.",
+      "Analyze coupling: co-change matrix, hidden coupling hotspots, per-file neighborhood (what else changes when I touch this file?), or file-level churn hotspots. Use mode='neighborhood' with file param for per-file query, mode='file_hotspots' for churn scoring, mode='all' for full component-level analysis.",
     annotations: READ_ONLY,
     inputSchema: {
       manifest_path: manifestPath,
       mode: z
-        .enum(["co_changes", "matrix", "hotspots", "all"])
+        .enum(["co_changes", "matrix", "hotspots", "neighborhood", "file_hotspots", "all"])
         .optional()
         .default("all")
-        .describe("Analysis mode: co_changes, matrix, hotspots, or all (default)"),
+        .describe(
+          "Analysis mode: co_changes, matrix, hotspots (component-level hidden coupling), neighborhood (per-file co-change neighbors), file_hotspots (churn × LOC scoring), or all (default)",
+        ),
+      file: z
+        .string()
+        .optional()
+        .describe("File path for neighborhood query (required when mode=neighborhood)"),
       component: z
         .string()
         .optional()
-        .describe("Filter matrix/hotspots to pairs involving this component"),
+        .describe("Filter matrix/hotspots/file_hotspots to pairs involving this component"),
       structural_threshold: z
         .number()
         .optional()
@@ -600,6 +612,7 @@ const tools: ToolDef[] = [
     handler: async ({
       manifest_path,
       mode,
+      file,
       component,
       structural_threshold,
       behavioral_threshold,
@@ -619,6 +632,50 @@ const tools: ToolDef[] = [
           ...(exclude_paths !== undefined && { exclude_paths }),
         };
         return { co_changes: scanCoChangesWithCache(manifestDir, config) };
+      }
+
+      if (m === "neighborhood") {
+        if (!file) throw new Error("file parameter is required for mode=neighborhood");
+        const manifest = parseManifest(mp);
+        const coChange = scanCoChangesWithCache(manifestDir);
+        const imports = scanImports(manifest, manifestDir);
+        const neighbors = fileNeighborhood(file, coChange.edges, imports);
+        const neighborFiles = neighbors.map((n) => n.file);
+        const allFiles = [file, ...neighborFiles];
+        const trends = computeComplexityTrends(manifestDir, allFiles);
+        const compPaths = buildComponentPaths(manifest);
+        const absFile = resolve(manifestDir, file);
+        const owningComponent = findOwningComponent(absFile, manifest, compPaths);
+        return {
+          file,
+          component: owningComponent,
+          neighbors: neighbors.slice(0, limit ?? 20),
+          trends,
+          total_neighbors: neighbors.length,
+        };
+      }
+
+      if (m === "file_hotspots") {
+        const coChange = scanCoChangesWithCache(manifestDir);
+        const frequencies = coChange.file_frequencies ?? {};
+        const filePaths = Object.keys(frequencies);
+        const lineCounts = countLines(filePaths, manifestDir);
+        let hotspots = computeHotspots(frequencies, lineCounts);
+        if (component) {
+          const manifest = parseManifest(mp);
+          const compPaths = buildComponentPaths(manifest);
+          hotspots = hotspots.filter((h) => {
+            const abs = resolve(manifestDir, h.file);
+            return findOwningComponent(abs, manifest, compPaths) === component;
+          });
+        }
+        const limited = hotspots.slice(0, limit ?? 20);
+        const trendFiles = limited.map((h) => h.file);
+        const trends = computeComplexityTrends(manifestDir, trendFiles);
+        for (const entry of limited) {
+          entry.trend = trends[entry.file];
+        }
+        return { hotspots: limited, total: hotspots.length };
       }
 
       const manifest = parseManifest(mp);

@@ -10,13 +10,15 @@ You are a planner agent. You decompose human intent into concrete plans scoped b
 
 ## Step 1: Load Manifest
 
-Call `varp_read_manifest`. Understand the component registry, dependency graph, and available docs. If any components have `stability: experimental`, note them — they need more discovery latitude.
+Call `varp_health mode=manifest`. Understand the component registry, dependency graph, and available docs. If any components have `stability: experimental`, note them — they need more discovery latitude.
 
 ## Step 1b: Check Coupling Signals
 
-Call `varp_coupling_hotspots` to find component pairs with hidden coupling (high co-change, no import relationship). If the feature touches any of these pairs, flag them — they may need coordinated changes even though the manifest doesn't declare a dependency.
+Call `varp_coupling mode=hotspots` to find component pairs with hidden coupling (high co-change, no import relationship). If the feature touches any of these pairs, flag them — they may need coordinated changes even though the manifest doesn't declare a dependency.
 
-Also call `varp_coupling_matrix` with `component` set to each component in the feature scope. This reveals whether related components are `explicit_module` (expected), `stable_interface` (safe boundary), or `hidden_coupling` (risk of implicit breakage).
+Also call `varp_coupling mode=matrix component=<name>` for each component in the feature scope. This reveals whether related components are `explicit_module` (expected), `stable_interface` (safe boundary), or `hidden_coupling` (risk of implicit breakage).
+
+For specific files the feature will touch, call `varp_coupling mode=neighborhood file=<path>` to see per-file co-change neighbors and complexity trends.
 
 Skip this step if git history is insufficient (empty result).
 
@@ -165,10 +167,8 @@ Call `varp_validate_plan`. Fix errors and revalidate.
 
 | Tool | Purpose |
 |------|---------|
-| `varp_read_manifest` | Load component registry and dependency graph |
+| `varp_health` | Manifest parsing, doc freshness, lint (mode=manifest for registry) |
 | `varp_resolve_docs` | Load docs for specific components |
 | `varp_suggest_touches` | Validate component scoping from file paths |
 | `varp_validate_plan` | Check plan.xml consistency (Full tier only) |
-| `varp_check_freshness` | Verify docs are current |
-| `varp_coupling_hotspots` | Find hidden coupling between components |
-| `varp_coupling_matrix` | Get coupling profile for components in scope |
+| `varp_coupling` | Coupling analysis (mode=hotspots, matrix, or neighborhood) |

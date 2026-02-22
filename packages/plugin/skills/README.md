@@ -24,6 +24,6 @@ When Nx, Turborepo, or moon is detected, skills leverage their graph data:
 - Each skill is a `SKILL.md` file with YAML frontmatter (`name`, `description`, `allowed-tools`)
 - All skills declare `allowed-tools: mcp__varp__*` to auto-approve varp MCP tool calls
 - Skills are prompt-only — no code, no runtime dependencies
-- Skills reference varp MCP tools by name (e.g., `varp_read_manifest`)
+- Skills reference varp MCP tools by name (e.g., `varp_health`, `varp_coupling`)
 - Plans are stored in project memory (`~/.claude/projects/<project>/memory/plans/`), not the repo
 - Completed plans are auto-archived to `plans/archive/` by the execute skill

@@ -12,7 +12,7 @@ Priority: correctness > safety > throughput.
 
 ## Initialization
 
-1. Call `varp_read_manifest` to load the component registry
+1. Call `varp_health mode=manifest` to load the component registry
 2. Look for an active plan in `~/.claude/projects/<project>/memory/plans/`. Load via `varp_parse_plan`.
 3. If no plan exists, report this and stop
 4. Classify the plan's execution mode (see below)
@@ -30,17 +30,16 @@ Classify the plan based on its scope shape, then follow the corresponding protoc
 - Before resuming a warm agent, call `varp_check_warm_staleness` with the agent's component scope and last-active timestamp. If `safe_to_resume` is false, either start cold or inject the `summary` into the resumed agent's prompt as a staleness warning
 
 **Sequential multi-scope** — tasks write to different components but have RAW dependencies that prevent parallelism.
-- Call `varp_compute_waves` — expect single-task waves
+- Call `varp_schedule mode=waves` — expect single-task waves
 - Execute waves in order, one task per wave
 - Pass observations forward between tasks
 
 **Parallel multi-scope** — tasks write to different components with independent waves.
-- Call `varp_compute_waves` to derive execution order
-- Call `varp_compute_critical_path` to identify priority tasks
-- Dispatch parallel tasks within each wave
+- Call `varp_schedule mode=all` to derive waves, hazards, and critical path in one call
+- Dispatch parallel tasks within each wave, prioritizing critical path tasks
 - Full verification and invalidation protocol between waves
 
-If `varp_compute_waves` reports a cycle, check whether all tasks share a write component. If so, downgrade to single-scope mode (sequential by task ID). If not, the plan has a structural problem — report to the human and stop.
+If `varp_schedule` reports a cycle, check whether all tasks share a write component. If so, downgrade to single-scope mode (sequential by task ID). If not, the plan has a structural problem — report to the human and stop.
 
 ## Execution Loop
 
@@ -107,7 +106,7 @@ Record in log.xml:
 
 ### Step 6: Verify Freshness
 
-Call `varp_check_freshness` for the task's write components. If any docs are stale after the subagent completed:
+Call `varp_health mode=freshness` for the task's write components. If any docs are stale after the subagent completed:
 - The subagent failed to update docs as required
 - Resume the subagent with: "The following docs are stale after your changes: [list]. Update them to reflect what you implemented."
 - Re-collect and re-check freshness
@@ -204,9 +203,7 @@ When `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set, Claude Code exports per-request me
 When the final task/wave completes and all postconditions pass (plan is archived), generate a project status snapshot:
 
 1. **Cost snapshot (end):** Read `/tmp/claude/varp-cost.json`. Compute the delta from the plan start baseline (Step 0). Write the `<cost>` element to log.xml with `total_cost_usd`, `total_input_tokens`, and `total_output_tokens`.
-2. Call `varp_read_manifest` to get the current component registry
-3. Call `varp_check_freshness` to get current doc staleness
-4. Call `varp_lint` to surface any new issues introduced during execution
+2. Call `varp_health mode=all` to get the current component registry, doc freshness, and lint results in one call
 
 Output a summary section at the end of the execution report:
 
@@ -273,14 +270,10 @@ Write execution metrics to `log.xml` alongside the plan.
 
 | Tool | When | Mode |
 |------|------|------|
-| `varp_read_manifest` | Initialization | All |
+| `varp_health` | Initialization, Step 6, Step 12 | All (mode=manifest, freshness, or all) |
 | `varp_parse_plan` | Initialization | All |
-| `varp_compute_waves` | Initialization | Sequential, Parallel |
-| `varp_compute_critical_path` | Initialization | Parallel |
+| `varp_schedule` | Initialization | Sequential/Parallel (mode=waves, all) |
 | `varp_resolve_docs` | Step 3 | All |
-| `varp_check_freshness` | Step 6 | All |
 | `varp_verify_capabilities` | Step 7 | All |
 | `varp_derive_restart_strategy` | Step 9 | All |
 | `varp_invalidation_cascade` | Step 10 | Parallel |
-| `varp_lint` | Step 12 | All (on completion) |
-| `varp_detect_hazards` | Diagnostics | As needed |

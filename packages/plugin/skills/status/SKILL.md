@@ -10,38 +10,32 @@ You are a project state reporter. Generate a concise, accurate snapshot of the c
 
 ## Protocol
 
-### Step 1: Load Manifest
+### Step 1: Health check
 
-Call `varp_read_manifest` to get the component registry and dependency graph.
+Call `varp_health mode=all` to get manifest, doc freshness, and lint results in one call.
 Call `varp_render_graph` to generate a dependency visualization.
 
 If the manifest fails to parse, report the error and stop.
 
-### Step 2: Check Doc Freshness
+### Step 2: Coupling health
 
-Call `varp_check_freshness` to get staleness status for all component docs.
-Note the `total_stale` count from `varp_watch_freshness` (no `since` param) for the summary line.
-
-### Step 2b: Check Coupling Health
-
-Call `varp_coupling_hotspots` to detect hidden coupling — component pairs that frequently co-change in git history but have no import relationship. These represent implicit dependencies worth investigating.
+Call `varp_coupling mode=hotspots` to detect hidden coupling — component pairs that frequently co-change in git history but have no import relationship.
 
 If no edges are returned (empty repo or insufficient history), skip the coupling section silently.
 
-### Step 3: Check for Active Plan
+### Step 3: Check for active plan
 
 Look for active plans in `~/.claude/projects/<project>/memory/plans/`. If a directory exists there, call `varp_parse_plan` with the path to its `plan.xml`.
 
-### Step 4: Analyze Active Plan (if present)
+### Step 4: Analyze active plan (if present)
 
 If an active plan exists:
 
 1. Extract the task list from the parsed plan
-2. Call `varp_detect_hazards` with the plan's tasks to identify data dependencies
-3. Call `varp_compute_critical_path` with the plan's tasks to find the longest dependency chain
-4. If `log.xml` exists alongside the plan, call `varp_parse_log` to get structured execution metrics
+2. Call `varp_schedule mode=all` with the plan's tasks to get hazards and critical path in one call
+3. If `log.xml` exists alongside the plan, call `varp_parse_log` to get structured execution metrics
 
-### Step 5: Format Report
+### Step 5: Format report
 
 Output a structured report with these sections:
 
@@ -110,12 +104,10 @@ If there is no active plan, omit the Active Plan section and note "No active pla
 
 | Tool | Purpose |
 |------|---------|
-| `varp_read_manifest` | Load component registry and dependency graph |
-| `varp_check_freshness` | Get doc staleness per component |
+| `varp_health` | Manifest parsing, doc freshness, lint (mode=all) |
+| `varp_coupling` | Coupling analysis (mode=hotspots for hidden coupling) |
+| `varp_schedule` | Hazards, waves, critical path (mode=all) |
 | `varp_parse_plan` | Parse plan.xml into typed structure |
 | `varp_render_graph` | Generate dependency graph diagram |
 | `varp_watch_freshness` | Quick stale-doc count |
 | `varp_parse_log` | Parse execution log for plan progress |
-| `varp_detect_hazards` | Identify RAW/WAR/WAW between tasks |
-| `varp_compute_critical_path` | Find longest dependency chain |
-| `varp_coupling_hotspots` | Detect hidden coupling between components |

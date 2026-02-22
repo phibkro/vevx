@@ -60,11 +60,12 @@ web:
   deps: [auth, api]
 ```
 
-Only `path` is required. See [Manifest Schema](packages/core/src/manifest/README.md) for the full field reference.
+Either `path` or `paths` is required. See [Manifest Schema](packages/core/src/manifest/README.md) for the full field reference.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `path` | string | yes | Component source directory |
+| `path` | string | yes (or `paths`) | Single component source directory |
+| `paths` | string[] | yes (or `path`) | Multiple source directories (can coexist with `path`) |
 | `deps` | string[] | no | Components or tags this one depends on |
 | `docs` | string[] | no | Doc paths outside the component's directory |
 | `tags` | string[] | no | Labels for grouping — usable in `deps` and tool parameters |

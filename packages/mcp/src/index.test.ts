@@ -829,6 +829,49 @@ describe("MCP server integration", () => {
     expect(Array.isArray(data.co_changes.edges)).toBe(true);
   });
 
+  test("varp_coupling mode=neighborhood returns neighbors for a file", async () => {
+    const result = await client.callTool({
+      name: "varp_coupling",
+      arguments: {
+        manifest_path: MANIFEST_PATH,
+        mode: "neighborhood",
+        file: "src/auth/index.ts",
+      },
+    });
+    const data = parseResult(result);
+    expect(data.file).toBe("src/auth/index.ts");
+    expect(data).toHaveProperty("neighbors");
+    expect(data).toHaveProperty("trends");
+    expect(data).toHaveProperty("total_neighbors");
+    expect(Array.isArray(data.neighbors)).toBe(true);
+  });
+
+  test("varp_coupling mode=neighborhood requires file param", async () => {
+    const result = await client.callTool({
+      name: "varp_coupling",
+      arguments: { manifest_path: MANIFEST_PATH, mode: "neighborhood" },
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  test("varp_coupling mode=file_hotspots returns hotspot entries", async () => {
+    const result = await client.callTool({
+      name: "varp_coupling",
+      arguments: { manifest_path: MANIFEST_PATH, mode: "file_hotspots", limit: 5 },
+    });
+    const data = parseResult(result);
+    expect(data).toHaveProperty("hotspots");
+    expect(data).toHaveProperty("total");
+    expect(Array.isArray(data.hotspots)).toBe(true);
+    expect(data.hotspots.length).toBeLessThanOrEqual(5);
+    if (data.hotspots.length > 0) {
+      expect(data.hotspots[0]).toHaveProperty("file");
+      expect(data.hotspots[0]).toHaveProperty("score");
+      expect(data.hotspots[0]).toHaveProperty("changeFrequency");
+      expect(data.hotspots[0]).toHaveProperty("lineCount");
+    }
+  });
+
   // ── Warm Staleness ──
 
   test("varp_check_warm_staleness returns safe when no changes since baseline", async () => {

@@ -46,8 +46,9 @@ COMMON OPTIONS:
 For compliance auditing: bun add @varp/audit && varp-audit --help
 
 COUPLING OPTIONS:
-  --files               Show file-level co-change edges with bar charts
+  --files               Show file-level co-change edges with trend sparklines
   --hotspots            Show hidden coupling hotspots only
+  --neighborhood <file> Per-file neighborhood: what else changes when I touch this file?
   --component <name>    Filter to specific component
   --no-color            Disable ANSI colors
   --format <type>       text (default) or json

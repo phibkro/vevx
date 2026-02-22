@@ -28,18 +28,28 @@ web:
 
 ### Multi-Path Components
 
-Components can span multiple directories. Use an array of paths when a domain concept is organized by architectural layer rather than by feature:
+Components can span multiple directories. Use `paths` (array) when a domain concept is organized by architectural layer rather than by feature:
 
 ```yaml
 auth:
-  path:
+  paths:
     - ./src/controllers/auth
     - ./src/services/auth
     - ./src/repositories/auth
   deps: [shared]
 ```
 
-All manifest operations (ownership lookup, doc discovery, import scanning, test discovery, freshness checking) work across all paths of a multi-path component. A single string path is equivalent to a one-element array.
+`path` and `paths` can coexist on the same component — they merge:
+
+```yaml
+auth:
+  path: ./src/controllers/auth
+  paths:
+    - ./src/services/auth
+    - ./src/repositories/auth
+```
+
+All manifest operations (ownership lookup, doc discovery, import scanning, test discovery, freshness checking) work across all paths of a multi-path component.
 
 ## Format
 
@@ -55,7 +65,8 @@ There is no `name` field, no `components:` wrapper. The YAML is flat: `varp` is 
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `path` | string \| string[] | yes | Directory path(s) for source files. A single string or array of strings. Relative paths resolved from manifest directory. |
+| `path` | string | yes (or `paths`) | Single directory path for source files. Relative path resolved from manifest directory. |
+| `paths` | string[] | yes (or `path`) | Multiple directory paths for source files. Use when a component spans multiple directories. Can coexist with `path` (they merge). |
 | `deps` | string[] | no | Component names or tags this component depends on. A tag entry expands to all components with that tag (excluding self). Structural dependencies — "this component consumes that component's interface." |
 | `docs` | string[] | no | Additional doc paths beyond auto-discovered ones (defaults to `[]`). Only needed for docs outside the component's path. Relative paths resolved from manifest directory. |
 | `tags` | string[] | no | Labels for grouping — usable in `deps` and MCP tool parameters as non-terminals that expand to all tagged components (e.g. `[core, security]`). |
@@ -87,7 +98,7 @@ This means a component with `path: ./src/auth` automatically gets:
 - `./src/auth/README.md` as a public doc (if it exists)
 - `./src/auth/docs/*.md` files as private docs (if the directory exists)
 
-For multi-path components, auto-discovery runs for each path. A component with `path: [./src/controllers/auth, ./src/services/auth]` discovers READMEs and `docs/` directories under both paths.
+For multi-path components, auto-discovery runs for each path. A component with multiple `paths` discovers READMEs and `docs/` directories under all paths.
 
 The `docs:` field is only needed for documentation files that live outside the component's path tree.
 
@@ -162,7 +173,7 @@ Warnings can be suppressed via `varp lint --suppress`, which writes issue keys t
 4. **Layers** — Scans layer directories (controllers, services, etc.) for files with common name stems across 2+ layers.
 5. **Domains** — Scans for domain directories containing 2+ layer subdirectories (e.g. `auth/controllers/`, `auth/services/`).
 
-Detection conventions are defined in `DEFAULT_DETECTION_CONFIG` (inspectable via `varp conventions`). Use the output to scaffold `varp.yaml` components with `path: [...]` arrays.
+Detection conventions are defined in `DEFAULT_DETECTION_CONFIG` (inspectable via `varp conventions`). Use the output to scaffold `varp.yaml` components with `paths: [...]` arrays.
 
 ## Render Graph
 

@@ -16,7 +16,7 @@ Priority: correctness of component boundaries > dependency accuracy > doc covera
 
 Check if `varp.yaml` exists in the project root.
 
-- **If it exists:** Call `varp_read_manifest` to display the current structure. Ask the user whether to regenerate from scratch or merge newly discovered components into the existing manifest.
+- **If it exists:** Call `varp_health mode=manifest` to display the current structure. Ask the user whether to regenerate from scratch or merge newly discovered components into the existing manifest.
 - **If it doesn't exist:** Proceed to Step 2.
 
 ### Step 2: Detect Project Structure
@@ -119,7 +119,7 @@ Generate the file, then show it to the user for review before validation.
 
 ### Step 6: Validate
 
-Call `varp_read_manifest` on the generated file to verify it parses correctly and the dependency graph is acyclic. If parsing fails, fix the issues and retry.
+Call `varp_health mode=manifest` on the generated file to verify it parses correctly and the dependency graph is acyclic. If parsing fails, fix the issues and retry.
 
 Then call `varp_infer_imports` to cross-check the declared deps against actual import patterns. Report any discrepancies (missing or extra deps) so the user can decide whether to adjust.
 
@@ -150,7 +150,7 @@ Output a summary:
 
 | Tool | Purpose |
 |------|---------|
-| `varp_read_manifest` | Parse and validate the generated manifest |
+| `varp_health` | Parse and validate the generated manifest (mode=manifest) |
 | `varp_infer_imports` | Cross-check declared deps against actual import patterns |
 | `varp_suggest_components` | Auto-detect component groupings from project structure |
 | `varp_render_graph` | Visualize the dependency graph as a Mermaid diagram |

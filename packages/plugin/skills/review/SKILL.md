@@ -17,7 +17,7 @@ Priority: accuracy of assessment > actionability of recommendations > completene
 1. Find the active plan in `~/.claude/projects/<project>/memory/plans/`
 2. Call `varp_parse_plan` on the plan's `plan.xml`
 3. Call `varp_parse_log` on the `log.xml` alongside the plan for structured execution data
-4. Call `varp_read_manifest` to load the current component registry
+4. Call `varp_health mode=manifest` to load the current component registry
 
 If no plan or log exists, report this and stop.
 
@@ -43,7 +43,7 @@ Compare the plan's intended outcomes against what actually happened.
 **Invalidated docs:**
 - Which component docs were refreshed during execution
 - Which components were transitively affected by invalidation cascades
-- Call `varp_check_freshness` to verify current doc state
+- Call `varp_health mode=freshness` to verify current doc state
 - Call `varp_watch_freshness` with the log's `session.started` timestamp as `since` to see exactly which docs changed during execution
 
 ### Step 3: Execution Metrics
@@ -146,8 +146,7 @@ Output the report in this structure:
 
 After the review report, always append a current project status snapshot. This gives the human full situational awareness without needing to run `/varp:status` separately.
 
-1. Call `varp_check_freshness` (already done in Step 2, reuse the result)
-2. Call `varp_lint` to check for issues introduced during execution
+1. Call `varp_health mode=all` to get freshness and lint in one call (reuse freshness from Step 2 if available)
 
 Append to the report:
 
@@ -168,12 +167,9 @@ Append to the report:
 
 | Tool | Purpose |
 |------|---------|
-| `varp_read_manifest` | Load component registry for cross-referencing |
+| `varp_health` | Manifest, freshness, lint (mode=all for full snapshot) |
 | `varp_parse_plan` | Load plan structure and contracts |
-| `varp_check_freshness` | Verify current doc freshness state |
-| `varp_lint` | Check for issues introduced during execution |
 | `varp_parse_log` | Parse log.xml into structured execution data |
 | `varp_render_graph` | Visualize dependency graph in report |
 | `varp_watch_freshness` | Identify docs that changed during execution |
-| `varp_detect_hazards` | Re-analyze hazards if replanning is considered |
-| `varp_compute_waves` | Re-derive waves if tasks are added or removed |
+| `varp_schedule` | Re-analyze hazards/waves if replanning (mode=all) |

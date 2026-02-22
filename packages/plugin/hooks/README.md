@@ -6,7 +6,6 @@ Lifecycle hooks for varp-managed sessions. Hooks inject graph-derived structural
 |------|-------|---------|
 | `session-start.sh` | SessionStart | Inject graph context: coupling hotspots, freshness state, component health |
 | `freshness-track.sh` | PostToolUse (Write/Edit) | Report owning component + coupling neighborhood for modified files |
-| `auto-format.sh` | PostToolUse (Write/Edit) | Run oxfmt + oxlint --fix on modified `.ts` files |
 | `subagent-context.sh` | SubagentStart | Inject project conventions into subagent context |
 | `session-stop.sh` | Stop | Summarize session impact: modified components, coupling warnings, file count |
 | *(prompt hook)* | Stop | Run `varp_lint` to check for stale docs, broken links, missing deps |
@@ -48,10 +47,6 @@ Coupling warning: modified components with hidden coupling: cli
 Consider running /varp:coupling to check for needed coordinated changes.
 Files modified: 5
 ```
-
-## auto-format.sh
-
-Runs `oxfmt --write` and `oxlint --fix` on TypeScript files after Write/Edit. Errors are silently swallowed — formatting is best-effort, not blocking.
 
 ## Conventions
 

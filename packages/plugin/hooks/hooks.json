@@ -41,10 +41,6 @@
           {
             "type": "command",
             "command": "bash packages/plugin/hooks/scripts/freshness-track.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash packages/plugin/hooks/scripts/auto-format.sh"
           }
         ]
       }
