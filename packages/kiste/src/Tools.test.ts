@@ -1,16 +1,16 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { Effect, Layer } from "effect";
-import * as Schema from "effect/Schema";
-import { SqliteClient } from "@effect/sql-sqlite-bun";
-import * as SqlClient from "@effect/sql/SqlClient";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { SqliteClient } from "@effect/sql-sqlite-bun";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Effect, Layer } from "effect";
+import * as Schema from "effect/Schema";
+
 import { Config, ConfigSchema } from "./Config.js";
-import { GitLive } from "./Git.js";
 import { initSchema } from "./Db.js";
+import { GitLive } from "./Git.js";
 import { rebuildIndex } from "./Indexer.js";
 import { createServer } from "./Mcp.js";
 
@@ -35,8 +35,8 @@ function initRepo(cwd: string): void {
 function writeFile(cwd: string, relPath: string, content: string): void {
   const fullPath = join(cwd, relPath);
   const dir = fullPath.substring(0, fullPath.lastIndexOf("/"));
-  Bun.spawnSync(["mkdir", "-p", dir], { cwd });
-  Bun.write(Bun.file(fullPath), content);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(fullPath, content);
 }
 
 function makeTestLayer(cwd: string) {

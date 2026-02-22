@@ -1,4 +1,5 @@
 import { Context, Effect, Layer } from "effect";
+
 import { GitError } from "./Errors.js";
 
 // ---------------------------------------------------------------------------
@@ -93,7 +94,15 @@ export function parseGitLogOutput(raw: string): RawCommit[] {
       }
     }
 
-    commits.push({ sha: sha.trim(), author: author.trim(), timestamp: Number(timestampStr.trim()), subject: subject.trim(), body, files, deletedFiles });
+    commits.push({
+      sha: sha.trim(),
+      author: author.trim(),
+      timestamp: Number(timestampStr.trim()),
+      subject: subject.trim(),
+      body,
+      files,
+      deletedFiles,
+    });
   }
 
   return commits;
@@ -140,14 +149,13 @@ function runGit(cwd: string, args: string[]): Effect.Effect<string, GitError> {
 }
 
 export const GitLive: Layer.Layer<Git> = Layer.succeed(Git, {
-  revParse: (cwd, ref = "HEAD") => runGit(cwd, ["rev-parse", ref]).pipe(Effect.map((s) => s.trim())),
+  revParse: (cwd, ref = "HEAD") =>
+    runGit(cwd, ["rev-parse", ref]).pipe(Effect.map((s) => s.trim())),
 
   log: (cwd, since) => {
     const args = ["log", `--pretty=format:${GIT_LOG_FORMAT}`, "--name-status"];
     if (since) args.push(`${since}..HEAD`);
-    return runGit(cwd, args).pipe(
-      Effect.map((output) => parseGitLogOutput(output).reverse()),
-    );
+    return runGit(cwd, args).pipe(Effect.map((output) => parseGitLogOutput(output).reverse()));
   },
 
   show: (cwd, ref, path) => runGit(cwd, ["show", `${ref}:${path}`]),

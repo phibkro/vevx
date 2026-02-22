@@ -1,5 +1,5 @@
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import * as SqlClient from "@effect/sql/SqlClient";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { Effect, Layer } from "effect";
 import { z } from "zod";
 
@@ -22,8 +22,11 @@ const READ_ONLY: ToolAnnotations = {
 const makeLayer = (db_path: string, repo_dir: string) =>
   Layer.mergeAll(ConfigLive(repo_dir), DbLive(db_path), GitLive);
 
-const runEffect = <A>(effect: Effect.Effect<A, unknown, Git | SqlClient.SqlClient>, db_path: string, repo_dir?: string) =>
-  Effect.runPromise(effect.pipe(Effect.provide(makeLayer(db_path, repo_dir ?? process.cwd()))));
+const runEffect = <A>(
+  effect: Effect.Effect<A, unknown, Git | SqlClient.SqlClient>,
+  db_path: string,
+  repo_dir?: string,
+) => Effect.runPromise(effect.pipe(Effect.provide(makeLayer(db_path, repo_dir ?? process.cwd()))));
 
 // ── Common input params ──
 
@@ -42,7 +45,10 @@ export const tools: ToolDef[] = [
       db_path: dbPathParam,
       repo_dir: repoDirParam,
       tags: z.array(z.string()).optional().describe("Filter to artifacts having ALL of these tags"),
-      include_deleted: z.boolean().optional().describe("Include deleted (alive=0) artifacts (default false)"),
+      include_deleted: z
+        .boolean()
+        .optional()
+        .describe("Include deleted (alive=0) artifacts (default false)"),
       limit: z.number().optional().describe("Max results (default 100)"),
       offset: z.number().optional().describe("Skip first N results (default 0)"),
     },
@@ -92,8 +98,7 @@ export const tools: ToolDef[] = [
 
   {
     name: "kiste_get_artifact",
-    description:
-      "Get artifact details: file content (from git), tags, and associated commits.",
+    description: "Get artifact details: file content (from git), tags, and associated commits.",
     annotations: READ_ONLY,
     inputSchema: {
       db_path: dbPathParam,
@@ -120,10 +125,9 @@ export const tools: ToolDef[] = [
           const artifact = artifactRows[0];
 
           // Get tags
-          const tagRows = yield* sql.unsafe(
-            `SELECT tag FROM artifact_tags WHERE artifact_id = ?`,
-            [artifact.id],
-          );
+          const tagRows = yield* sql.unsafe(`SELECT tag FROM artifact_tags WHERE artifact_id = ?`, [
+            artifact.id,
+          ]);
           const tags = tagRows.map((r: { tag: string }) => r.tag);
 
           // Get commits
@@ -138,9 +142,9 @@ export const tools: ToolDef[] = [
 
           // Read content from git
           const gitRef = ref ?? "HEAD";
-          const content = yield* git.show(repoRoot, gitRef, path).pipe(
-            Effect.catchAll(() => Effect.succeed(null)),
-          );
+          const content = yield* git
+            .show(repoRoot, gitRef, path)
+            .pipe(Effect.catchAll(() => Effect.succeed(null)));
 
           return {
             path: artifact.path,
@@ -165,7 +169,10 @@ export const tools: ToolDef[] = [
       db_path: dbPathParam,
       repo_dir: repoDirParam,
       query: z.string().describe("FTS5 search query over commit messages"),
-      tags: z.array(z.string()).optional().describe("Filter to commits touching artifacts with these tags"),
+      tags: z
+        .array(z.string())
+        .optional()
+        .describe("Filter to commits touching artifacts with these tags"),
       limit: z.number().optional().describe("Max results (default 20)"),
     },
     handler: async ({ db_path, repo_dir, query, tags, limit }) => {

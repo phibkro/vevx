@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+
 import { Effect } from "effect";
 import * as Schema from "effect/Schema";
+
 import { Config, ConfigLive, ConfigSchema } from "./Config.js";
 
 describe("ConfigSchema", () => {

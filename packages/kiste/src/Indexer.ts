@@ -1,5 +1,6 @@
-import { Effect } from "effect";
 import * as SqlClient from "@effect/sql/SqlClient";
+import { Effect } from "effect";
+
 import { Config } from "./Config.js";
 import { getLastIndexedSha, setLastIndexedSha } from "./Db.js";
 import { DbError, IndexError } from "./Errors.js";
@@ -106,7 +107,14 @@ const indexCommit = (
     yield* sql
       .unsafe(
         `INSERT OR IGNORE INTO commits (sha, message, author, timestamp, conv_type, conv_scope) VALUES (?, ?, ?, ?, ?, ?)`,
-        [commit.sha, commit.subject, commit.author, commit.timestamp, conv?.type ?? null, conv?.scope ?? null],
+        [
+          commit.sha,
+          commit.subject,
+          commit.author,
+          commit.timestamp,
+          conv?.type ?? null,
+          conv?.scope ?? null,
+        ],
       )
       .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
 
@@ -123,7 +131,9 @@ const indexCommit = (
         .unsafe(`UPDATE artifacts SET alive = 1 WHERE path = ?`, [filePath])
         .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
 
-      const artifactRows = yield* sql<{ id: number }>`SELECT id FROM artifacts WHERE path = ${filePath}`.pipe(
+      const artifactRows = yield* sql<{
+        id: number;
+      }>`SELECT id FROM artifacts WHERE path = ${filePath}`.pipe(
         Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
       );
       if (artifactRows.length === 0) continue;
@@ -154,7 +164,9 @@ const indexCommit = (
         .unsafe(`UPDATE artifacts SET alive = 0 WHERE path = ?`, [filePath])
         .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
 
-      const artifactRows = yield* sql<{ id: number }>`SELECT id FROM artifacts WHERE path = ${filePath}`.pipe(
+      const artifactRows = yield* sql<{
+        id: number;
+      }>`SELECT id FROM artifacts WHERE path = ${filePath}`.pipe(
         Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
       );
       if (artifactRows.length === 0) continue;
@@ -194,12 +206,10 @@ const insertTagOps = (
     ops,
     (op) =>
       sql
-        .unsafe(`INSERT INTO tag_operations (artifact_id, commit_sha, tag, op) VALUES (?, ?, ?, ?)`, [
-          artifactId,
-          commitSha,
-          op.tag,
-          op.op,
-        ])
+        .unsafe(
+          `INSERT INTO tag_operations (artifact_id, commit_sha, tag, op) VALUES (?, ?, ?, ?)`,
+          [artifactId, commitSha, op.tag, op.op],
+        )
         .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e })))),
     { discard: true },
   );
@@ -215,7 +225,9 @@ const materializeTags = (
 ): Effect.Effect<void, DbError> =>
   Effect.gen(function* () {
     // Get artifact path
-    const pathRows = yield* sql<{ path: string }>`SELECT path FROM artifacts WHERE id = ${artifactId}`.pipe(
+    const pathRows = yield* sql<{
+      path: string;
+    }>`SELECT path FROM artifacts WHERE id = ${artifactId}`.pipe(
       Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
     );
     if (pathRows.length === 0) return;

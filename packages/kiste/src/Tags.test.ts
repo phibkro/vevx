@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+
 import {
   applyTagOperations,
   deriveTagsFromPath,
@@ -13,7 +14,10 @@ const defaultConfig = {
 
 describe("deriveTagsFromPath", () => {
   test("strips configured prefixes", () => {
-    expect(deriveTagsFromPath("src/auth/session/handler.ts", defaultConfig)).toEqual(["auth", "session"]);
+    expect(deriveTagsFromPath("src/auth/session/handler.ts", defaultConfig)).toEqual([
+      "auth",
+      "session",
+    ]);
   });
   test("strips multiple leading prefixes", () => {
     expect(deriveTagsFromPath("src/lib/auth/handler.ts", defaultConfig)).toEqual(["auth"]);
@@ -62,7 +66,10 @@ describe("parseTagLine", () => {
 
 describe("parseConventionalCommit", () => {
   test("parses type and scope", () => {
-    expect(parseConventionalCommit("feat(auth): add login")).toEqual({ type: "feat", scope: "auth" });
+    expect(parseConventionalCommit("feat(auth): add login")).toEqual({
+      type: "feat",
+      scope: "auth",
+    });
   });
   test("parses type without scope", () => {
     expect(parseConventionalCommit("fix: correct typo")).toEqual({ type: "fix", scope: null });

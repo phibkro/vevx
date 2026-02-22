@@ -1,13 +1,15 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect, Layer } from "effect";
-import * as Schema from "effect/Schema";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+
 import { SqliteClient } from "@effect/sql-sqlite-bun";
 import * as SqlClient from "@effect/sql/SqlClient";
-import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { Effect, Layer } from "effect";
+import * as Schema from "effect/Schema";
+
 import { Config, ConfigSchema } from "./Config.js";
-import { GitLive } from "./Git.js";
 import { initSchema } from "./Db.js";
+import { GitLive } from "./Git.js";
 import { rebuildIndex, incrementalIndex } from "./Indexer.js";
 
 function git(cwd: string, ...args: string[]) {
@@ -29,11 +31,8 @@ function initRepo(cwd: string): void {
 function writeFile(cwd: string, relPath: string, content: string): void {
   const fullPath = join(cwd, relPath);
   const dir = fullPath.substring(0, fullPath.lastIndexOf("/"));
-  Bun.spawnSync(["mkdir", "-p", dir], { cwd });
-  Bun.file(fullPath).writer().end(content);
-  // Use sync write
-  const f = Bun.file(fullPath);
-  Bun.write(f, content);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(fullPath, content);
 }
 
 function makeLayer(cwd: string) {
@@ -77,7 +76,10 @@ describe("Indexer", () => {
 
         // Verify artifact exists in DB
         const sql = yield* SqlClient.SqlClient;
-        const rows = yield* sql<{ path: string; alive: number }>`SELECT path, alive FROM artifacts WHERE path = ${"hello.txt"}`;
+        const rows = yield* sql<{
+          path: string;
+          alive: number;
+        }>`SELECT path, alive FROM artifacts WHERE path = ${"hello.txt"}`;
         expect(rows.length).toBe(1);
         expect(rows[0].alive).toBe(1);
       }).pipe(Effect.provide(layer)),
@@ -104,7 +106,9 @@ describe("Indexer", () => {
         expect(result.commits_indexed).toBe(2);
 
         const sql = yield* SqlClient.SqlClient;
-        const rows = yield* sql<{ alive: number }>`SELECT alive FROM artifacts WHERE path = ${"doomed.txt"}`;
+        const rows = yield* sql<{
+          alive: number;
+        }>`SELECT alive FROM artifacts WHERE path = ${"doomed.txt"}`;
         expect(rows.length).toBe(1);
         expect(rows[0].alive).toBe(0);
       }).pipe(Effect.provide(layer)),

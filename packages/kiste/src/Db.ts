@@ -1,8 +1,9 @@
 import { SqliteClient } from "@effect/sql-sqlite-bun";
 import * as SqlClient from "@effect/sql/SqlClient";
 import { SqlError } from "@effect/sql/SqlError";
-import type { ConfigError } from "effect/ConfigError";
 import { Effect, Layer } from "effect";
+import type { ConfigError } from "effect/ConfigError";
+
 import { DbError } from "./Errors.js";
 
 // ---------------------------------------------------------------------------
@@ -75,21 +76,20 @@ const META_KEY_LAST_SHA = "last_indexed_sha";
 export const getLastIndexedSha: Effect.Effect<string | null, DbError, SqlClient.SqlClient> =
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
-    const rows = yield* sql<{ value: string }>`SELECT value FROM meta WHERE key = ${META_KEY_LAST_SHA}`.pipe(
+    const rows = yield* sql<{
+      value: string;
+    }>`SELECT value FROM meta WHERE key = ${META_KEY_LAST_SHA}`.pipe(
       Effect.catchAll((e) => Effect.fail(toDbError(e))),
     );
     return rows.length > 0 ? rows[0].value : null;
   });
 
-export const setLastIndexedSha = (
-  sha: string,
-): Effect.Effect<void, DbError, SqlClient.SqlClient> =>
+export const setLastIndexedSha = (sha: string): Effect.Effect<void, DbError, SqlClient.SqlClient> =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
-    yield* sql.unsafe(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, [
-      META_KEY_LAST_SHA,
-      sha,
-    ]).pipe(Effect.catchAll((e) => Effect.fail(toDbError(e))));
+    yield* sql
+      .unsafe(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, [META_KEY_LAST_SHA, sha])
+      .pipe(Effect.catchAll((e) => Effect.fail(toDbError(e))));
   });
 
 // ---------------------------------------------------------------------------

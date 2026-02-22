@@ -1,8 +1,10 @@
+import { resolve } from "node:path";
+
 import { Command, Options } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
 import * as SqlClient from "@effect/sql/SqlClient";
 import { Console, Effect, Layer } from "effect";
-import { resolve } from "node:path";
+
 import { ConfigLive } from "./Config.js";
 import { DbLive, initSchema } from "./Db.js";
 import { GitLive } from "./Git.js";
@@ -13,11 +15,7 @@ import { incrementalIndex, rebuildIndex } from "./Indexer.js";
 // ---------------------------------------------------------------------------
 
 const dbLayer = (cwd: string) =>
-  Layer.mergeAll(
-    ConfigLive(cwd),
-    DbLive(resolve(cwd, ".kiste", "index.sqlite")),
-    GitLive,
-  );
+  Layer.mergeAll(ConfigLive(cwd), DbLive(resolve(cwd, ".kiste", "index.sqlite")), GitLive);
 
 // ---------------------------------------------------------------------------
 // init — no DB needed
@@ -54,7 +52,7 @@ const initCmd = Command.make("init", {}, () =>
         const { mkdirSync, existsSync } = await import("node:fs");
         if (!existsSync(kisteDir)) mkdirSync(kisteDir, { recursive: true });
       },
-      catch: (e) => new Error(`Failed to create .kiste/: ${e}`),
+      catch: (e) => new Error(`Failed to create .kiste/: ${String(e)}`),
     });
 
     yield* Effect.tryPromise({
@@ -64,7 +62,7 @@ const initCmd = Command.make("init", {}, () =>
         await Bun.write(configPath, DEFAULT_CONFIG);
         return true;
       },
-      catch: (e) => new Error(`Failed to write .kiste.yaml: ${e}`),
+      catch: (e) => new Error(`Failed to write .kiste.yaml: ${String(e)}`),
     }).pipe(
       Effect.flatMap((created) =>
         created
@@ -104,14 +102,18 @@ const statusCmd = Command.make("status", {}, () =>
     const sql = yield* SqlClient.SqlClient;
 
     const commits = yield* sql<{ count: number }>`SELECT COUNT(*) as count FROM commits`;
-    const alive =
-      yield* sql<{ count: number }>`SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`;
-    const deleted =
-      yield* sql<{ count: number }>`SELECT COUNT(*) as count FROM artifacts WHERE alive = 0`;
-    const tags =
-      yield* sql<{ count: number }>`SELECT COUNT(DISTINCT tag) as count FROM artifact_tags`;
-    const meta =
-      yield* sql<{ value: string }>`SELECT value FROM meta WHERE key = 'last_indexed_sha'`;
+    const alive = yield* sql<{
+      count: number;
+    }>`SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`;
+    const deleted = yield* sql<{
+      count: number;
+    }>`SELECT COUNT(*) as count FROM artifacts WHERE alive = 0`;
+    const tags = yield* sql<{
+      count: number;
+    }>`SELECT COUNT(DISTINCT tag) as count FROM artifact_tags`;
+    const meta = yield* sql<{
+      value: string;
+    }>`SELECT value FROM meta WHERE key = 'last_indexed_sha'`;
 
     yield* Console.log(`Commits:           ${commits[0]?.count ?? 0}`);
     yield* Console.log(`Artifacts (alive): ${alive[0]?.count ?? 0}`);
