@@ -11,13 +11,34 @@ MCP client ──stdio──▷ Mcp.ts (McpServer + ManagedRuntime)
               ▼                    ▼
         cochangeRuntime       zoomRuntime
               │                    │
-        CochangeDb           SymbolIndex
+        CochangeDb           SymbolIndex ─── pure/*
         (bun:sqlite)              │
                               LspClient
                         (typescript-language-server)
 ```
 
 Each tool has its own `ManagedRuntime` — LSP failure doesn't block cochange queries.
+
+## module structure
+
+Code is split into `src/pure/` (deterministic, no IO) and `src/` (effectful services):
+
+```
+src/
+  pure/
+    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult
+    Errors.ts            — 3 Data.TaggedError types
+    ExportDetection.ts   — isExported() pure text scanner
+    Signatures.ts        — extractSignature, extractDocComment, findBodyOpenBrace, symbolKindName
+  Lsp.ts                 — LspClient service, JsonRpcTransport, LspClientLive layer
+  Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory
+  Cochange.ts            — CochangeDb service, SQL query, graceful degradation
+  Tools.ts               — kart_zoom + kart_cochange tool definitions
+  Mcp.ts                 — MCP server entrypoint, per-tool ManagedRuntime
+  __fixtures__/          — test fixtures (exports.ts, other.ts, tsconfig.json)
+```
+
+The `pure/` boundary is the testing contract: pure modules get coverage thresholds enforced, effectful modules get integration tests without coverage gates.
 
 ## services
 
@@ -40,7 +61,11 @@ Manages a persistent `typescript-language-server` process over JSON-RPC/stdio.
 
 ### SymbolIndex (`src/Symbols.ts`)
 
-Depends on `LspClient`. Transforms raw LSP responses into structured zoom results.
+Depends on `LspClient`. Transforms raw LSP responses into structured zoom results. Delegates pure computation to `src/pure/`:
+
+- **Signature extraction** via `extractSignature` from `pure/Signatures.ts`
+- **Doc comment extraction** via `extractDocComment` from `pure/Signatures.ts`
+- **Export detection** via `isExported` from `pure/ExportDetection.ts`
 
 **Zoom levels:**
 
@@ -49,12 +74,6 @@ Depends on `LspClient`. Transforms raw LSP responses into structured zoom result
 | 0 | LSP `documentSymbol` + text scan | exported symbols only, signatures, doc comments |
 | 1 | LSP `documentSymbol` | all symbols, signatures, doc comments |
 | 2 | `readFileSync` | full file content (no LSP) |
-
-**Signature extraction** (`extractSignature`): walks source lines from symbol start, looking for the first `{` that opens a body block. Handles string literals, parens, and angle brackets via `findBodyOpenBrace`. Stops at `;` for bodyless declarations (type aliases, const).
-
-**Doc comment extraction** (`extractDocComment`): scans backwards from symbol start, skipping blank lines and decorators (`@`), looking for a `*/` → `/**` block.
-
-**Export detection** (`src/ExportDetection.ts`): checks if the line at `symbol.range.start.line` starts with `export `. Semantic tokens don't distinguish exports (validated empirically — the modifier sets are identical for exported and non-exported symbols).
 
 **Directory zoom:** when path is a directory, returns level-0 for each `.ts`/`.tsx` file (non-recursive, test files excluded). Files with no exports are omitted.
 
@@ -84,7 +103,7 @@ kart_zoom({ path: "src/auth.ts", level: 0 })
   └─ [file, level 0/1] →
        ├─ LspClient.documentSymbol(uri) → DocumentSymbol[]
        ├─ readFileSync → lines
-       ├─ toZoomSymbol: extractSignature + extractDocComment + isExported
+       ├─ toZoomSymbol: extractSignature + extractDocComment + isExported (pure/)
        └─ [level 0] → filter to exported only
 ```
 
@@ -113,19 +132,43 @@ Zod schemas at the MCP boundary (tool inputs). Effect `Context.Tag` + `Layer` in
 | `FileNotFoundError` | `Data.TaggedError` | requested path doesn't exist |
 | `CochangeUnavailable` | plain object | `.varp/cochange.db` absent — structured return, not error |
 
+All error types defined in `src/pure/Errors.ts`.
+
 ## testing
 
-49 tests across 5 files:
+49 tests across 7 files, split into pure (coverage-gated) and integration:
+
+**Pure tests** (`src/pure/`, 24 tests, `test:pure` with `--coverage`):
+
+| file | tests | what |
+|------|-------|------|
+| `pure/ExportDetection.test.ts` | 12 | isExported text scanning against fixture |
+| `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
+
+**Integration tests** (`src/*.test.ts`, 25 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
 | `Lsp.test.ts` | 4 | documentSymbol, hierarchical children, semanticTokens, shutdown |
-| `ExportDetection.test.ts` | 15 | 12 pure function + 3 LSP integration |
-| `Symbols.test.ts` | 20 | 7 extractSignature/docComment + 8 zoom levels + 5 pure helpers |
+| `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
+| `Symbols.test.ts` | 8 | zoom levels, directory zoom, FileNotFoundError, signatures via LSP |
 | `Mcp.test.ts` | 7 | MCP integration via InMemoryTransport |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.
+
+**Coverage (all tests):**
+
+| module | functions | lines |
+|--------|-----------|-------|
+| pure/ExportDetection.ts | 100% | 100% |
+| pure/Signatures.ts | 100% | 100% |
+| Symbols.ts | 94% | 100% |
+| Cochange.ts | 80% | 100% |
+| Tools.ts | 100% | 100% |
+| Lsp.ts | 70% | 92% |
+| Mcp.ts | 88% | 89% |
+| **all files** | **79%** | **94%** |
 
 ## dependencies
 
@@ -136,18 +179,4 @@ effect              — service layer (Context.Tag, Layer, ManagedRuntime, Data.
 @modelcontextprotocol/sdk — MCP server + InMemoryTransport for tests
 zod                 — tool input schemas
 bun:sqlite          — read-only cochange queries
-```
-
-## file map
-
-```
-src/
-  Errors.ts            15 lines — 3 Data.TaggedError types
-  ExportDetection.ts   45 lines — isExported() pure function
-  Lsp.ts              530 lines — LspClient service, JsonRpcTransport, LspClientLive layer
-  Symbols.ts          325 lines — SymbolIndex service, signature/doc extraction, directory zoom
-  Cochange.ts          85 lines — CochangeDb service, SQL query, graceful degradation
-  Tools.ts             55 lines — kart_zoom + kart_cochange tool definitions
-  Mcp.ts              105 lines — MCP server entrypoint, per-tool ManagedRuntime
-  __fixtures__/        — test fixtures (exports.ts, other.ts, tsconfig.json)
 ```

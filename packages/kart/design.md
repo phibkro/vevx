@@ -83,7 +83,7 @@ level-0 is the default and the primary value prop. it answers "what is this modu
 
 the v0.2 design proposed using LSP semantic tokens (`textDocument/semanticTokens/full`) to identify export modifiers, with text scanning as a fallback. a phase-0 spike tested this empirically and found that **semantic tokens do not distinguish exports**. the standard LSP semantic token modifiers (`declaration`, `definition`, `readonly`, `static`, `deprecated`, `abstract`, `async`, `modification`, `documentation`, `defaultLibrary`) do not include anything related to export status. the typescript-language-server does not add custom modifiers either. exported and non-exported symbols receive identical modifier bitmasks (typically just `["declaration"]`).
 
-kart uses **text scanning**: for each symbol from `documentSymbol`, check if the line at `symbol.range.start.line` starts with `export ` (after trimming whitespace). this is implemented as a pure function `isExported(symbol, lines)` in `ExportDetection.ts`. the approach is simple, deterministic, and handles all standard patterns: `export function`, `export const`, `export class`, `export interface`, `export type`, and `export default`. re-exports (`export { X } from`) don't appear as `documentSymbol` entries, so they require no special handling.
+kart uses **text scanning**: for each symbol from `documentSymbol`, check if the line at `symbol.range.start.line` starts with `export ` (after trimming whitespace). this is implemented as a pure function `isExported(symbol, lines)` in `src/pure/ExportDetection.ts`. the approach is simple, deterministic, and handles all standard patterns: `export function`, `export const`, `export class`, `export interface`, `export type`, and `export default`. re-exports (`export { X } from`) don't appear as `documentSymbol` entries, so they require no special handling.
 
 level-0 output format:
 
@@ -268,14 +268,14 @@ varp and kiste share the `.varp/` directory convention. kart reads from it but d
 
 ## 7. delivery
 
-kart is an MCP server delivered as an npm package (`@ax/kart`). configuration in `.mcp.json`:
+kart is an MCP server delivered as an npm package (`@vevx/kart`). configuration in `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "kart": {
       "command": "npx",
-      "args": ["@ax/kart", "--workspace", "."]
+      "args": ["@vevx/kart", "--workspace", "."]
     }
   }
 }
@@ -285,7 +285,49 @@ the language server process is managed internally. users don't configure it — 
 
 ---
 
-## 8. roadmap
+## 8. module structure
+
+kart separates pure computation from effectful services at the directory level:
+
+```
+src/
+  pure/                     — deterministic, no IO, no Effect services
+    types.ts                — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult
+    Errors.ts               — Data.TaggedError types (LspError, LspTimeoutError, FileNotFoundError)
+    ExportDetection.ts      — isExported(symbol, lines) text scanner
+    Signatures.ts           — extractSignature, extractDocComment, findBodyOpenBrace, symbolKindName
+  Lsp.ts                    — LspClient service (subprocess, JSON-RPC, Effect Layer)
+  Symbols.ts                — SymbolIndex service (imports pure functions from pure/)
+  Cochange.ts               — CochangeDb service (bun:sqlite)
+  Tools.ts                  — MCP tool definitions (Zod schemas + Effect handlers)
+  Mcp.ts                    — server entrypoint, per-tool ManagedRuntime
+```
+
+the `pure/` directory is the testing contract boundary. modules in `pure/` are deterministic and testable without mocking — coverage thresholds are enforced on these modules. effectful modules (LSP integration, SQLite, MCP transport) have integration tests without coverage gates.
+
+**CI commands:**
+
+- `test:pure` — runs `src/pure/` tests with `--coverage` (24 tests, 100% line coverage on ExportDetection and Signatures)
+- `test:integration` — runs `src/*.test.ts` integration tests without coverage (25 tests, LSP-dependent tests skipped via `describe.skipIf(!hasLsp)`)
+- `test` — runs both sequentially
+
+**coverage (phase 0):**
+
+| module | functions | lines |
+|--------|-----------|-------|
+| pure/ExportDetection.ts | 100% | 100% |
+| pure/Signatures.ts | 100% | 100% |
+| Symbols.ts | 94% | 100% |
+| Cochange.ts | 80% | 100% |
+| Lsp.ts | 70% | 92% |
+| Mcp.ts | 88% | 89% |
+| **all files** | **79%** | **94%** |
+
+Lsp.ts has the lowest coverage — the uncovered paths are error recovery branches (malformed JSON-RPC, handshake timeout, process crash during shutdown) that are difficult to trigger deterministically. these are better validated by manual testing against misbehaving language servers than by unit tests.
+
+---
+
+## 9. roadmap
 
 | phase | scope | status |
 |-------|-------|--------|
@@ -297,7 +339,7 @@ the language server process is managed internally. users don't configure it — 
 
 ---
 
-## 9. naming
+## 10. naming
 
 **kart** is norwegian for "map." a map gives you orientation — where things are, how they connect, what's nearby — without loading the entire territory. you zoom in on what matters.
 
