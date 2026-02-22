@@ -1,14 +1,14 @@
 {
-  "name": "@varp/audit",
+  "name": "@vevx/audit",
   "version": "0.1.0",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "bin": {
     "varp-audit": "./dist/cli.js"
   },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "bun build src/index.ts src/cli.ts --outdir dist --target bun --sourcemap=external --external @varp/core && tsc --emitDeclarationOnly",
+    "build": "bun build src/index.ts src/cli.ts --outdir dist --target bun --sourcemap=external --external @vevx/varp && tsc --emitDeclarationOnly",
     "test": "bun test --concurrent --reporter=junit --reporter-outfile=test-results.xml",
     "test:coverage": "bun test --concurrent --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage",
     "lint": "oxlint --type-aware --tsconfig tsconfig.check.json --ignore-pattern 'src/cli/github/'",
@@ -19,7 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@varp/core": "workspace:*"
+    "@vevx/varp": "workspace:*"
   },
   "devDependencies": {}
 }

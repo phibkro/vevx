@@ -2,7 +2,7 @@
   "mcpServers": {
     "varp": {
       "command": "bun",
-      "args": ["packages/mcp/build/index.js"]
+      "args": ["packages/varp/build/index.js"]
     }
   }
 }

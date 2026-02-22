@@ -2,7 +2,7 @@
 
 Multi-agent code audit engine. Two modes: generic quality review (weighted agents) and ruleset-based compliance auditing (3-wave planner/executor).
 
-Depends on `@varp/core/lib` for manifest types, chunking, and concurrency primitives. Backend-agnostic -- consumers inject a `ModelCaller` implementation.
+Depends on `@vevx/varp/lib` for manifest types, chunking, and concurrency primitives. Backend-agnostic -- consumers inject a `ModelCaller` implementation.
 
 ## Architecture
 
@@ -15,22 +15,23 @@ Compliance audit:   files + ruleset -> planner -> 3-wave executor -> compliance 
 
 ## Modules
 
-| Module | Purpose |
-|--------|---------|
-| `orchestrator.ts` | Generic review -- runs weighted agents in parallel, produces scored results |
-| `chunker.ts` | Re-exports chunking utilities from `@varp/core/lib` |
-| `discovery.ts` | File discovery via `Bun.Glob`, gitignore-aware, binary detection |
-| `errors.ts` | Domain errors: `RateLimitError`, `AuthenticationError`, `ValidationError`, `AgentError` |
-| `agents/` | 7 weighted review agents (see below) |
-| `planner/` | Compliance audit pipeline (see below) |
-| `report/` | Generic review reporters: terminal, markdown, synthesizer |
-| `cli/` | CLI implementation: audit command, Claude client, auth, dashboard sync, formatters, GitHub integration |
+| Module            | Purpose                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| `orchestrator.ts` | Generic review -- runs weighted agents in parallel, produces scored results                            |
+| `chunker.ts`      | Re-exports chunking utilities from `@vevx/varp/lib`                                                    |
+| `discovery.ts`    | File discovery via `Bun.Glob`, gitignore-aware, binary detection                                       |
+| `errors.ts`       | Domain errors: `RateLimitError`, `AuthenticationError`, `ValidationError`, `AgentError`                |
+| `agents/`         | 7 weighted review agents (see below)                                                                   |
+| `planner/`        | Compliance audit pipeline (see below)                                                                  |
+| `report/`         | Generic review reporters: terminal, markdown, synthesizer                                              |
+| `cli/`            | CLI implementation: audit command, Claude client, auth, dashboard sync, formatters, GitHub integration |
 
 ## Generic Review
 
 `runAudit(files, options, onProgress?)` runs all weighted agents in parallel against the provided files. Each agent produces findings with severity levels and a score (0-10). Results are combined into a weighted average.
 
 Agents (7 active, weights sum to 1.0):
+
 - Correctness (0.22), Security (0.22), Maintainability (0.15), Performance (0.13), Edge Cases (0.13), Accessibility (0.10), Documentation (0.05)
 - Dependency Security agent exists but is disabled by default (weight 0.00)
 
@@ -49,6 +50,7 @@ Report types: `AuditReport` (synthesizer), terminal output (`printReport`), mark
 5. `printComplianceReport()` / `generateComplianceMarkdown()` / `generateComplianceJson()` -- render results
 
 Features:
+
 - **Suppressions** -- inline (`// audit-suppress RULE-ID "reason"`) and config file (`.audit-suppress.yaml` with rule/file/glob matchers). Config rules checked first. Suppressed findings excluded from report; count shown in metadata.
 - **Incremental audits** -- `--diff [ref]` runs `git diff --name-only`, filters discovered files. `expandWithDependents()` uses the manifest dependency graph to include downstream component files.
 - **Budget enforcement** -- `--budget <tokens>` skips low-priority tasks when cumulative estimated tokens exceed the limit. Tasks are priority-ordered by severity.
@@ -74,14 +76,14 @@ The CLI calls Claude via the Claude Code CLI (`claude -p`) through `claude-clien
 
 ## Key Types
 
-| Type | Location | Purpose |
-|------|----------|---------|
-| `ModelCaller` | `@varp/core/lib` | `(system, user, options) -> { text, structured?, usage? }` |
-| `AuditFinding` | `planner/findings.ts` | Single compliance finding with ruleId, severity, locations, evidence, confidence |
-| `CorroboratedFinding` | `planner/findings.ts` | Deduplicated finding with corroboration count and effective confidence |
-| `ComplianceReport` | `planner/findings.ts` | Full report: scope, findings, summary, coverage, metadata |
-| `AuditPlan` | `planner/types.ts` | 3-wave plan: components, wave1/wave2/wave3 tasks, stats |
-| `Ruleset` | `planner/types.ts` | Parsed ruleset: meta, rules, crossCutting patterns |
-| `AgentResult` | `agents/types.ts` | Generic review agent output: score, findings, summary |
-| `AuditReport` | `report/synthesizer.ts` | Generic review report: weighted score, finding counts |
-| `DriftReport` | `planner/drift.ts` | Comparison of two compliance reports: new, resolved, changed |
+| Type                  | Location                | Purpose                                                                          |
+| --------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| `ModelCaller`         | `@vevx/varp/lib`        | `(system, user, options) -> { text, structured?, usage? }`                       |
+| `AuditFinding`        | `planner/findings.ts`   | Single compliance finding with ruleId, severity, locations, evidence, confidence |
+| `CorroboratedFinding` | `planner/findings.ts`   | Deduplicated finding with corroboration count and effective confidence           |
+| `ComplianceReport`    | `planner/findings.ts`   | Full report: scope, findings, summary, coverage, metadata                        |
+| `AuditPlan`           | `planner/types.ts`      | 3-wave plan: components, wave1/wave2/wave3 tasks, stats                          |
+| `Ruleset`             | `planner/types.ts`      | Parsed ruleset: meta, rules, crossCutting patterns                               |
+| `AgentResult`         | `agents/types.ts`       | Generic review agent output: score, findings, summary                            |
+| `AuditReport`         | `report/synthesizer.ts` | Generic review report: weighted score, finding counts                            |
+| `DriftReport`         | `planner/drift.ts`      | Comparison of two compliance reports: new, resolved, changed                     |

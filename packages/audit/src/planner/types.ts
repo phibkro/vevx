@@ -90,4 +90,4 @@ export interface AuditPlan {
   };
 }
 
-export type { ModelCaller, ModelCallerResult } from "@varp/core/lib";
+export type { ModelCaller, ModelCallerResult } from "@vevx/varp/lib";

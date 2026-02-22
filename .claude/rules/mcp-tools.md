@@ -27,5 +27,7 @@ export const FooSchema = z.object({ bar: z.string() });
 export type Foo = z.infer<typeof FooSchema>;
 
 // Wrong — type drift risk
-export interface Foo { bar: string }
+export interface Foo {
+  bar: string;
+}
 ```

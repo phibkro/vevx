@@ -15,32 +15,17 @@
       },
     },
     "packages/audit": {
-      "name": "@varp/audit",
-      "version": "0.1.0",
-      "dependencies": {
-        "@varp/core": "workspace:*",
-      },
-    },
-    "packages/cli": {
-      "name": "@varp/cli",
+      "name": "@vevx/audit",
       "version": "0.1.0",
       "bin": {
-        "varp": "./dist/cli.js",
+        "varp-audit": "./dist/cli.js",
       },
       "dependencies": {
-        "@varp/core": "workspace:*",
-      },
-    },
-    "packages/core": {
-      "name": "@varp/core",
-      "version": "0.1.0",
-      "dependencies": {
-        "fast-xml-parser": "^4.5.0",
-        "zod": "^3.24.0",
+        "@vevx/varp": "workspace:*",
       },
     },
     "packages/kiste": {
-      "name": "@varp/kiste",
+      "name": "@vevx/kiste",
       "version": "0.1.0",
       "bin": {
         "kiste": "./dist/Cli.js",
@@ -56,12 +41,15 @@
         "zod": "^3.24.0",
       },
     },
-    "packages/mcp": {
-      "name": "@varp/mcp",
+    "packages/varp": {
+      "name": "@vevx/varp",
       "version": "0.1.0",
+      "bin": {
+        "varp": "./dist/cli.js",
+      },
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.26.0",
-        "@varp/core": "workspace:*",
+        "fast-xml-parser": "^4.5.0",
         "zod": "^3.24.0",
       },
     },
@@ -231,15 +219,11 @@
 
     "@types/node": ["@types/node@25.2.3", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-m0jEgYlYz+mDJZ2+F4v8D1AyQb+QzsNqRuI7xg1VQX/KlKS0qT9r1Mo16yo5F/MtifXFgaofIFsdFMox2SxIbQ=="],
 
-    "@varp/audit": ["@varp/audit@workspace:packages/audit"],
+    "@vevx/audit": ["@vevx/audit@workspace:packages/audit"],
 
-    "@varp/cli": ["@varp/cli@workspace:packages/cli"],
+    "@vevx/kiste": ["@vevx/kiste@workspace:packages/kiste"],
 
-    "@varp/core": ["@varp/core@workspace:packages/core"],
-
-    "@varp/kiste": ["@varp/kiste@workspace:packages/kiste"],
-
-    "@varp/mcp": ["@varp/mcp@workspace:packages/mcp"],
+    "@vevx/varp": ["@vevx/varp@workspace:packages/varp"],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 

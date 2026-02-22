@@ -1,8 +1,0 @@
-varp: 0.1.0
-
-auth:
-  path: ./src/auth
-
-api:
-  path: ./src/api
-  deps: [auth]

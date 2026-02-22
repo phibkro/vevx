@@ -1,62 +1,60 @@
 varp: 0.1.0
 
 shared:
-  path: ./packages/core/src/shared
+  path: ./packages/varp/src/shared
   tags: [core]
   stability: stable
 
 analysis:
-  path: ./packages/core/src/analysis
+  path: ./packages/varp/src/analysis
   deps: [shared, manifest]
   tags: [core]
   stability: stable
 
 mcp:
-  path: ./packages/mcp/src
+  path: ./packages/varp/src/mcp
   deps: [shared, manifest, plan, scheduler, enforcement, analysis]
-  docs:
-    - ./packages/mcp/README.md
   tags: [core]
   stability: stable
 
 manifest:
-  path: ./packages/core/src/manifest
+  path: ./packages/varp/src/manifest
   deps: [shared]
   tags: [core]
   stability: stable
 
 plan:
-  path: ./packages/core/src/plan
+  path: ./packages/varp/src/plan
   deps: [shared]
   tags: [core]
   stability: stable
 
 scheduler:
-  path: ./packages/core/src/scheduler
+  path: ./packages/varp/src/scheduler
   deps: [shared]
   tags: [core]
   stability: stable
 
 enforcement:
-  path: ./packages/core/src/enforcement
+  path: ./packages/varp/src/enforcement
   deps: [shared]
   tags: [core]
   stability: stable
 
 execution:
-  path: ./packages/core/src/execution
+  path: ./packages/varp/src/execution
   deps: [shared]
   tags: [core]
   stability: experimental
 
 skills:
-  path: ./packages/plugin/skills
+  path: ./packages/varp/skills
   deps: [manifest]
   tags: [plugin]
   stability: stable
 
 hooks:
-  path: ./packages/plugin/hooks
+  path: ./packages/varp/hooks
   deps: [manifest]
   tags: [plugin]
   stability: stable
@@ -70,6 +68,6 @@ audit:
     - ./docs/audit/design.md
 
 cli:
-  path: ./packages/cli/src
+  path: ./packages/varp/src/cli
   deps: [core]
   stability: experimental

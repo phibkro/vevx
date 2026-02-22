@@ -1,4 +1,4 @@
-import { runWithConcurrency } from "@varp/core/lib";
+import { runWithConcurrency } from "@vevx/varp/lib";
 
 import type { FileContent } from "../agents/types";
 import type { AuditTaskResult, ComplianceReport, CoverageEntry } from "./findings";

@@ -20,6 +20,7 @@ Skills are prompt-based — SKILL.md content becomes conversation context when i
 **Spec**: Hook event types, JSON schemas, and output format change frequently. Search the web before modifying — see `docs/reference-urls.md` → Claude Code Hooks.
 
 **Project conventions** (stable):
+
 - Use `#!/bin/bash` with `set -euo pipefail`
 - Exit 0 silently when `varp.yaml` is missing (graceful skip for non-Varp projects)
 - Parse YAML/JSON with grep/sed/awk only — no jq, python, or other runtime dependencies

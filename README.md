@@ -60,18 +60,18 @@ web:
   deps: [auth, api]
 ```
 
-Either `path` or `paths` is required. See [Manifest Schema](packages/core/src/manifest/README.md) for the full field reference.
+Either `path` or `paths` is required. See [Manifest Schema](packages/varp/src/manifest/README.md) for the full field reference.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | string | yes (or `paths`) | Single component source directory |
-| `paths` | string[] | yes (or `path`) | Multiple source directories (can coexist with `path`) |
-| `deps` | string[] | no | Components or tags this one depends on |
-| `docs` | string[] | no | Doc paths outside the component's directory |
-| `tags` | string[] | no | Labels for grouping — usable in `deps` and tool parameters |
-| `test` | string | no | Custom test command (overrides `*.test.ts` discovery) |
-| `env` | string[] | no | Required environment variables (informational) |
-| `stability` | enum | no | `stable`, `active`, or `experimental` |
+| Field       | Type     | Required         | Description                                                |
+| ----------- | -------- | ---------------- | ---------------------------------------------------------- |
+| `path`      | string   | yes (or `paths`) | Single component source directory                          |
+| `paths`     | string[] | yes (or `path`)  | Multiple source directories (can coexist with `path`)      |
+| `deps`      | string[] | no               | Components or tags this one depends on                     |
+| `docs`      | string[] | no               | Doc paths outside the component's directory                |
+| `tags`      | string[] | no               | Labels for grouping — usable in `deps` and tool parameters |
+| `test`      | string   | no               | Custom test command (overrides `*.test.ts` discovery)      |
+| `env`       | string[] | no               | Required environment variables (informational)             |
+| `stability` | enum     | no               | `stable`, `active`, or `experimental`                      |
 
 ### 2. Write Component Docs
 
@@ -147,31 +147,30 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 
 ## Packages
 
-| Package | Path | Description |
-|---------|------|-------------|
-| `@varp/core` | `packages/core/` | MCP server — manifest, plan, scheduler, enforcement tools |
-| `@varp/audit` | `packages/audit/` | Compliance audit engine + CLI (`varp-audit`) — multi-agent code review |
-| `@varp/plugin` | `packages/plugin/` | Claude Code plugin — skills, hooks, plugin manifest |
-| `@varp/cli` | `packages/cli/` | CLI (`varp`) — deterministic manifest tooling: init, graph, lint, freshness, validate, coupling, summary, conventions, completions |
+| Package       | Path              | Description                                                                    |
+| ------------- | ----------------- | ------------------------------------------------------------------------------ |
+| `@vevx/varp`  | `packages/varp/`  | MCP server, CLI, skills, hooks — manifest, plan, scheduler, enforcement tools  |
+| `@vevx/audit` | `packages/audit/` | Compliance audit engine + CLI (`varp-audit`) — multi-agent code review         |
+| `@vevx/kiste` | `packages/kiste/` | Git-backed artifact index using Effect TS                                      |
 
 ## Design Docs
 
-| Doc | Purpose |
-|-----|---------|
-| [Design Principles](docs/core/design-principles.md) | Problem, core principles, agent model |
-| [Architecture](docs/core/design-architecture.md) | Manifest, plans, orchestrator, concurrency |
-| [Design Notes](docs/core/design-notes.md) | Feedback loops, open questions, extensions |
-| [Implementation Status](docs/core/implementation-status.md) | What's built, what changed, what's deferred |
-| [Audit Design](docs/audit/design.md) | Compliance audit engine design |
+| Doc                                                         | Purpose                                     |
+| ----------------------------------------------------------- | ------------------------------------------- |
+| [Design Principles](docs/designs/001/design-principles.md)         | Problem, core principles, agent model       |
+| [Architecture](docs/designs/001/design-architecture.md)            | Manifest, plans, orchestrator, concurrency  |
+| [Design Notes](docs/designs/001/design-notes.md)                   | Feedback loops, open questions, extensions  |
+| [Implementation Status](docs/designs/001/implementation-status.md) | What's built, what changed, what's deferred |
+| [Audit Design](docs/audit/design.md)                        | Compliance audit engine design              |
 
 ## Developer Reference
 
-| Doc | Purpose |
-|-----|---------|
-| [Manifest Schema](packages/core/src/manifest/README.md) | `varp.yaml` format reference |
-| [Plan Schema](packages/core/src/plan/README.md) | `plan.xml` format reference |
-| [MCP Tool API](packages/core/README.md) | Tool signatures and types |
-| [Internal Architecture](packages/core/docs/architecture.md) | Algorithms and data flow |
+| Doc                                                        | Purpose                      |
+| ---------------------------------------------------------- | ---------------------------- |
+| [Manifest Schema](packages/varp/src/manifest/README.md)    | `varp.yaml` format reference |
+| [Plan Schema](packages/varp/src/plan/README.md)            | `plan.xml` format reference  |
+| [MCP Tool API](packages/varp/README.md)                    | Tool signatures and types    |
+| [Internal Architecture](packages/varp/docs/architecture.md) | Algorithms and data flow     |
 
 ## Development
 

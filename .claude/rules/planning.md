@@ -16,6 +16,7 @@ and their read/write relationship to the work. This replaces ad-hoc file lists.
 ## When to escalate to /varp:plan
 
 Use `/varp:plan` instead of plan mode when ANY of these apply:
+
 - The work touches 3+ components with write dependencies between them
 - Parallel execution would meaningfully speed up the work
 - You need formal contracts (preconditions/postconditions with verify commands)

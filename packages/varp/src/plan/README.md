@@ -1,0 +1,261 @@
+# Plan Schema
+
+Reference for `plan.xml`, the execution plan that declares tasks and contracts.
+
+## Example
+
+```xml
+<plan>
+  <metadata>
+    <feature>Rate Limiting</feature>
+    <created>2026-02-16</created>
+  </metadata>
+
+  <contract>
+    <preconditions>
+      <condition id="pre-1">
+        <description>Auth module has endpoint handlers</description>
+        <verify>grep -r "router\." src/auth/routes.ts</verify>
+      </condition>
+    </preconditions>
+
+    <invariants>
+      <invariant id="inv-1" critical="true">
+        <description>Existing auth tests pass throughout</description>
+        <verify>bun test --filter=auth</verify>
+      </invariant>
+    </invariants>
+
+    <postconditions>
+      <condition id="post-1">
+        <description>Rate limiting active on all auth endpoints</description>
+        <verify>bun test --filter=rate-limit</verify>
+      </condition>
+    </postconditions>
+  </contract>
+
+  <tasks>
+    <task id="1">
+      <description>Implement rate limiting middleware</description>
+      <action>implement</action>
+      <values>security, correctness, backwards-compatibility</values>
+      <touches writes="auth" reads="api" />
+    </task>
+
+    <task id="2">
+      <description>Add rate limit integration tests</description>
+      <action>test</action>
+      <values>coverage, correctness</values>
+      <touches writes="auth" reads="auth" />
+    </task>
+
+    <task id="3">
+      <description>Update API documentation</description>
+      <action>document</action>
+      <values>accuracy, completeness</values>
+      <touches reads="auth, api" />
+    </task>
+  </tasks>
+</plan>
+```
+
+## Elements
+
+### `<plan>`
+
+Root element. Contains `<metadata>`, `<contract>`, and `<tasks>`.
+
+### `<metadata>`
+
+| Element     | Required | Description                                   |
+| ----------- | -------- | --------------------------------------------- |
+| `<feature>` | yes      | Human-readable feature name                   |
+| `<created>` | yes      | Creation date (ISO format, e.g. `2026-02-16`) |
+
+### `<contract>`
+
+Contains three sections of verifiable conditions. All sections are required but may be empty.
+
+#### `<preconditions>`
+
+Conditions that must hold before execution starts. Contains `<condition>` elements.
+
+| Field           | Type      | Required | Description                           |
+| --------------- | --------- | -------- | ------------------------------------- |
+| `id`            | attribute | yes      | Unique identifier (e.g. `"pre-1"`)    |
+| `<description>` | element   | yes      | Human-readable description            |
+| `<verify>`      | element   | yes      | Shell command that exits 0 on success |
+
+#### `<invariants>`
+
+Conditions that must hold throughout execution. Checked between task completions. Contains `<invariant>` elements.
+
+| Field           | Type      | Required | Description                                                                |
+| --------------- | --------- | -------- | -------------------------------------------------------------------------- |
+| `id`            | attribute | no       | Unique identifier. Defaults to the description text if omitted.            |
+| `critical`      | attribute | yes      | `"true"` or `"false"`. Critical invariant failures cancel the entire wave. |
+| `<description>` | element   | yes      | Human-readable description                                                 |
+| `<verify>`      | element   | yes      | Shell command that exits 0 on success                                      |
+
+#### `<postconditions>`
+
+Conditions that must hold when all tasks complete. Contains `<condition>` elements (same schema as preconditions).
+
+### `<tasks>`
+
+Contains one or more `<task>` elements.
+
+#### `<task>`
+
+| Field           | Type      | Required | Description                                                               |
+| --------------- | --------- | -------- | ------------------------------------------------------------------------- |
+| `id`            | attribute | yes      | Unique task identifier (e.g. `"1"`, `"auth-impl"`)                        |
+| `<description>` | element   | yes      | What this task accomplishes                                               |
+| `<action>`      | element   | yes      | Action verb: `implement`, `test`, `document`, `refactor`, `migrate`, etc. |
+| `<values>`      | element   | yes      | Comma-separated priority ordering (e.g. `"security, correctness"`)        |
+| `<touches>`     | element   | yes      | Component read/write declarations (see below)                             |
+| `<mutexes>`     | element   | no       | Comma-separated named mutexes for mutual exclusion (see below)            |
+
+#### `<touches>`
+
+Self-closing element with attributes declaring which components this task reads from and writes to.
+
+| Attribute | Required | Description                                          |
+| --------- | -------- | ---------------------------------------------------- |
+| `writes`  | no       | Comma-separated component names this task modifies   |
+| `reads`   | no       | Comma-separated component names this task depends on |
+
+```xml
+<!-- Writes to auth, reads from api -->
+<touches writes="auth" reads="api" />
+
+<!-- Reads only (documentation task) -->
+<touches reads="auth, api" />
+
+<!-- Writes to multiple components -->
+<touches writes="auth, api" reads="web" />
+```
+
+Component names must match entries in `varp.yaml`. The orchestrator uses these declarations to:
+
+- **Schedule** — derive execution waves and detect data hazards (RAW/WAR/WAW)
+- **Enforce** — verify file changes stay within declared write scope
+- **Recover** — derive restart strategies from dependency overlap on failure
+
+#### `<mutexes>`
+
+Optional element containing comma-separated mutex names. Tasks sharing a mutex name cannot run in the same wave, regardless of their `touches` declarations. Use for exclusive access to resources that aren't components: database migration locks, singleton ports, external API rate limits, etc.
+
+```xml
+<!-- Tasks contending on a shared resource -->
+<task id="1">
+  <touches writes="auth" />
+  <mutexes>db-migration</mutexes>
+</task>
+
+<task id="2">
+  <touches writes="api" />
+  <mutexes>db-migration, port-3000</mutexes>
+</task>
+```
+
+Mutex names are freeform strings (not validated against the manifest). The validator warns on "dead" mutexes — names used by only one task.
+
+## Verification Commands
+
+All `<verify>` elements must be:
+
+- **Idempotent** — safe to run multiple times
+- **Exit-code-based** — 0 = pass, non-zero = fail
+- **Runnable from project root** — no `cd` required
+- **Non-interactive** — no prompts or stdin requirements
+
+Prefer test suites over pattern matching:
+
+```xml
+<!-- Good: test suite, reliable -->
+<verify>bun test --filter=rate-limit</verify>
+
+<!-- Fragile: depends on code formatting -->
+<verify>grep -r "rateLimiter" src/auth/</verify>
+```
+
+## Plan Modes
+
+Tasks support two modes within the same plan:
+
+- **Directed** — the `<description>` includes explicit implementation steps. The agent follows them. Use for well-understood work.
+- **Contract** — the `<description>` states the goal, postconditions define success. The agent determines its own approach. Use for complex work.
+
+The schema is identical for both modes. The difference is in how the description is written and how much latitude the executing agent has.
+
+## Execution Order
+
+Plans do not specify execution order. The orchestrator derives order from `touches` declarations by analyzing data hazards:
+
+- **RAW** (read-after-write) — task B reads a component that task A writes. B must wait for A.
+- **WAW** (write-after-write) — tasks A and B both write the same component. Scheduling constraint.
+- **WAR** (write-after-read) — resolved by context snapshotting, not ordering.
+- **MUTEX** — tasks A and B hold the same named mutex. Scheduling constraint (not a data dependency).
+
+Tasks with no hazards between them run in parallel within the same wave.
+
+## Validation
+
+Use `varp_validate_plan` to check a plan against the manifest. Validation catches:
+
+- Components in `touches` that don't exist in the manifest
+- Duplicate task IDs
+- WAW hazards (reported as warnings, not errors)
+- Dead mutexes (mutex name only used by one task, reported as warnings)
+
+## Diffing
+
+`varp_diff_plan` structurally compares two parsed plans and returns a `PlanDiff` with three sections:
+
+- **`metadata`** — field-level changes to `feature` and `created`
+- **`contracts`** — added, removed, or modified conditions/invariants, matched by `id` across preconditions, invariants, and postconditions
+- **`tasks`** — added, removed, or modified tasks, matched by `id` with field-level detail (description, action, values, touches)
+
+The pure `diffPlans()` function accepts two `Plan` objects and performs no I/O. Matching is by ID — reordered entries with the same IDs don't produce diffs, only content differences are surfaced.
+
+## Execution Log (`log.xml`)
+
+The `/varp:execute` skill writes execution metrics to `log.xml` alongside the plan. The `varp_parse_log` tool parses this into a typed `ExecutionLog` structure.
+
+### Format
+
+```xml
+<log>
+  <session started="ISO-8601" mode="single-scope|sequential|parallel" />
+  <cost total_cost_usd="0.45" total_input_tokens="125000" total_output_tokens="18000" />
+  <tasks>
+    <task id="1" status="COMPLETE|PARTIAL|BLOCKED|NEEDS_REPLAN">
+      <metrics tokens="25000" minutes="8" tools="42" cost_usd="0.12" />
+      <files_modified>
+        <file>src/auth/login.ts</file>
+      </files_modified>
+      <postconditions>
+        <check id="post-1" result="pass|fail" />
+      </postconditions>
+      <observations>
+        <observation>Free-text observation from subagent</observation>
+      </observations>
+    </task>
+  </tasks>
+  <invariant_checks>
+    <wave id="1">
+      <check result="pass|fail">Description of invariant check</check>
+    </wave>
+  </invariant_checks>
+  <waves>
+    <wave id="1" status="complete|incomplete" />
+  </waves>
+</log>
+```
+
+Key structure: `<session>` is self-closing metadata. `<cost>` is an optional self-closing element with plan-level cost aggregates. `<tasks>`, `<invariant_checks>`, and `<waves>` are sibling containers under `<log>`. Per-task `cost_usd` on `<metrics>` is optional. Invariant check descriptions are text content (not attributes). Wave-level checks are nested under their wave element.
+
+## File Location
+
+Plans live in project memory: `~/.claude/projects/<project>/memory/plans/<feature-name>/plan.xml`. Completed plans are archived to `memory/plans/archive/`.

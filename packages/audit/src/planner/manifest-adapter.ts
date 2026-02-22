@@ -1,8 +1,8 @@
 import { readFileSync, existsSync, statSync } from "fs";
 import { resolve, dirname, relative, join } from "path";
 
-import { componentPaths } from "@varp/core/lib";
-import type { Manifest, Component } from "@varp/core/lib";
+import { componentPaths } from "@vevx/varp/lib";
+import type { Manifest, Component } from "@vevx/varp/lib";
 
 import type { AuditComponent } from "./types";
 import type { Rule } from "./types";

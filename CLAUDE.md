@@ -4,20 +4,20 @@ Graph-aware project analysis and manifest-driven agent orchestration. Provides s
 
 ## Quick Reference
 
-| Command | Purpose |
-|---------|---------|
-| `turbo build` | Build all packages |
-| `turbo test` | Run all tests |
-| `turbo check` | Format + lint + build (all packages) |
-| `turbo typecheck` | Type-check all packages via oxlint --type-check |
-| `bun test packages/core/src/index.test.ts` | MCP integration tests only |
-| `bun test packages/core/src/scheduler/` | Scheduler tests only |
-| `bun run packages/cli/dist/cli.js summary` | Project health digest (coupling, freshness) |
-| `bun run packages/cli/dist/cli.js lint` | Lint manifest for issues |
-| `bun run packages/cli/dist/cli.js graph` | Render dependency graph (ASCII, default) |
-| `bun run packages/cli/dist/cli.js freshness` | Check doc freshness |
-| `bun run packages/cli/dist/cli.js validate plan.xml` | Validate plan against manifest |
-| `bun run packages/cli/dist/cli.js conventions` | Show component detection conventions |
+| Command                                              | Purpose                                         |
+| ---------------------------------------------------- | ----------------------------------------------- |
+| `turbo build`                                        | Build all packages                              |
+| `turbo test`                                         | Run all tests                                   |
+| `turbo check`                                        | Format + lint + build (all packages)            |
+| `turbo typecheck`                                    | Type-check all packages via oxlint --type-check |
+| `bun test packages/varp/src/mcp/index.test.ts`       | MCP integration tests only                      |
+| `bun test packages/varp/src/scheduler/`              | Scheduler tests only                            |
+| `bun run packages/varp/dist/cli.js summary`          | Project health digest (coupling, freshness)     |
+| `bun run packages/varp/dist/cli.js lint`             | Lint manifest for issues                        |
+| `bun run packages/varp/dist/cli.js graph`            | Render dependency graph (ASCII, default)        |
+| `bun run packages/varp/dist/cli.js freshness`        | Check doc freshness                             |
+| `bun run packages/varp/dist/cli.js validate plan.xml`| Validate plan against manifest                  |
+| `bun run packages/varp/dist/cli.js conventions`      | Show component detection conventions            |
 
 ## Stack
 
@@ -37,32 +37,35 @@ Graph-aware project analysis and manifest-driven agent orchestration. Provides s
 
 ```
 packages/
-  core/                   Varp MCP server (@varp/core)
-    src/                  shared, server, manifest, plan, scheduler, enforcement, analysis, execution
-      shared/             Shared types + utilities (types.ts, ownership.ts)
-      lib.ts              Library entry point for external consumers (@varp/core/lib)
-    lib.d.ts              Hand-maintained declarations for @varp/core/lib
-      manifest/           Manifest parsing, doc resolution, freshness, graph, imports, touches, lint, scoped-tests
-      plan/               Plan XML parsing, validation, diff
-      scheduler/          Hazard detection, wave computation, critical path
-      enforcement/        Capability verification, restart strategy
-  audit/                  Compliance audit engine + CLI (@varp/audit, varp-audit binary)
-    src/                  Orchestrator, agents, planner, report
-    src/cli/              Audit CLI: audit command, auth, dashboard sync, formatters, github
-    rulesets/             Audit rulesets (OWASP, etc.)
-  cli/                    Varp CLI (@varp/cli) — subcommands: init, lint, graph, freshness, validate, coupling, conventions
-  plugin/                 Claude Code plugin distribution (@varp/plugin)
-    .claude-plugin/       Plugin manifest (plugin.json, marketplace.json)
-    skills/               5 prompt-based skills (init, status, plan, execute, review)
-    hooks/                3 lifecycle hooks (session-start, subagent-context, freshness-track)
-docs/                     Design docs, getting started, reference URLs
+  varp/                     @vevx/varp — consolidated varp package
+    src/
+      shared/               Shared types + utilities (types.ts, ownership.ts)
+      manifest/             Manifest parsing, doc resolution, freshness, graph, imports, touches, lint
+      plan/                 Plan XML parsing, validation, diff
+      scheduler/            Hazard detection, wave computation, critical path
+      enforcement/          Capability verification, restart strategy
+      analysis/             Co-change analysis, coupling matrix, hotspots
+      execution/            Chunking, concurrency, token estimation
+      mcp/                  MCP server + tool registry
+      cli/                  CLI subcommands (init, graph, lint, freshness, validate, coupling, summary)
+      lib.ts                Library entry point for external consumers (@vevx/varp/lib)
+    lib.d.ts                Hand-maintained declarations for @vevx/varp/lib
+    skills/                 6 prompt-based skills (init, status, plan, execute, review, coupling)
+    hooks/                  4 lifecycle hooks (session-start, subagent-context, freshness-track, stop)
+    .claude-plugin/         Plugin manifest (plugin.json, marketplace.json)
+  audit/                    Compliance audit engine + CLI (@vevx/audit, varp-audit binary)
+    src/                    Orchestrator, agents, planner, report
+    rulesets/               Audit rulesets (OWASP, etc.)
+  kiste/                    Git-backed artifact index (@vevx/kiste, Effect TS)
+    src/                    Indexer, MCP server, CLI
+docs/                       Design docs, getting started, reference URLs
 ```
 
-Import alias `#shared/*` maps to `packages/core/src/shared/*`. One library entry point for external consumers with a hand-maintained `.d.ts` file:
+Import alias `#shared/*` maps to `packages/varp/src/shared/*`. One library entry point for external consumers with a hand-maintained `.d.ts` file:
 
-- **`@varp/core/lib`** — All types and functions (pure + Bun-dependent). Used by `@varp/audit` and `@varp/cli`. Has a hand-maintained `lib.d.ts` — update it when exported signatures change.
+- **`@vevx/varp/lib`** — All types and functions (pure + Bun-dependent). Used by `@vevx/audit`. Has a hand-maintained `lib.d.ts` — update it when exported signatures change.
 
-**Details**: See `packages/core/docs/architecture.md` for algorithms and data flow. See `packages/core/README.md` for tool API surface. See `packages/core/src/manifest/README.md` and `packages/core/src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
+**Details**: See `packages/varp/docs/architecture.md` for algorithms and data flow. See `packages/varp/README.md` for tool API surface. See `packages/varp/src/manifest/README.md` and `packages/varp/src/plan/README.md` for format references. See `docs/reference-urls.md` for canonical doc URLs.
 
 ## Key Conventions
 
@@ -72,5 +75,5 @@ Import alias `#shared/*` maps to `packages/core/src/shared/*`. One library entry
 - **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Tests**: Co-located with source (`*.test.ts`). Run concurrently (`--concurrent`). Use `bun-testing` skill for patterns. Integration tests use `InMemoryTransport` + `Client`.
 - **Subprocesses**: Use `Bun.spawn`/`Bun.spawnSync` instead of `child_process`. Never use `require("child_process")`.
-- **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (core only). oxlint runs with `--type-aware` in all packages; core also uses `--type-check` to replace `tsc --noEmit`.
+- **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (varp package). oxlint runs with `--type-aware` in all packages; varp also uses `--type-check` to replace `tsc --noEmit`.
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).
