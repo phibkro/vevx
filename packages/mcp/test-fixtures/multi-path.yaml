@@ -1,7 +1,7 @@
 varp: 0.1.0
 
 auth:
-  path:
+  paths:
     - ./src/controllers/auth
     - ./src/services/auth
     - ./src/repositories/auth

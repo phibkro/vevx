@@ -4,15 +4,25 @@ import { z } from "zod";
 
 export const StabilitySchema = z.enum(["stable", "active", "experimental"]);
 
-export const ComponentSchema = z.object({
-  path: z.union([z.string(), z.array(z.string()).min(1)]),
-  deps: z.array(z.string()).optional(),
-  docs: z.array(z.string()).default([]),
-  tags: z.array(z.string()).optional(),
-  test: z.string().optional(),
-  env: z.array(z.string()).optional(),
-  stability: StabilitySchema.optional(),
-});
+export const ComponentSchema = z
+  .object({
+    path: z.string().optional(),
+    paths: z.array(z.string()).min(1).optional(),
+    deps: z.array(z.string()).optional(),
+    docs: z.array(z.string()).default([]),
+    tags: z.array(z.string()).optional(),
+    test: z.string().optional(),
+    env: z.array(z.string()).optional(),
+    stability: StabilitySchema.optional(),
+  })
+  .transform((val) => {
+    if (val.path == null && val.paths == null) {
+      throw new Error("Component must have 'path' or 'paths'");
+    }
+    const { paths: pathsArr, path: pathStr, ...rest } = val;
+    const merged = [...(pathStr ? [pathStr] : []), ...(pathsArr ?? [])];
+    return { ...rest, path: merged.length === 1 ? merged[0] : merged };
+  });
 
 export const ManifestSchema = z.object({
   varp: z.string(),

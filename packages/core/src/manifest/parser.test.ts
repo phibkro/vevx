@@ -86,10 +86,9 @@ describe("parseManifest", () => {
     expect((manifest as any).name).toBeUndefined();
   });
 
-  test("parses multi-path component", () => {
+  test("parses multi-path component (paths key)", () => {
     const manifest = parseManifest(resolve(FIXTURE_DIR, "multi-path.yaml"));
 
-    // Multi-path component should have resolved paths array
     const auth = manifest.components.auth;
     expect(Array.isArray(auth.path)).toBe(true);
     const paths = auth.path as string[];
@@ -101,6 +100,30 @@ describe("parseManifest", () => {
     // Single-path component should remain a string
     expect(typeof manifest.components.single.path).toBe("string");
     expect(manifest.components.single.path).toBe(resolve(FIXTURE_DIR, "src/single"));
+  });
+
+  test("merges path + paths into single array", () => {
+    const manifest = parseManifest(resolve(FIXTURE_DIR, "merged-paths.yaml"));
+
+    const auth = manifest.components.auth;
+    expect(Array.isArray(auth.path)).toBe(true);
+    const paths = auth.path as string[];
+    expect(paths).toHaveLength(3);
+    expect(paths[0]).toBe(resolve(FIXTURE_DIR, "src/controllers/auth"));
+    expect(paths[1]).toBe(resolve(FIXTURE_DIR, "src/services/auth"));
+    expect(paths[2]).toBe(resolve(FIXTURE_DIR, "src/repositories/auth"));
+  });
+
+  test("rejects component with neither path nor paths", () => {
+    const tmpDir = join("/tmp/claude", "no-path-test");
+    rmSync(tmpDir, { recursive: true, force: true });
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(join(tmpDir, "varp.yaml"), `varp: 0.1.0\nbad:\n  deps: []\n`);
+    try {
+      expect(() => parseManifest(join(tmpDir, "varp.yaml"))).toThrow();
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test("resolves doc paths to absolute paths", () => {
@@ -132,7 +155,7 @@ describe("parseManifest", () => {
     mkdirSync(tmpDir, { recursive: true });
     writeFileSync(
       join(tmpDir, "varp.yaml"),
-      `varp: 0.1.0\nbad:\n  path:\n    - ./src/ok\n    - ../../escape\n`,
+      `varp: 0.1.0\nbad:\n  paths:\n    - ./src/ok\n    - ../../escape\n`,
     );
     try {
       expect(() => parseManifest(join(tmpDir, "varp.yaml"))).toThrow("escapes manifest directory");
