@@ -32,7 +32,7 @@ export function registerTools(server: McpServer, tools: ToolDef[]): void {
           const text = JSON.stringify(result, null, 2);
           return {
             content: [{ type: "text" as const, text }],
-            ...(tool.outputSchema && { structuredContent: result as Record<string, unknown> }),
+            structuredContent: result as Record<string, unknown>,
           };
         } catch (e) {
           return {
