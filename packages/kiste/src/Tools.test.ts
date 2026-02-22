@@ -188,4 +188,64 @@ describe("MCP Tools", () => {
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
     expect(parsed.results.length).toBeGreaterThanOrEqual(1);
   });
+
+  test("kiste_list_artifacts excludes gitignored files by default", async () => {
+    // Add a gitignored file to the repo
+    writeFile(tmpDir, ".gitignore", "dist/\n");
+    writeFile(tmpDir, "dist/bundle.js", "// built output");
+    git(tmpDir, "add", "-f", "dist/bundle.js", ".gitignore");
+    git(tmpDir, "commit", "-m", "chore: add build output");
+
+    // Recreate server with fresh DB connection to see reindexed data
+    const dbPath = join(tmpDir, ".kiste", "index.sqlite");
+    const layer = makeTestLayer(tmpDir);
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* rebuildIndex(tmpDir);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    await client.close();
+    const server = createServer({ repoDir: tmpDir, dbPath });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    client = new Client({ name: "test-client", version: "1.0.0" });
+    await client.connect(clientTransport);
+
+    // Default: gitignored files excluded
+    const result = await client.callTool({
+      name: "kiste_list_artifacts",
+      arguments: {},
+    });
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    const paths = parsed.artifacts.map((a: { path: string }) => a.path);
+    expect(paths).not.toContain("dist/bundle.js");
+    expect(paths).toContain("src/auth/login.ts");
+
+    // With include_ignored: true
+    const result2 = await client.callTool({
+      name: "kiste_list_artifacts",
+      arguments: { include_ignored: true },
+    });
+    const parsed2 = JSON.parse((result2.content as Array<{ text: string }>)[0].text);
+    const paths2 = parsed2.artifacts.map((a: { path: string }) => a.path);
+    expect(paths2).toContain("dist/bundle.js");
+  });
+
+  test("kiste_list_artifacts source_only filters to src/ paths", async () => {
+    const result = await client.callTool({
+      name: "kiste_list_artifacts",
+      arguments: { source_only: true },
+    });
+
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    const paths = parsed.artifacts.map((a: { path: string }) => a.path);
+    expect(paths.length).toBeGreaterThan(0);
+    // All results should be under src/
+    for (const p of paths) {
+      expect(p.startsWith("src/") || p.includes("/src/")).toBe(true);
+    }
+    expect(paths).toContain("src/auth/login.ts");
+  });
 });

@@ -16,6 +16,26 @@ const READ_ONLY: ToolAnnotations = {
   openWorldHint: false,
 };
 
+// ── Gitignore filtering ──
+
+/**
+ * Batch-check which paths are gitignored using `git check-ignore --stdin`.
+ * Returns the set of ignored paths. Pure filtering — no DB writes.
+ */
+function getIgnoredPaths(repoDir: string, paths: string[]): Set<string> {
+  if (paths.length === 0) return new Set();
+  const result = Bun.spawnSync(["git", "check-ignore", "--no-index", "--stdin"], {
+    cwd: repoDir,
+    stdin: Buffer.from(paths.join("\n")),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  // git check-ignore exits 1 if no paths are ignored — not an error
+  const output = result.stdout.toString().trim();
+  if (!output) return new Set();
+  return new Set(output.split("\n").map((p) => p.trim()));
+}
+
 // ── Runner type ──
 
 export type RunEffect = <A>(
@@ -29,7 +49,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
     {
       name: "kiste_list_artifacts",
       description:
-        "List indexed artifacts with optional tag filter. Returns paths, alive status, and tags.",
+        "List indexed artifacts with optional tag filter. Returns paths, alive status, and tags. Gitignored files are excluded by default.",
       annotations: READ_ONLY,
       inputSchema: {
         tags: z
@@ -40,10 +60,18 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
           .boolean()
           .optional()
           .describe("Include deleted (alive=0) artifacts (default false)"),
+        include_ignored: z
+          .boolean()
+          .optional()
+          .describe("Include gitignored files (default false)"),
+        source_only: z
+          .boolean()
+          .optional()
+          .describe("Only include files under src/ directories (default false)"),
         limit: z.number().optional().describe("Max results (default 100)"),
         offset: z.number().optional().describe("Skip first N results (default 0)"),
       },
-      handler: async ({ tags, include_deleted, limit, offset }) => {
+      handler: async ({ tags, include_deleted, include_ignored, source_only, limit, offset }) => {
         return run(
           Effect.gen(function* () {
             const sql = yield* SqlClient.SqlClient;
@@ -52,34 +80,54 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const lim = limit ?? 100;
             const off = offset ?? 0;
             const alive = include_deleted ? "" : "AND a.alive = 1";
+            const srcFilter = source_only ? "AND (a.path LIKE 'src/%' OR a.path LIKE '%/src/%')" : "";
+
+            // Fetch more rows than needed to account for gitignore filtering
+            const fetchLimit = include_ignored ? lim : lim * 3;
+
+            let rows: readonly { id: number; path: string; alive: number; tags: string }[];
 
             if (tags && tags.length > 0) {
               const placeholders = tags.map(() => "?").join(", ");
-              const rows = yield* sql.unsafe(
+              rows = yield* sql.unsafe(
                 `SELECT a.id, a.path, a.alive,
                         GROUP_CONCAT(at2.tag) as tags
                  FROM artifacts a
                  JOIN artifact_tags at2 ON at2.artifact_id = a.id
-                 WHERE at2.tag IN (${placeholders}) ${alive}
+                 WHERE at2.tag IN (${placeholders}) ${alive} ${srcFilter}
                  GROUP BY a.id
                  HAVING COUNT(DISTINCT at2.tag) = ?
                  ORDER BY a.path
                  LIMIT ? OFFSET ?`,
-                [...tags, tags.length, lim, off],
+                [...tags, tags.length, fetchLimit, off],
               );
-              return { artifacts: rows, count: rows.length };
+            } else {
+              rows = yield* sql.unsafe(
+                `SELECT a.id, a.path, a.alive,
+                        (SELECT GROUP_CONCAT(at2.tag) FROM artifact_tags at2 WHERE at2.artifact_id = a.id) as tags
+                 FROM artifacts a
+                 WHERE 1=1 ${alive} ${srcFilter}
+                 ORDER BY a.path
+                 LIMIT ? OFFSET ?`,
+                [fetchLimit, off],
+              );
             }
 
-            const rows = yield* sql.unsafe(
-              `SELECT a.id, a.path, a.alive,
-                      (SELECT GROUP_CONCAT(at2.tag) FROM artifact_tags at2 WHERE at2.artifact_id = a.id) as tags
-               FROM artifacts a
-               WHERE 1=1 ${alive}
-               ORDER BY a.path
-               LIMIT ? OFFSET ?`,
-              [lim, off],
-            );
-            return { artifacts: rows, count: rows.length };
+            // Filter out gitignored paths unless opted in
+            let filtered = [...rows];
+            if (!include_ignored && filtered.length > 0) {
+              const ignored = getIgnoredPaths(
+                repoDir,
+                filtered.map((r) => r.path),
+              );
+              if (ignored.size > 0) {
+                filtered = filtered.filter((r) => !ignored.has(r.path));
+              }
+            }
+
+            // Apply the actual limit after filtering
+            const result = filtered.slice(0, lim);
+            return { artifacts: result, count: result.length };
           }),
         );
       },
