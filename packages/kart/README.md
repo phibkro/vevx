@@ -46,9 +46,11 @@ kart_zoom(path, level?)
 |-------|---------|-------------|
 | 0 (default) | Exported symbols + signatures + doc comments | "What does this module expose?" |
 | 1 | All symbols + signatures + doc comments | "How does this module work?" |
-| 2 | Full file content | "I need to read the implementation" |
+| 2 | Full file content (capped at 100KB) | "I need to read the implementation" |
 
 When `path` is a directory, returns level-0 for each `.ts` file. Files with no exports are omitted.
+
+Paths are validated against the workspace root — requests outside the workspace boundary are rejected.
 
 ### kart_cochange
 
@@ -56,7 +58,7 @@ When `path` is a directory, returns level-0 for each `.ts` file. Files with no e
 kart_cochange(path)
 ```
 
-Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. If the database is absent, returns a structured message telling the agent how to generate it.
+Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. Database connections are cached for reuse across requests. If the database is absent, returns a structured message telling the agent how to generate it.
 
 ## Plugin Assets
 
@@ -75,8 +77,8 @@ Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. I
 | ExportDetection | `src/pure/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
 | Signatures | `src/pure/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
 | LspClient | `src/Lsp.ts` | TypeScript language server over stdio (JSON-RPC, Effect Layer) |
-| SymbolIndex | `src/Symbols.ts` | Zoom service — combines LSP + pure functions |
-| CochangeDb | `src/Cochange.ts` | SQLite reader for co-change data |
+| SymbolIndex | `src/Symbols.ts` | Zoom service — workspace-scoped, combines LSP + pure functions |
+| CochangeDb | `src/Cochange.ts` | SQLite reader for co-change data (cached connections) |
 | Tools | `src/Tools.ts` | MCP tool definitions (Zod schemas + Effect handlers) |
 | Mcp | `src/Mcp.ts` | Server entrypoint, per-tool ManagedRuntime |
 

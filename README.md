@@ -15,8 +15,18 @@ Varp manages the gap between what agents know and what's actually true. It track
 **Prerequisites:** [Bun](https://bun.sh), [Claude Code](https://claude.ai/claude-code) with plugin support.
 
 ```bash
-# From GitHub
+# Plugin (skills + hooks)
 claude plugin add https://github.com/phibkro/vevx/tree/main/packages/varp
+
+# npm (library + MCP server + CLI)
+bun add @vevx/varp
+```
+
+Individual packages:
+
+```bash
+bun add @vevx/kart   # progressive code disclosure + behavioral coupling
+bun add @vevx/kiste  # git-backed artifact index
 ```
 
 Or install from source:
@@ -147,11 +157,12 @@ The MCP server exposes pure functions. Skills structure agent behavior by loadin
 
 ## Packages
 
-| Package       | Path              | Description                                                                    |
-| ------------- | ----------------- | ------------------------------------------------------------------------------ |
-| `@vevx/varp`  | `packages/varp/`  | MCP server, CLI, skills, hooks — manifest, plan, scheduler, enforcement tools  |
-| `@vevx/audit` | `packages/audit/` | Compliance audit engine + CLI (`varp-audit`) — multi-agent code review         |
-| `@vevx/kiste` | `packages/kiste/` | Git-backed artifact index using Effect TS                                      |
+| Package       | Version | Path              | Description                                                                   |
+| ------------- | ------- | ----------------- | ----------------------------------------------------------------------------- |
+| `@vevx/varp`  | 0.1.1   | `packages/varp/`  | MCP server, CLI, skills, hooks — manifest, plan, scheduler, enforcement tools |
+| `@vevx/kart`  | 0.1.1   | `packages/kart/`  | Progressive code disclosure (LSP zoom) + behavioral coupling (git co-change)  |
+| `@vevx/kiste` | 0.2.0   | `packages/kiste/` | Git-backed artifact index with full-text search and provenance tracking        |
+| `@vevx/audit` | —       | `packages/audit/` | Compliance audit engine + CLI (`varp-audit`) — not yet published               |
 
 ## Design Docs
 
