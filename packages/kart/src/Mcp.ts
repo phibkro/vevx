@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ManagedRuntime } from "effect";
 
-import { CochangeDb, CochangeDbLive } from "./Cochange.js";
+import { CochangeDbLive } from "./Cochange.js";
 import { tools } from "./Tools.js";
 
 // ── Runtime ──
@@ -62,4 +62,4 @@ main().catch((e) => {
   process.exit(1);
 });
 
-export { CochangeDb, createServer };
+export { createServer };
