@@ -67,13 +67,17 @@ Depends on `LspClient`. Transforms raw LSP responses into structured zoom result
 - **Doc comment extraction** via `extractDocComment` from `pure/Signatures.ts`
 - **Export detection** via `isExported` from `pure/ExportDetection.ts`
 
+**Factory:** `SymbolIndexLive(config?: { rootDir?: string })` returns a `Layer<SymbolIndex, never, LspClient>`. The `rootDir` parameter (defaults to `process.cwd()`) defines the workspace boundary — all path requests are validated against it. Paths outside the boundary yield `FileNotFoundError`.
+
 **Zoom levels:**
 
 | level | source | content |
 |-------|--------|---------|
 | 0 | LSP `documentSymbol` + text scan | exported symbols only, signatures, doc comments |
 | 1 | LSP `documentSymbol` | all symbols, signatures, doc comments |
-| 2 | `readFileSync` | full file content (no LSP) |
+| 2 | `readFileSync` | full file content, capped at 100KB |
+
+Level-2 reads are capped at `MAX_LEVEL2_BYTES` (100KB). Files exceeding this return a structured message with the file size instead of the content.
 
 **Directory zoom:** when path is a directory, returns level-0 for each `.ts`/`.tsx` file (non-recursive, test files excluded). Files with no exports are omitted.
 
@@ -81,9 +85,7 @@ Depends on `LspClient`. Transforms raw LSP responses into structured zoom result
 
 Read-only SQLite client for `.varp/cochange.db` (owned by kiste).
 
-**Per-call open:** opens the database on each `neighbors()` call, closes after. Correct because kiste can rebuild the database at any time — a persistent connection could see stale data.
-
-**Read-only mode:** `{ readonly: true }` on the `bun:sqlite` `Database` constructor. kart never writes to kiste's index.
+**Cached connections:** a module-level `Map<string, Database>` caches open connections by `dbPath`. The first `neighbors()` call for a given path opens the database; subsequent calls reuse the cached connection. Read-only mode (`{ readonly: true }`) ensures kart never writes to kiste's index.
 
 **Graceful degradation:** if the db file doesn't exist, returns a `CochangeUnavailable` typed value (not an error). The MCP handler serializes it as structured JSON the agent can act on.
 
@@ -121,7 +123,7 @@ kart_cochange({ path: "src/auth.ts" })
 
 Zod schemas at the MCP boundary (tool inputs). Effect `Context.Tag` + `Layer` internally. Each tool definition in `Tools.ts` is a self-contained object with `name`, `description`, `inputSchema` (Zod), `annotations`, and `handler` (Effect generator).
 
-`Mcp.ts` registers tools individually with typed handlers. Error handling at the MCP boundary: Effect errors become `{ isError: true, content: [{ text: "Error: ..." }] }`.
+`Mcp.ts` registers tools individually with typed handlers. All responses include `structuredContent` for direct JSON access by callers. Effect errors become `{ isError: true, content: [{ text: "Error: ..." }] }`.
 
 ## error model
 
@@ -136,7 +138,7 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-49 tests across 7 files, split into pure (coverage-gated) and integration:
+56 tests across 7 files, split into pure (coverage-gated) and integration:
 
 **Pure tests** (`src/pure/`, 24 tests, `test:pure` with `--coverage`):
 
@@ -145,15 +147,15 @@ All error types defined in `src/pure/Errors.ts`.
 | `pure/ExportDetection.test.ts` | 12 | isExported text scanning against fixture |
 | `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
 
-**Integration tests** (`src/*.test.ts`, 25 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 32 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
 | `Lsp.test.ts` | 4 | documentSymbol, hierarchical children, semanticTokens, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
-| `Symbols.test.ts` | 8 | zoom levels, directory zoom, FileNotFoundError, signatures via LSP |
-| `Mcp.test.ts` | 7 | MCP integration via InMemoryTransport |
+| `Symbols.test.ts` | 12 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap |
+| `Mcp.test.ts` | 10 | MCP integration via InMemoryTransport, structuredContent | |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.
 

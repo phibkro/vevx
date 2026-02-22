@@ -39,7 +39,7 @@ BunRuntime.runMain
 |---|---|---|---|
 | `Config` | `@kiste/Config` | Parsed `.kiste.yaml` with defaults | None (reads file in layer construction) |
 | `SqlClient` | `@effect/sql/SqlClient` | SQLite connection | None (path provided at layer construction) |
-| `Git` | `kiste/Git` | `revParse`, `log`, `show` | None (`Bun.spawnSync` is self-contained) |
+| `Git` | `kiste/Git` | `revParse`, `log`, `show` | None (`Bun.spawnSync` is self-contained, input validation on `show`) |
 
 All three layers have no upstream requirements — they compose via `Layer.mergeAll` without ordering constraints.
 
@@ -70,8 +70,9 @@ artifacts ──< artifact_commits >── commits
 - `artifact_commits`: join table. Primary query: artifact → commits ("what touched this file?").
 - `artifact_tags`: materialized current tag state per artifact.
 - `tag_operations`: full add/remove history for tag replay during rebuild.
-- `commits_fts`: FTS5 virtual table over commit messages, auto-populated via trigger.
+- `commits_fts`: FTS5 virtual table over commit messages, auto-populated via trigger. Queries are sanitized — special FTS5 operators are stripped to prevent injection.
 - `meta`: key-value store for `last_indexed_sha` (incremental indexing checkpoint).
+- `idx_artifact_commits_sha`: index on `artifact_commits.commit_sha` for join performance.
 
 ## Entry Points
 
@@ -93,3 +94,7 @@ The MCP server resolves config once at startup via `createServer({ repoDir, dbPa
 - **Zod for MCP, Effect Schema elsewhere** — MCP SDK requires Zod for tool input schemas.
 - **Layers provided per-command in CLI** — avoids opening SQLite during `--help` or `init`.
 - **FTS trigger is AFTER INSERT only** — commits use `INSERT OR IGNORE`. If DDL ever changes to `INSERT OR REPLACE`, the trigger would create duplicate FTS entries.
+- **Transaction batching** — `processCommits` wraps bulk indexing in a single SQLite transaction (BEGIN/COMMIT) for performance. Rollback on failure.
+- **Input validation** — `Git.show` rejects shell metacharacters and `..` path traversal. `kiste_search` sanitizes FTS5 queries (strips special operators).
+- **Gitignore filtering** — `kiste_list_artifacts` excludes gitignored files by default (configurable via `include_ignored` parameter).
+- **structuredContent** — all MCP tool responses include `structuredContent` for direct JSON access alongside `content` text.
