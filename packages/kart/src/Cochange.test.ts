@@ -1,9 +1,10 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { Effect, ManagedRuntime } from "effect";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { Effect, ManagedRuntime } from "effect";
 
 import { CochangeDb, CochangeDbLive } from "./Cochange.js";
 

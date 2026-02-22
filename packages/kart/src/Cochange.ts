@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
-import { Context, Effect, Layer } from "effect";
 import { existsSync } from "node:fs";
+
+import { Context, Effect, Layer } from "effect";
 
 // ── Types ──
 
