@@ -14,7 +14,7 @@ describe("TaskResultSchema", () => {
       observations: ["Refactored login handler to use async/await"],
     });
     expect(result.status).toBe("COMPLETE");
-    expect(result.metrics.tokens_used).toBe(5000);
+    expect(result.metrics?.tokens_used).toBe(5000);
     expect(result.files_modified).toHaveLength(1);
   });
 

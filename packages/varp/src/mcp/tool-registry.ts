@@ -26,12 +26,14 @@ export function registerTools(server: McpServer, tools: ToolDef[]): void {
         ...(tool.annotations && { annotations: tool.annotations }),
         ...(tool.outputSchema && { outputSchema: tool.outputSchema }),
       },
-      async (args) => {
+      async (
+        args,
+        _extra,
+      ): Promise<{ content: { type: "text"; text: string }[]; isError?: boolean }> => {
         try {
           const result = await tool.handler(args);
           return {
             content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-            ...(tool.outputSchema && { structuredContent: result }),
           };
         } catch (e) {
           return {

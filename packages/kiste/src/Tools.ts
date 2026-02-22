@@ -80,16 +80,19 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const lim = limit ?? 100;
             const off = offset ?? 0;
             const alive = include_deleted ? "" : "AND a.alive = 1";
-            const srcFilter = source_only ? "AND (a.path LIKE 'src/%' OR a.path LIKE '%/src/%')" : "";
+            const srcFilter = source_only
+              ? "AND (a.path LIKE 'src/%' OR a.path LIKE '%/src/%')"
+              : "";
 
             // Fetch more rows than needed to account for gitignore filtering
             const fetchLimit = include_ignored ? lim : lim * 3;
 
-            let rows: readonly { id: number; path: string; alive: number; tags: string }[];
+            type ArtifactRow = { id: number; path: string; alive: number; tags: string };
+            let rows: readonly ArtifactRow[];
 
             if (tags && tags.length > 0) {
               const placeholders = tags.map(() => "?").join(", ");
-              rows = yield* sql.unsafe(
+              rows = (yield* sql.unsafe(
                 `SELECT a.id, a.path, a.alive,
                         GROUP_CONCAT(at2.tag) as tags
                  FROM artifacts a
@@ -100,9 +103,9 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
                  ORDER BY a.path
                  LIMIT ? OFFSET ?`,
                 [...tags, tags.length, fetchLimit, off],
-              );
+              )) as unknown as ArtifactRow[];
             } else {
-              rows = yield* sql.unsafe(
+              rows = (yield* sql.unsafe(
                 `SELECT a.id, a.path, a.alive,
                         (SELECT GROUP_CONCAT(at2.tag) FROM artifact_tags at2 WHERE at2.artifact_id = a.id) as tags
                  FROM artifacts a
@@ -110,7 +113,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
                  ORDER BY a.path
                  LIMIT ? OFFSET ?`,
                 [fetchLimit, off],
-              );
+              )) as unknown as ArtifactRow[];
             }
 
             // Filter out gitignored paths unless opted in
@@ -148,20 +151,20 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const git = yield* Git;
             yield* initSchema;
 
-            const artifactRows = yield* sql.unsafe(
+            const artifactRows = (yield* sql.unsafe(
               `SELECT id, path, alive FROM artifacts WHERE path = ?`,
               [path],
-            );
+            )) as unknown as { id: number; path: string; alive: number }[];
             if (artifactRows.length === 0) {
               return { error: `Artifact not found: ${path}` };
             }
             const artifact = artifactRows[0];
 
-            const tagRows = yield* sql.unsafe(
+            const tagRows = (yield* sql.unsafe(
               `SELECT tag FROM artifact_tags WHERE artifact_id = ?`,
               [artifact.id],
-            );
-            const tags = tagRows.map((r: { tag: string }) => r.tag);
+            )) as unknown as { tag: string }[];
+            const tags = tagRows.map((r) => r.tag);
 
             const commitRows = yield* sql.unsafe(
               `SELECT c.sha, c.message, c.author, c.timestamp

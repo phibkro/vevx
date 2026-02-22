@@ -301,208 +301,211 @@ export type LspConfig = {
 };
 
 export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
-  Layer.scoped(
-    LspClient,
-    Effect.gen(function* () {
-      const scope = yield* Scope.Scope;
-      const rootDir = config.rootDir ?? process.cwd();
-      const rootUri = `file://${rootDir}`;
+  Layer.orDie(
+    Layer.scoped(
+      LspClient,
+      Effect.gen(function* () {
+        const scope = yield* Scope.Scope;
+        const rootDir = config.rootDir ?? process.cwd();
+        const rootUri = `file://${rootDir}`;
 
-      // Find binary
-      const binary = yield* Effect.try({
-        try: () => findLspBinary(rootDir),
-        catch: (e) => (e instanceof LspError ? e : new LspError({ message: String(e), cause: e })),
-      });
-
-      // Spawn the language server
-      const proc = yield* Effect.try({
-        try: () =>
-          Bun.spawn([binary, "--stdio"], {
-            stdin: "pipe",
-            stdout: "pipe",
-            stderr: "pipe",
-          }),
-        catch: (e) =>
-          new LspError({
-            message: `Failed to spawn typescript-language-server: ${String(e)}`,
-            cause: e,
-          }),
-      });
-
-      const transport = new JsonRpcTransport(proc.stdin as unknown as BunFileSink, proc.stdout);
-      transport.startReading();
-
-      // Track open documents so we can close them on shutdown
-      const openDocuments = new Set<string>();
-      let shutdownCalled = false;
-
-      // Initialize handshake
-      yield* Effect.tryPromise({
-        try: () =>
-          transport.request("initialize", {
-            processId: process.pid,
-            capabilities: {
-              textDocument: {
-                documentSymbol: {
-                  hierarchicalDocumentSymbolSupport: true,
-                },
-                semanticTokens: {
-                  requests: { full: true },
-                  tokenTypes: [...SEMANTIC_TOKEN_TYPES],
-                  tokenModifiers: [...SEMANTIC_TOKEN_MODIFIERS],
-                  formats: ["relative"],
-                },
-              },
-              // TODO: Add workspace/didChangeWatchedFiles support. The client should
-              // watch *.ts, *.tsx, tsconfig.json, package.json via fs.watch and send
-              // workspace/didChangeWatchedFiles notifications to keep the server in sync.
-              // Omitted for v0.1 — the server falls back to polling or stale state.
-            },
-            rootUri,
-            workspaceFolders: [{ uri: rootUri, name: "workspace" }],
-          }),
-        catch: (e) =>
-          e instanceof LspTimeoutError
-            ? e
-            : new LspError({ message: `Initialize failed: ${String(e)}`, cause: e }),
-      });
-
-      // Send initialized notification
-      yield* Effect.try({
-        try: () => transport.notify("initialized"),
-        catch: (e) =>
-          new LspError({ message: `initialized notification failed: ${String(e)}`, cause: e }),
-      });
-
-      // Register release finalizer
-      yield* Scope.addFinalizer(
-        scope,
-        Effect.gen(function* () {
-          // Skip if explicit shutdown() already ran
-          if (shutdownCalled) return;
-
-          // Close any open documents
-          for (const uri of openDocuments) {
-            yield* Effect.try({
-              try: () =>
-                transport.notify("textDocument/didClose", {
-                  textDocument: { uri },
-                }),
-              catch: () => new LspError({ message: `Failed to close document: ${uri}` }),
-            }).pipe(Effect.catchAll(() => Effect.void));
-          }
-
-          // Shutdown request
-          yield* Effect.tryPromise({
-            try: () => transport.request("shutdown", null, 5_000),
-            catch: () => new LspError({ message: "LSP shutdown request failed" }),
-          }).pipe(Effect.catchAll(() => Effect.void));
-
-          // Exit notification
-          yield* Effect.try({
-            try: () => transport.notify("exit"),
-            catch: () => new LspError({ message: "LSP exit notification failed" }),
-          }).pipe(Effect.catchAll(() => Effect.void));
-
-          transport.drain();
-
-          // Kill process
-          yield* Effect.sync(() => {
-            proc.kill();
-          });
-        }),
-      );
-
-      // Helper: ensure document is open before requesting
-      const ensureDocumentOpen = (uri: string): Effect.Effect<void, LspError | LspTimeoutError> =>
-        Effect.gen(function* () {
-          if (openDocuments.has(uri)) return;
-
-          const filePath = uri.startsWith("file://") ? uri.slice(7) : uri;
-          const content = yield* Effect.try({
-            try: () => readFileSync(filePath, "utf-8"),
-            catch: (e) => new LspError({ message: `Failed to read file: ${filePath}`, cause: e }),
-          });
-
-          yield* Effect.try({
-            try: () =>
-              transport.notify("textDocument/didOpen", {
-                textDocument: {
-                  uri,
-                  languageId: filePath.endsWith(".tsx") ? "typescriptreact" : "typescript",
-                  version: 1,
-                  text: content,
-                },
-              }),
-            catch: (e) =>
-              new LspError({ message: `didOpen failed for ${uri}: ${String(e)}`, cause: e }),
-          });
-
-          openDocuments.add(uri);
+        // Find binary
+        const binary = yield* Effect.try({
+          try: () => findLspBinary(rootDir),
+          catch: (e) =>
+            e instanceof LspError ? e : new LspError({ message: String(e), cause: e }),
         });
 
-      return LspClient.of({
-        documentSymbol: (uri) =>
+        // Spawn the language server
+        const proc = yield* Effect.try({
+          try: () =>
+            Bun.spawn([binary, "--stdio"], {
+              stdin: "pipe",
+              stdout: "pipe",
+              stderr: "pipe",
+            }),
+          catch: (e) =>
+            new LspError({
+              message: `Failed to spawn typescript-language-server: ${String(e)}`,
+              cause: e,
+            }),
+        });
+
+        const transport = new JsonRpcTransport(proc.stdin as unknown as BunFileSink, proc.stdout);
+        transport.startReading();
+
+        // Track open documents so we can close them on shutdown
+        const openDocuments = new Set<string>();
+        let shutdownCalled = false;
+
+        // Initialize handshake
+        yield* Effect.tryPromise({
+          try: () =>
+            transport.request("initialize", {
+              processId: process.pid,
+              capabilities: {
+                textDocument: {
+                  documentSymbol: {
+                    hierarchicalDocumentSymbolSupport: true,
+                  },
+                  semanticTokens: {
+                    requests: { full: true },
+                    tokenTypes: [...SEMANTIC_TOKEN_TYPES],
+                    tokenModifiers: [...SEMANTIC_TOKEN_MODIFIERS],
+                    formats: ["relative"],
+                  },
+                },
+                // TODO: Add workspace/didChangeWatchedFiles support. The client should
+                // watch *.ts, *.tsx, tsconfig.json, package.json via fs.watch and send
+                // workspace/didChangeWatchedFiles notifications to keep the server in sync.
+                // Omitted for v0.1 — the server falls back to polling or stale state.
+              },
+              rootUri,
+              workspaceFolders: [{ uri: rootUri, name: "workspace" }],
+            }),
+          catch: (e) =>
+            e instanceof LspTimeoutError
+              ? e
+              : new LspError({ message: `Initialize failed: ${String(e)}`, cause: e }),
+        });
+
+        // Send initialized notification
+        yield* Effect.try({
+          try: () => transport.notify("initialized"),
+          catch: (e) =>
+            new LspError({ message: `initialized notification failed: ${String(e)}`, cause: e }),
+        });
+
+        // Register release finalizer
+        yield* Scope.addFinalizer(
+          scope,
           Effect.gen(function* () {
-            yield* ensureDocumentOpen(uri);
+            // Skip if explicit shutdown() already ran
+            if (shutdownCalled) return;
 
-            const result = yield* Effect.tryPromise({
-              try: () =>
-                transport.request("textDocument/documentSymbol", {
-                  textDocument: { uri },
-                }),
-              catch: (e) =>
-                e instanceof LspTimeoutError
-                  ? e
-                  : new LspError({
-                      message: `documentSymbol request failed: ${String(e)}`,
-                      cause: e,
-                    }),
-            });
+            // Close any open documents
+            for (const uri of openDocuments) {
+              yield* Effect.try({
+                try: () =>
+                  transport.notify("textDocument/didClose", {
+                    textDocument: { uri },
+                  }),
+                catch: () => new LspError({ message: `Failed to close document: ${uri}` }),
+              }).pipe(Effect.catchAll(() => Effect.void));
+            }
 
-            if (!Array.isArray(result)) return [];
-            return result as DocumentSymbol[];
-          }),
+            // Shutdown request
+            yield* Effect.tryPromise({
+              try: () => transport.request("shutdown", null, 5_000),
+              catch: () => new LspError({ message: "LSP shutdown request failed" }),
+            }).pipe(Effect.catchAll(() => Effect.void));
 
-        semanticTokens: (uri) =>
-          Effect.gen(function* () {
-            yield* ensureDocumentOpen(uri);
+            // Exit notification
+            yield* Effect.try({
+              try: () => transport.notify("exit"),
+              catch: () => new LspError({ message: "LSP exit notification failed" }),
+            }).pipe(Effect.catchAll(() => Effect.void));
 
-            const result = yield* Effect.tryPromise({
-              try: () =>
-                transport.request("textDocument/semanticTokens/full", {
-                  textDocument: { uri },
-                }),
-              catch: (e) =>
-                e instanceof LspTimeoutError
-                  ? e
-                  : new LspError({
-                      message: `semanticTokens request failed: ${String(e)}`,
-                      cause: e,
-                    }),
-            });
+            transport.drain();
 
-            const typed = result as { data?: number[]; resultId?: string } | null;
-            if (!typed?.data) return { tokens: [] };
-
-            return {
-              tokens: decodeSemanticTokens(typed.data),
-              resultId: typed.resultId,
-            };
-          }),
-
-        shutdown: () =>
-          Effect.tryPromise({
-            try: async () => {
-              shutdownCalled = true;
-              await transport.request("shutdown", null, 5_000);
-              transport.notify("exit");
-              transport.drain();
+            // Kill process
+            yield* Effect.sync(() => {
               proc.kill();
-              openDocuments.clear();
-            },
-            catch: (e) => new LspError({ message: `Shutdown failed: ${String(e)}`, cause: e }),
+            });
           }),
-      });
-    }),
+        );
+
+        // Helper: ensure document is open before requesting
+        const ensureDocumentOpen = (uri: string): Effect.Effect<void, LspError | LspTimeoutError> =>
+          Effect.gen(function* () {
+            if (openDocuments.has(uri)) return;
+
+            const filePath = uri.startsWith("file://") ? uri.slice(7) : uri;
+            const content = yield* Effect.try({
+              try: () => readFileSync(filePath, "utf-8"),
+              catch: (e) => new LspError({ message: `Failed to read file: ${filePath}`, cause: e }),
+            });
+
+            yield* Effect.try({
+              try: () =>
+                transport.notify("textDocument/didOpen", {
+                  textDocument: {
+                    uri,
+                    languageId: filePath.endsWith(".tsx") ? "typescriptreact" : "typescript",
+                    version: 1,
+                    text: content,
+                  },
+                }),
+              catch: (e) =>
+                new LspError({ message: `didOpen failed for ${uri}: ${String(e)}`, cause: e }),
+            });
+
+            openDocuments.add(uri);
+          });
+
+        return LspClient.of({
+          documentSymbol: (uri) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/documentSymbol", {
+                    textDocument: { uri },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `documentSymbol request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!Array.isArray(result)) return [];
+              return result as DocumentSymbol[];
+            }),
+
+          semanticTokens: (uri) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/semanticTokens/full", {
+                    textDocument: { uri },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `semanticTokens request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              const typed = result as { data?: number[]; resultId?: string } | null;
+              if (!typed?.data) return { tokens: [] };
+
+              return {
+                tokens: decodeSemanticTokens(typed.data),
+                resultId: typed.resultId,
+              };
+            }),
+
+          shutdown: () =>
+            Effect.tryPromise({
+              try: async () => {
+                shutdownCalled = true;
+                await transport.request("shutdown", null, 5_000);
+                transport.notify("exit");
+                transport.drain();
+                proc.kill();
+                openDocuments.clear();
+              },
+              catch: (e) => new LspError({ message: `Shutdown failed: ${String(e)}`, cause: e }),
+            }),
+        });
+      }),
+    ),
   );

@@ -376,7 +376,7 @@ export async function runCouplingCommand(argv: string[]): Promise<void> {
       },
     ];
 
-    console.log(formatNeighborhood(file, owningComponent, tiers, !args.noColor));
+    console.log(formatNeighborhood(file, owningComponent ?? undefined, tiers, !args.noColor));
     return;
   }
 

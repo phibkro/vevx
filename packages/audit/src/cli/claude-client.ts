@@ -32,7 +32,7 @@ async function spawnClaude(args: string[]): Promise<string> {
     env: filteredEnv(),
   });
 
-  const stdout = await proc.stdout.text();
+  const stdout = await new Response(proc.stdout).text();
   const exitCode = await proc.exited;
 
   if (exitCode !== 0) {
