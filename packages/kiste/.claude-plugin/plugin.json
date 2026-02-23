@@ -1,5 +1,5 @@
 {
   "name": "kiste",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Semantic artifact index over git history — tag-based retrieval, provenance tracking, and full-text search for agent workflows"
 }

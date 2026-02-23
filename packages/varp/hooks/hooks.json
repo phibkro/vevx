@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash packages/varp/hooks/scripts/session-start.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.sh\""
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash packages/varp/hooks/scripts/subagent-context.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/subagent-context.sh\""
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash packages/varp/hooks/scripts/session-stop.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-stop.sh\""
           },
           {
             "type": "prompt",
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash packages/varp/hooks/scripts/tag-commits.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/tag-commits.sh\""
           }
         ]
       }
@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash packages/varp/hooks/scripts/freshness-track.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/freshness-track.sh\""
           }
         ]
       }

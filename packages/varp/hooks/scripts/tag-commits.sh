@@ -21,4 +21,5 @@ echo "$input" | grep -q '\-\-amend' && exit 0
 echo "$input" | grep -q 'tags:' && exit 0
 
 # Delegate to TypeScript for manifest lookup and command rewriting
-echo "$input" | bun packages/varp/hooks/scripts/tag-commits-impl.ts 2>/dev/null || exit 0
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+echo "$input" | bun "$SCRIPT_DIR/tag-commits-impl.ts" 2>/dev/null || exit 0

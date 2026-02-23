@@ -1,5 +1,5 @@
 {
   "name": "varp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Graph-aware project analysis: coupling diagnostics, dependency tracking, scope enforcement, and architectural drift detection"
 }

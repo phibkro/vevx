@@ -18,5 +18,7 @@ if ! echo "$input" | grep -q 'git commit'; then
 fi
 
 if command -v bun >/dev/null 2>&1; then
-  bun packages/kiste/dist/Cli.js index 2>/dev/null || true
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  PKG_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  bun "$PKG_ROOT/dist/Cli.js" index 2>/dev/null || true
 fi
