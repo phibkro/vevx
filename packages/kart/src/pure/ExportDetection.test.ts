@@ -67,3 +67,35 @@ describe("isExported (text scanning)", () => {
     expect(isExported(sym, lines)).toBe(false);
   });
 });
+
+describe("isExported — Rust pub detection", () => {
+  const symbolAt = (name: string, line: number): DocumentSymbol => ({
+    name,
+    kind: 12,
+    range: { start: { line, character: 0 }, end: { line, character: 0 } },
+    selectionRange: { start: { line, character: 0 }, end: { line, character: 0 } },
+  });
+
+  const rustLines = [
+    "pub fn greet(name: &str) -> String {",
+    "fn internal() {}",
+    "pub struct Config {",
+    "pub(crate) fn restricted() {}",
+  ];
+
+  test("pub fn is exported", () => {
+    expect(isExported(symbolAt("greet", 0), rustLines)).toBe(true);
+  });
+
+  test("fn without pub is not exported", () => {
+    expect(isExported(symbolAt("internal", 1), rustLines)).toBe(false);
+  });
+
+  test("pub struct is exported", () => {
+    expect(isExported(symbolAt("Config", 2), rustLines)).toBe(true);
+  });
+
+  test("pub(crate) is exported", () => {
+    expect(isExported(symbolAt("restricted", 3), rustLines)).toBe(true);
+  });
+});

@@ -41,5 +41,5 @@ export function isExported(symbol: DocumentSymbol, lines: readonly string[]): bo
   if (lineIndex < 0 || lineIndex >= lines.length) return false;
 
   const line = lines[lineIndex].trimStart();
-  return line.startsWith("export ");
+  return line.startsWith("export ") || line.startsWith("pub ") || line.startsWith("pub(");
 }
