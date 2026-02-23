@@ -4,7 +4,7 @@
  * Recursively collects .ts/.tsx files, parses each with OxcSymbols,
  * and filters by name substring, kind, and export status.
  *
- * Pure async function — no Effect or LSP dependency.
+ * Stateless async function — no Effect or LSP dependency.
  */
 
 import { readdir, readFile } from "node:fs/promises";

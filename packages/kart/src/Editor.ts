@@ -1,11 +1,13 @@
 /**
  * Edit pipeline: read → locate → validate → splice → write → lint.
  *
+ * Stateless async module — no Effect or LSP dependency.
  * Provides file-level symbol editing with syntax validation and
  * best-effort oxlint diagnostics.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   locateSymbol,
@@ -74,6 +76,17 @@ async function runOxlint(filePath: string): Promise<Diagnostic[]> {
   }
 }
 
+// ── Workspace boundary ──
+
+function assertWithinRoot(filePath: string, rootDir: string): string | null {
+  const resolved = resolve(filePath);
+  const root = resolve(rootDir);
+  if (!resolved.startsWith(root + "/") && resolved !== root) {
+    return `Path "${filePath}" is outside workspace root`;
+  }
+  return null;
+}
+
 // ── Core edit pipeline ──
 
 type SpliceOp = "replace" | "insertAfter" | "insertBefore";
@@ -83,7 +96,23 @@ async function edit(
   symbolName: string,
   content: string,
   op: SpliceOp,
+  rootDir?: string,
 ): Promise<EditResult> {
+  // Workspace boundary check
+  if (rootDir) {
+    const boundaryError = assertWithinRoot(filePath, rootDir);
+    if (boundaryError) {
+      return {
+        success: false,
+        path: filePath,
+        symbol: symbolName,
+        diagnostics: [],
+        syntaxError: false,
+        syntaxErrorMessage: boundaryError,
+      };
+    }
+  }
+
   const filename = filePath.split("/").pop() ?? "file.ts";
 
   // Read
@@ -172,22 +201,25 @@ export async function editReplace(
   filePath: string,
   symbolName: string,
   content: string,
+  rootDir?: string,
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "replace");
+  return edit(filePath, symbolName, content, "replace", rootDir);
 }
 
 export async function editInsertAfter(
   filePath: string,
   symbolName: string,
   content: string,
+  rootDir?: string,
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "insertAfter");
+  return edit(filePath, symbolName, content, "insertAfter", rootDir);
 }
 
 export async function editInsertBefore(
   filePath: string,
   symbolName: string,
   content: string,
+  rootDir?: string,
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "insertBefore");
+  return edit(filePath, symbolName, content, "insertBefore", rootDir);
 }

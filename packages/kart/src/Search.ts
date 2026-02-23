@@ -2,7 +2,7 @@
  * Workspace-wide pattern search using ripgrep.
  *
  * Shells out to `rg --json` for fast, gitignore-aware text search.
- * Pure async function — no Effect or LSP dependency.
+ * Stateless async function — no Effect or LSP dependency.
  */
 
 import { relative, resolve } from "node:path";
@@ -49,8 +49,11 @@ export async function searchPattern(args: SearchArgs): Promise<SearchResult> {
   }
 
   if (args.paths && args.paths.length > 0) {
+    const root = resolve(rootDir);
     for (const p of args.paths) {
-      rgArgs.push(resolve(rootDir, p));
+      const resolved = resolve(rootDir, p);
+      if (!resolved.startsWith(root + "/") && resolved !== root) continue;
+      rgArgs.push(resolved);
     }
   }
 

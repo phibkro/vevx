@@ -267,6 +267,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           (args as { file: string }).file,
           (args as { symbol: string }).symbol,
           (args as { content: string }).content,
+          rootDir,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -295,6 +296,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           (args as { file: string }).file,
           (args as { symbol: string }).symbol,
           (args as { content: string }).content,
+          rootDir,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -323,6 +325,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           (args as { file: string }).file,
           (args as { symbol: string }).symbol,
           (args as { content: string }).content,
+          rootDir,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
