@@ -8,9 +8,14 @@
 import { readFileSync, readdirSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { buildImportGraph, extractFileImports, transitiveImporters } from "./pure/ImportGraph.js";
+import {
+  buildImportGraph,
+  extractFileImports,
+  findUnusedExports,
+  transitiveImporters,
+} from "./pure/ImportGraph.js";
 import { bunResolve, loadTsconfigPaths, resolveSpecifier } from "./pure/Resolve.js";
-import type { ImportersResult, ImportsResult } from "./pure/types.js";
+import type { ImportersResult, ImportsResult, UnusedExportsResult } from "./pure/types.js";
 
 /** Resolve symlinks, returning the input unchanged if the path doesn't exist. */
 function safeRealpath(p: string): string {
@@ -125,6 +130,34 @@ export async function getImports(filePath: string, rootDir?: string): Promise<Im
   }));
 
   return { path: absPath, imports, totalImports: imports.length };
+}
+
+export type UnusedExportsArgs = {
+  rootDir?: string;
+};
+
+/** Find exports that are not imported by any other file in the workspace. */
+export async function getUnusedExports(rootDir?: string): Promise<UnusedExportsResult> {
+  const start = performance.now();
+  const root = safeRealpath(rootDir ?? process.cwd());
+  const sources = loadSources(root);
+  const resolveFn = makeResolver(root);
+  const graph = buildImportGraph(sources, resolveFn);
+  const unused = findUnusedExports(graph);
+
+  // Count total exports across non-barrel files
+  let totalExports = 0;
+  for (const [, file] of graph.files) {
+    if (!file.isBarrel) totalExports += file.exportedNames.length;
+  }
+
+  return {
+    unusedExports: unused,
+    totalUnused: unused.length,
+    totalExports,
+    fileCount: graph.fileCount,
+    durationMs: Math.round(performance.now() - start),
+  };
 }
 
 /** Get all files that import the given file (with barrel expansion). */

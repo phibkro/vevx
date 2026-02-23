@@ -38,7 +38,13 @@ import { CochangeDbLive } from "./Cochange.js";
 import { runDiagnostics, type DiagnosticsArgs } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { findSymbols, type FindArgs } from "./Find.js";
-import { getImporters, getImports, type ImportersArgs, type ImportsArgs } from "./Imports.js";
+import {
+  getImporters,
+  getImports,
+  getUnusedExports,
+  type ImportersArgs,
+  type ImportsArgs,
+} from "./Imports.js";
 import { listDirectory, type ListArgs } from "./List.js";
 import { LspClientLive } from "./Lsp.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
@@ -58,6 +64,8 @@ import {
   kart_list,
   kart_replace,
   kart_search,
+  kart_restart,
+  kart_unused_exports,
   kart_zoom,
 } from "./Tools.js";
 
@@ -79,9 +87,12 @@ function createServer(config: ServerConfig = {}): McpServer {
   // Separate runtimes: each tool only initializes what it needs.
   // This avoids LSP startup failure blocking the cochange tool.
   const cochangeRuntime = ManagedRuntime.make(CochangeDbLive(dbPath));
-  const zoomRuntime = ManagedRuntime.make(
-    SymbolIndexLive({ rootDir }).pipe(Layer.provide(LspClientLive({ rootDir }))),
-  );
+
+  const makeZoomRuntime = () =>
+    ManagedRuntime.make(
+      SymbolIndexLive({ rootDir }).pipe(Layer.provide(LspClientLive({ rootDir }))),
+    );
+  let zoomRuntime = makeZoomRuntime();
 
   const server = new McpServer({ name: "kart", version: "0.1.0" });
 
@@ -477,6 +488,54 @@ function createServer(config: ServerConfig = {}): McpServer {
           isError: true,
         };
       }
+    },
+  );
+
+  // Register kart_unused_exports (stateless — no Effect runtime needed)
+  server.registerTool(
+    kart_unused_exports.name,
+    {
+      description: kart_unused_exports.description,
+      inputSchema: kart_unused_exports.inputSchema,
+      annotations: kart_unused_exports.annotations,
+    },
+    async () => {
+      try {
+        const result = await getUnusedExports(rootDir);
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_restart (server-level — disposes and re-creates zoomRuntime)
+  server.registerTool(
+    kart_restart.name,
+    {
+      description: kart_restart.description,
+      inputSchema: kart_restart.inputSchema,
+      annotations: kart_restart.annotations,
+    },
+    async () => {
+      try {
+        await zoomRuntime.dispose();
+      } catch {
+        // Ignore dispose errors — the LSP may already be dead
+      }
+      zoomRuntime = makeZoomRuntime();
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ restarted: true, rootDir }, null, 2) },
+        ],
+        structuredContent: { restarted: true, rootDir } as Record<string, unknown>,
+      };
     },
   );
 

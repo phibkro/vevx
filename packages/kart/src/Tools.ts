@@ -6,7 +6,7 @@ import { CochangeDb } from "./Cochange.js";
 import { runDiagnostics } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { findSymbols } from "./Find.js";
-import { getImporters, getImports } from "./Imports.js";
+import { getImporters, getImports, getUnusedExports } from "./Imports.js";
 import { listDirectory } from "./List.js";
 import { searchPattern } from "./Search.js";
 import { SymbolIndex } from "./Symbols.js";
@@ -272,6 +272,28 @@ export const kart_importers = {
   handler: (args: { path: string }) => Effect.promise(() => getImporters(args.path)),
 } as const;
 
+export const kart_unused_exports = {
+  name: "kart_unused_exports",
+  description:
+    "Find exported symbols that are not imported by any other file in the workspace. Scans all .ts/.tsx files, builds an import graph, and cross-references exported names against imported names. Namespace imports (import *) are treated conservatively as using all exports. Barrel files (index.ts with only re-exports) are excluded.",
+  annotations: READ_ONLY,
+  inputSchema: {},
+  handler: () => Effect.promise(() => getUnusedExports()),
+} as const;
+
+export const kart_restart = {
+  name: "kart_restart",
+  description:
+    "Restart the TypeScript language server. Use when the LSP gets into a bad state (stale diagnostics, unresponsive, or after large refactors). Disposes the current runtime and re-creates it fresh.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  } satisfies ToolAnnotations,
+  inputSchema: {},
+} as const;
+
 export const tools = [
   kart_cochange,
   kart_zoom,
@@ -288,4 +310,6 @@ export const tools = [
   kart_insert_before,
   kart_imports,
   kart_importers,
+  kart_unused_exports,
+  kart_restart,
 ] as const;

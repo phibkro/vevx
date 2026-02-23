@@ -221,3 +221,16 @@ export type ImportersResult = {
   /** All unique importers (direct + barrel). */
   readonly totalImporters: number;
 };
+
+export type UnusedExport = {
+  readonly path: string;
+  readonly name: string;
+};
+
+export type UnusedExportsResult = {
+  readonly unusedExports: readonly UnusedExport[];
+  readonly totalUnused: number;
+  readonly totalExports: number;
+  readonly fileCount: number;
+  readonly durationMs: number;
+};

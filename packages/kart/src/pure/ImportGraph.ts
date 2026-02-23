@@ -10,6 +10,7 @@ import { dirname } from "node:path";
 import { parseSync } from "oxc-parser";
 
 import type { ResolveFn } from "./Resolve.js";
+import type { UnusedExport } from "./types.js";
 import type { FileImports, ImportEntry, ImportGraph, ImportersResult } from "./types.js";
 
 // ── AST node types ──
@@ -228,4 +229,56 @@ export function transitiveImporters(
     barrelImporters: barrelImporters.sort(),
     totalImporters: allImporters.size,
   };
+}
+
+/**
+ * Find exports that are not imported by any other file in the graph.
+ *
+ * Conservative: namespace imports (`import * as X`) and `export *` are treated
+ * as consuming all exports from the target. Barrel files are skipped (their
+ * exports are pass-through, not authored).
+ */
+export function findUnusedExports(graph: ImportGraph): UnusedExport[] {
+  // Build: target path → set of consumed names
+  const consumedNames = new Map<string, Set<string>>();
+
+  for (const [, fileImports] of graph.files) {
+    for (const imp of fileImports.imports) {
+      if (!imp.resolvedPath) continue;
+
+      let names = consumedNames.get(imp.resolvedPath);
+      if (!names) {
+        names = new Set();
+        consumedNames.set(imp.resolvedPath, names);
+      }
+
+      if (imp.importedNames.length === 0) {
+        // Namespace import or star re-export — conservatively mark all as used
+        names.add("*");
+      } else {
+        for (const name of imp.importedNames) {
+          names.add(name);
+        }
+      }
+    }
+  }
+
+  const unused: UnusedExport[] = [];
+
+  for (const [filePath, fileImports] of graph.files) {
+    // Skip barrel files — their exports are pass-through
+    if (fileImports.isBarrel) continue;
+
+    const consumed = consumedNames.get(filePath);
+    // If wildcard consumed, all exports are used
+    if (consumed?.has("*")) continue;
+
+    for (const name of fileImports.exportedNames) {
+      if (!consumed?.has(name)) {
+        unused.push({ path: filePath, name });
+      }
+    }
+  }
+
+  return unused.sort((a, b) => a.path.localeCompare(b.path) || a.name.localeCompare(b.name));
 }

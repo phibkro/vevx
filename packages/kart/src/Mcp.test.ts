@@ -203,20 +203,23 @@ describe("MCP integration — tool listing", () => {
       "kart_references",
       "kart_rename",
       "kart_replace",
+      "kart_restart",
       "kart_search",
+      "kart_unused_exports",
       "kart_zoom",
     ]);
   });
 
   test("read-only tools have read-only annotations", async () => {
     const result = await client.listTools();
-    const writeTools = new Set([
+    const nonReadOnly = new Set([
       "kart_replace",
       "kart_insert_after",
       "kart_insert_before",
       "kart_rename",
+      "kart_restart",
     ]);
-    const readOnlyTools = result.tools.filter((t) => !writeTools.has(t.name));
+    const readOnlyTools = result.tools.filter((t) => !nonReadOnly.has(t.name));
     for (const tool of readOnlyTools) {
       expect(tool.annotations).toBeDefined();
       expect(tool.annotations!.readOnlyHint).toBe(true);
@@ -373,6 +376,36 @@ describe("MCP integration — kart_imports / kart_importers", () => {
     };
     expect(data.totalImporters).toBeGreaterThanOrEqual(1);
     expect(data.directImporters.some((p) => p.endsWith("a.ts"))).toBe(true);
+  });
+});
+
+// ── kart_restart tests ──
+
+describe("MCP integration — kart_restart", () => {
+  let client: Client;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    const server = createServer({ rootDir: "/tmp" });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    await server.connect(st);
+    client = new Client({ name: "test", version: "0.0.1" });
+    await client.connect(ct);
+    cleanup = async () => {
+      await client.close();
+      await server.close();
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("kart_restart returns success", async () => {
+    const result = await client.callTool({ name: "kart_restart", arguments: {} });
+    const data = parseResult(result) as { restarted: boolean; rootDir: string };
+    expect(data.restarted).toBe(true);
+    expect(data.rootDir).toBe("/tmp");
   });
 });
 

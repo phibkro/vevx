@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildImportGraph, extractFileImports, transitiveImporters } from "./ImportGraph.js";
+import {
+  buildImportGraph,
+  extractFileImports,
+  findUnusedExports,
+  transitiveImporters,
+} from "./ImportGraph.js";
 import type { ResolveFn } from "./Resolve.js";
 
 // ── Mock resolver ──
@@ -212,5 +217,58 @@ describe("transitiveImporters", () => {
     // index.ts is direct, consumer.ts reaches a.ts through two barrels
     // barrel2.ts is an intermediary barrel, not a separate consumer
     expect(result.totalImporters).toBe(2);
+  });
+});
+
+// ── findUnusedExports ──
+
+describe("findUnusedExports", () => {
+  test("finds exports not imported by any file", () => {
+    const sources = new Map([
+      ["/p/a.ts", "export function used() {}\nexport function unused() {}\n"],
+      ["/p/b.ts", 'import { used } from "./a.js";\nexport const x = 1;\n'],
+    ]);
+    const resolve = mockResolver({ "./a.js": "/p/a.ts" });
+    const graph = buildImportGraph(sources, resolve);
+    const unused = findUnusedExports(graph);
+
+    expect(unused).toEqual([
+      { path: "/p/a.ts", name: "unused" },
+      { path: "/p/b.ts", name: "x" },
+    ]);
+  });
+
+  test("namespace import conservatively marks all as used", () => {
+    const sources = new Map([
+      ["/p/a.ts", "export function foo() {}\nexport function bar() {}\n"],
+      ["/p/b.ts", 'import * as A from "./a.js";\n'],
+    ]);
+    const resolve = mockResolver({ "./a.js": "/p/a.ts" });
+    const graph = buildImportGraph(sources, resolve);
+    const unused = findUnusedExports(graph);
+
+    // a.ts exports are all conservatively used via namespace import
+    expect(unused.filter((u) => u.path === "/p/a.ts")).toEqual([]);
+  });
+
+  test("skips barrel files", () => {
+    const sources = new Map([
+      ["/p/lib.ts", "export function greet() {}\n"],
+      ["/p/index.ts", 'export { greet } from "./lib.js";\n'],
+      ["/p/app.ts", 'import { greet } from "./index.js";\n'],
+    ]);
+    const resolve = mockResolver({ "./lib.js": "/p/lib.ts", "./index.js": "/p/index.ts" });
+    const graph = buildImportGraph(sources, resolve);
+    const unused = findUnusedExports(graph);
+
+    // index.ts is a barrel — its exports are not reported
+    // lib.ts's greet is consumed by index.ts
+    expect(unused).toEqual([]);
+  });
+
+  test("empty graph returns empty", () => {
+    const graph = buildImportGraph(new Map(), mockResolver({}));
+    const unused = findUnusedExports(graph);
+    expect(unused).toEqual([]);
   });
 });
