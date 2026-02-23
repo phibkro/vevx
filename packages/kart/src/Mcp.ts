@@ -46,7 +46,8 @@ import {
   type ImportsArgs,
 } from "./Imports.js";
 import { listDirectory, type ListArgs } from "./List.js";
-import { LspClientLive } from "./Lsp.js";
+import { LspClientLive, rustLanguageServer } from "./Lsp.js";
+import { initRustParser } from "./pure/RustSymbols.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
 import { SymbolIndexLive } from "./Symbols.js";
 import {
@@ -88,11 +89,36 @@ function createServer(config: ServerConfig = {}): McpServer {
   // This avoids LSP startup failure blocking the cochange tool.
   const cochangeRuntime = ManagedRuntime.make(CochangeDbLive(dbPath));
 
+  // TS zoom runtime (always created)
   const makeZoomRuntime = () =>
     ManagedRuntime.make(
       SymbolIndexLive({ rootDir }).pipe(Layer.provide(LspClientLive({ rootDir }))),
     );
   let zoomRuntime = makeZoomRuntime();
+
+  // Rust zoom runtime (lazy — only created on first .rs LSP tool call)
+  const makeRustRuntime = () =>
+    ManagedRuntime.make(
+      SymbolIndexLive({ rootDir }).pipe(
+        Layer.provide(LspClientLive({ rootDir, languageServer: rustLanguageServer })),
+      ),
+    );
+  let rustRuntime: ReturnType<typeof makeRustRuntime> | null = null;
+
+  /** Pick the right LSP runtime based on file extension. */
+  const runtimeFor = (path: string) => {
+    if (path.endsWith(".rs")) {
+      rustRuntime ??= makeRustRuntime();
+      return rustRuntime;
+    }
+    return zoomRuntime;
+  };
+
+  // Initialize Rust parser eagerly for kart_find (tree-sitter, not LSP)
+  initRustParser().catch(() => {
+    // tree-sitter init failed — .rs files won't work in kart_find
+    // but TS tools still function normally
+  });
 
   const server = new McpServer({ name: "kart", version: "0.1.0" });
 
@@ -132,8 +158,9 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
-        const result = await zoomRuntime.runPromise(
-          kart_zoom.handler(args as { path: string; level?: number }) as Effect.Effect<unknown>,
+        const typedArgs = args as { path: string; level?: number };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_zoom.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -158,10 +185,9 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
-        const result = await zoomRuntime.runPromise(
-          kart_impact.handler(
-            args as { path: string; symbol: string; depth?: number },
-          ) as Effect.Effect<unknown>,
+        const typedArgs = args as { path: string; symbol: string; depth?: number };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_impact.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -186,10 +212,9 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
-        const result = await zoomRuntime.runPromise(
-          kart_references.handler(
-            args as { path: string; symbol: string; includeDeclaration?: boolean },
-          ) as Effect.Effect<unknown>,
+        const typedArgs = args as { path: string; symbol: string; includeDeclaration?: boolean };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_references.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -214,10 +239,9 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
-        const result = await zoomRuntime.runPromise(
-          kart_rename.handler(
-            args as { path: string; symbol: string; newName: string },
-          ) as Effect.Effect<unknown>,
+        const typedArgs = args as { path: string; symbol: string; newName: string };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_rename.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -290,10 +314,9 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
-        const result = await zoomRuntime.runPromise(
-          kart_deps.handler(
-            args as { path: string; symbol: string; depth?: number },
-          ) as Effect.Effect<unknown>,
+        const typedArgs = args as { path: string; symbol: string; depth?: number };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_deps.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -528,6 +551,14 @@ function createServer(config: ServerConfig = {}): McpServer {
         await zoomRuntime.dispose();
       } catch {
         // Ignore dispose errors — the LSP may already be dead
+      }
+      if (rustRuntime) {
+        try {
+          await rustRuntime.dispose();
+        } catch {
+          // Ignore dispose errors
+        }
+        rustRuntime = null;
       }
       zoomRuntime = makeZoomRuntime();
       clearSymbolCache();
