@@ -68,7 +68,7 @@ kart_zoom(path, level?)
 | 1 | All symbols + signatures + doc comments | "How does this module work?" |
 | 2 | Full file content (capped at 100KB) | "I need to read the implementation" |
 
-When `path` is a directory, returns level-0 for each `.ts` file. Files with no exports are omitted.
+When `path` is a directory, returns level-0 for each `.ts`/`.tsx`/`.rs` file. Files with no exports are omitted.
 
 Paths are validated against the workspace root — requests outside the workspace boundary are rejected.
 
@@ -102,7 +102,7 @@ Lists transitive dependencies (callees) of a symbol. BFS over LSP `outgoingCalls
 kart_find(name, kind?, exported?, path?)
 ```
 
-Searches `.ts`/`.tsx` files for symbols matching a name substring. Uses `oxc-parser` for fast, LSP-free scanning. Results are cached by file mtime — first call scans the full workspace, subsequent calls are near-instant. Optional filters for symbol kind (`function`, `class`, `interface`, `type`, `enum`, `const`, `let`, `var`) and export status.
+Searches `.ts`/`.tsx`/`.rs` files for symbols matching a name substring. Uses `oxc-parser` for TypeScript and `tree-sitter` for Rust — fast, LSP-free scanning. Results are cached by file mtime — first call scans the full workspace, subsequent calls are near-instant. Optional filters for symbol kind and export status.
 
 ### kart_search
 
@@ -201,14 +201,15 @@ Returns all files that import the given file. Barrel files (index.ts that only r
 | Errors | `src/pure/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
 | ExportDetection | `src/pure/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
 | Signatures | `src/pure/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
-| OxcSymbols | `src/pure/OxcSymbols.ts` | Fast symbol extraction via oxc-parser (LSP-free) |
+| OxcSymbols | `src/pure/OxcSymbols.ts` | Fast TypeScript symbol extraction via oxc-parser (LSP-free) |
+| RustSymbols | `src/pure/RustSymbols.ts` | Rust symbol extraction via tree-sitter (LSP-free) |
 | AstEdit | `src/pure/AstEdit.ts` | Symbol location, syntax validation, byte-range splicing |
 | Resolve | `src/pure/Resolve.ts` | tsconfig path alias resolution (`loadTsconfigPaths`, `resolveAlias`, `resolveSpecifier`, `bunResolve`) |
 | ImportGraph | `src/pure/ImportGraph.ts` | oxc-based import extraction, import graph construction, barrel-aware transitive importers |
-| LspClient | `src/Lsp.ts` | TypeScript language server over stdio (JSON-RPC, Effect Layer, file watcher) |
+| LspClient | `src/Lsp.ts` | Language server over stdio (JSON-RPC, Effect Layer, file watcher). Parameterized for TS and Rust. |
 | SymbolIndex | `src/Symbols.ts` | Zoom + impact + deps + references + rename — workspace-scoped, combines LSP + pure functions |
 | CochangeDb | `src/Cochange.ts` | SQLite reader for co-change data (cached connections) |
-| Find | `src/Find.ts` | Workspace-wide symbol search via oxc-parser (mtime-cached) |
+| Find | `src/Find.ts` | Workspace-wide symbol search via oxc-parser (TS) / tree-sitter (Rust), mtime-cached |
 | Search | `src/Search.ts` | Text pattern search via ripgrep subprocess |
 | List | `src/List.ts` | Directory listing with glob filtering |
 | Editor | `src/Editor.ts` | AST-aware edit pipeline (locate → validate → splice → write → lint) |
@@ -223,7 +224,7 @@ Returns all files that import the given file. Barrel files (index.ts that only r
 
 **serena** — symbol search, references, type hierarchies. Heavyweight LSP integration with cross-language support.
 
-**kart** — context management, navigation, and editing for TypeScript projects. Fast oxc-parser scanning for navigation + oxlint for edit diagnostics. Lighter weight than serena, TypeScript-focused.
+**kart** — context management, navigation, and editing. TypeScript (oxc-parser + typescript-language-server) and Rust (tree-sitter + rust-analyzer). Fast parser-based scanning for navigation + LSP for cross-reference tools.
 
 **varp** — architectural manifest, dependency graph, agent orchestration. Independent of kart.
 
@@ -233,8 +234,9 @@ Returns all files that import the given file. Barrel files (index.ts that only r
 
 - **Runtime**: Bun
 - **Core**: Effect TS (`effect`, `@effect/platform`)
-- **LSP**: `typescript-language-server` (managed subprocess, for zoom/impact/deps)
-- **Parser**: `oxc-parser` (for find/edit — fast, LSP-free)
+- **LSP**: `typescript-language-server` (TS), `rust-analyzer` (Rust) — managed subprocess, for zoom/impact/deps/references/rename
+- **TS Parser**: `oxc-parser` (for find/edit — fast, LSP-free)
+- **Rust Parser**: `web-tree-sitter` with `tree-sitter-wasms` (for find — fast, LSP-free)
 - **MCP**: `@modelcontextprotocol/sdk`
 - **Validation**: Zod
 
