@@ -18,7 +18,6 @@ if ! echo "$input" | grep -q 'git commit'; then
 fi
 
 if command -v bun >/dev/null 2>&1; then
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  PKG_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  PKG_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
   bun "$PKG_ROOT/dist/Cli.js" index 2>/dev/null || true
 fi

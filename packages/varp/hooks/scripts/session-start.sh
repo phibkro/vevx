@@ -19,8 +19,7 @@ git rev-parse HEAD > .varp/session-head 2>/dev/null || true
 # Try the built CLI first (fast, includes coupling diagnostics)
 # Fall back to basic manifest parsing if CLI not available
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PKG_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PKG_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 CLI_PATH="${PKG_ROOT}/dist/cli.js"
 if [ -x "$(command -v bun)" ] && [ -f "$CLI_PATH" ]; then
   if summary=$(bun run "$CLI_PATH" summary 2>/dev/null); then
