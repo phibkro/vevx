@@ -105,18 +105,11 @@ As of the alpha release, tsgolint also emits typescript type-checking errors alo
 
 **Alpha caveat:** memory issues on very large monorepos are a known limitation. If oxlint fails, kart surfaces the error as a structured response.
 
-### 3.7 symbol index (phase 5)
+### 3.7 symbol search (phase 5)
 
-`kart_find` queries a workspace-wide symbol index stored in `.varp/symbols.db`. The index is built by parsing every typescript file with oxc, extracting all symbols (name, kind, file, line, exported).
+`kart_find` scans the workspace on-demand using oxc-parser. No persistent index — each query collects `.ts`/`.tsx` files recursively (cap 2000, excludes `node_modules`/`dist`/`build`/`.git`/`.varp`), parses each with oxc, extracts symbols (name, kind, file, line, exported), and filters by the query parameters.
 
-**Rebuild strategy:** lazy. The file watcher marks the index dirty on any file change. Full reindex on dirty — oxc parsing is fast enough that incremental tracking adds complexity without meaningful speedup.
-
-```sql
--- symbols.db schema
-symbols (id, name, kind, path, line, exported)
-symbols_fts (FTS5 over name)
-meta (last_indexed_sha, dirty)
-```
+Oxc parsing is fast enough that on-demand scanning completes in <200ms for typical workspaces. A sqlite-backed index (`.varp/symbols.db`) is a future optimization if real codebases hit the file cap.
 
 ### 3.8 symbol-level editing (phase 6, ADR-005)
 
