@@ -6,6 +6,7 @@
  */
 
 import { dirname } from "node:path";
+
 import { parseSync } from "oxc-parser";
 
 import type { ResolveFn } from "./Resolve.js";

@@ -20,7 +20,14 @@ import type {
 } from "./pure/types.js";
 import type { ZoomResult, ZoomSymbol } from "./pure/types.js";
 
-export type { DepsResult, ImpactResult, ReferencesResult, RenameResult, ZoomResult, ZoomSymbol } from "./pure/types.js";
+export type {
+  DepsResult,
+  ImpactResult,
+  ReferencesResult,
+  RenameResult,
+  ZoomResult,
+  ZoomSymbol,
+} from "./pure/types.js";
 
 // ── Constants ──
 
@@ -502,8 +509,16 @@ export const SymbolIndexLive = (config?: {
 
               let result = content;
               for (const textEdit of sorted) {
-                const startOffset = linesToOffset(lines, textEdit.range.start.line, textEdit.range.start.character);
-                const endOffset = linesToOffset(lines, textEdit.range.end.line, textEdit.range.end.character);
+                const startOffset = linesToOffset(
+                  lines,
+                  textEdit.range.start.line,
+                  textEdit.range.start.character,
+                );
+                const endOffset = linesToOffset(
+                  lines,
+                  textEdit.range.end.line,
+                  textEdit.range.end.character,
+                );
                 result = result.slice(0, startOffset) + textEdit.newText + result.slice(endOffset);
               }
 

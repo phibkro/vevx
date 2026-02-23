@@ -408,7 +408,9 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* Effect.either(idx.rename(join(tempDir, "exports.ts"), "nonexistent", "newName"));
+        return yield* Effect.either(
+          idx.rename(join(tempDir, "exports.ts"), "nonexistent", "newName"),
+        );
       }),
     );
 

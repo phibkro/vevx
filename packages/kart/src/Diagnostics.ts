@@ -88,14 +88,11 @@ export async function runDiagnostics(args: DiagnosticsArgs): Promise<Diagnostics
   }
 
   try {
-    const proc = Bun.spawn(
-      ["oxlint", "--type-aware", "--format", "json", ...valid],
-      {
-        cwd: rootDir,
-        stdout: "pipe",
-        stderr: "pipe",
-      },
-    );
+    const proc = Bun.spawn(["oxlint", "--type-aware", "--format", "json", ...valid], {
+      cwd: rootDir,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
 
     const stdout = await new Response(proc.stdout).text();
     await proc.exited;

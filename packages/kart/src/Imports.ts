@@ -9,12 +9,7 @@ import { readFileSync, readdirSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { buildImportGraph, extractFileImports, transitiveImporters } from "./pure/ImportGraph.js";
-import {
-  bunResolve,
-  loadTsconfigPaths,
-  resolveSpecifier,
-  type PathAliases,
-} from "./pure/Resolve.js";
+import { bunResolve, loadTsconfigPaths, resolveSpecifier } from "./pure/Resolve.js";
 import type { ImportersResult, ImportsResult } from "./pure/types.js";
 
 /** Resolve symlinks, returning the input unchanged if the path doesn't exist. */
@@ -75,9 +70,7 @@ function loadSources(rootDir: string): Map<string, string> {
   return sources;
 }
 
-function makeResolver(
-  rootDir: string,
-): (specifier: string, fromDir: string) => string | null {
+function makeResolver(rootDir: string): (specifier: string, fromDir: string) => string | null {
   const aliases = loadTsconfigPaths(rootDir);
   return (specifier: string, fromDir: string) =>
     resolveSpecifier(specifier, fromDir, bunResolve, aliases ?? undefined);
@@ -135,10 +128,7 @@ export async function getImports(filePath: string, rootDir?: string): Promise<Im
 }
 
 /** Get all files that import the given file (with barrel expansion). */
-export async function getImporters(
-  filePath: string,
-  rootDir?: string,
-): Promise<ImportersResult> {
+export async function getImporters(filePath: string, rootDir?: string): Promise<ImportersResult> {
   const root = safeRealpath(rootDir ?? process.cwd());
   const absPath = safeRealpath(resolve(filePath));
 

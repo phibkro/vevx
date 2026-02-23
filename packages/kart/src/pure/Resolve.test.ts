@@ -177,10 +177,7 @@ describe("loadTsconfigPaths — edge cases", () => {
           compilerOptions: { paths: { "#base/*": ["./base/*"] } },
         }),
       );
-      writeFileSync(
-        join(dir, "tsconfig.json"),
-        JSON.stringify({ extends: "@tsconfig/node20" }),
-      );
+      writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ extends: "@tsconfig/node20" }));
       const result = loadTsconfigPaths(dir);
       expect(result).not.toBeNull();
       expect(result!.mappings[0].pattern).toBe("#base/*");
@@ -220,10 +217,7 @@ describe("loadTsconfigPaths — edge cases", () => {
           compilerOptions: { paths: { "#rel/*": ["./rel/*"] } },
         }),
       );
-      writeFileSync(
-        join(dir, "tsconfig.json"),
-        JSON.stringify({ extends: "./base" }),
-      );
+      writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ extends: "./base" }));
       const result = loadTsconfigPaths(dir);
       expect(result).not.toBeNull();
       expect(result!.mappings[0].pattern).toBe("#rel/*");

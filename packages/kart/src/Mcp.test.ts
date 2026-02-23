@@ -210,7 +210,12 @@ describe("MCP integration — tool listing", () => {
 
   test("read-only tools have read-only annotations", async () => {
     const result = await client.listTools();
-    const writeTools = new Set(["kart_replace", "kart_insert_after", "kart_insert_before", "kart_rename"]);
+    const writeTools = new Set([
+      "kart_replace",
+      "kart_insert_after",
+      "kart_insert_before",
+      "kart_rename",
+    ]);
     const readOnlyTools = result.tools.filter((t) => !writeTools.has(t.name));
     for (const tool of readOnlyTools) {
       expect(tool.annotations).toBeDefined();
@@ -221,7 +226,12 @@ describe("MCP integration — tool listing", () => {
 
   test("edit tools have read-write annotations", async () => {
     const result = await client.listTools();
-    const writeToolNames = new Set(["kart_replace", "kart_insert_after", "kart_insert_before", "kart_rename"]);
+    const writeToolNames = new Set([
+      "kart_replace",
+      "kart_insert_after",
+      "kart_insert_before",
+      "kart_rename",
+    ]);
     const editTools = result.tools.filter((t) => writeToolNames.has(t.name));
     expect(editTools).toHaveLength(4);
     for (const tool of editTools) {

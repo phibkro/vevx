@@ -27,10 +27,7 @@ describe("runDiagnostics", () => {
       join(tempDir, "tsconfig.json"),
       JSON.stringify({ compilerOptions: { strict: true } }),
     );
-    writeFileSync(
-      join(tempDir, "bad.ts"),
-      "const x: any = 1;\nexport { x };\n",
-    );
+    writeFileSync(join(tempDir, "bad.ts"), "const x: any = 1;\nexport { x };\n");
 
     const result = await runDiagnostics({ paths: ["bad.ts"], rootDir: tempDir });
 

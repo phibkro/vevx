@@ -147,7 +147,12 @@ describe("workspace boundary", () => {
   test(
     "rejects paths outside workspace root",
     withTempFile(FIXTURE, async (filePath) => {
-      const result = await editReplace(filePath, "greet", "export function greet() {}", "/nonexistent/root");
+      const result = await editReplace(
+        filePath,
+        "greet",
+        "export function greet() {}",
+        "/nonexistent/root",
+      );
       expect(result.success).toBe(false);
       expect(result.syntaxErrorMessage).toContain("outside workspace root");
     }),
@@ -160,7 +165,7 @@ describe("workspace boundary", () => {
       const result = await editReplace(
         filePath,
         "greet",
-        'export function greet(name: string): string {\n  return `Hi ${name}`;\n}',
+        "export function greet(name: string): string {\n  return `Hi ${name}`;\n}",
         dir,
       );
       expect(result.success).toBe(true);

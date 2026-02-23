@@ -19,14 +19,19 @@ function errorMessage(e: unknown): string {
     const tag = failure._tag as string | undefined;
     if (tag) {
       if ("path" in failure && typeof failure.path === "string") return `${tag}: ${failure.path}`;
-      if ("message" in failure && failure.message !== "An error has occurred")
+      if (
+        "message" in failure &&
+        typeof failure.message === "string" &&
+        failure.message !== "An error has occurred"
+      )
         return `${tag}: ${failure.message}`;
       return tag;
     }
   }
 
   if (e instanceof Error) return e.message;
-  return String(e);
+  if (typeof e === "string") return e;
+  return JSON.stringify(e);
 }
 
 import { CochangeDbLive } from "./Cochange.js";
