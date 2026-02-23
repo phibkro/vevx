@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "nod
 import { join } from "node:path";
 
 import { clearSymbolCache, findSymbols } from "./Find.js";
+import { initRustParser } from "./pure/RustSymbols.js";
 
 mkdirSync("/tmp/claude", { recursive: true });
 
@@ -194,5 +195,52 @@ describe("symbol cache", () => {
 
     const result = await findSymbols({ name: "", rootDir: tempDir });
     expect(result.cachedFiles).toBe(0);
+  });
+});
+
+// ── Rust support ──
+
+describe("findSymbols — Rust", () => {
+  beforeEach(async () => {
+    await initRustParser();
+  });
+
+  test("finds Rust symbols by name", async () => {
+    writeFixture("lib.rs", "pub fn greet() {}\nfn internal() {}\n");
+    const result = await findSymbols({ name: "greet", rootDir: tempDir });
+    expect(result.symbols).toHaveLength(1);
+    expect(result.symbols[0].name).toBe("greet");
+    expect(result.symbols[0].kind).toBe("function");
+    expect(result.symbols[0].file).toBe("lib.rs");
+  });
+
+  test("finds both TS and Rust in mixed workspace", async () => {
+    writeFixture("app.ts", "export function hello() {}\n");
+    writeFixture("lib.rs", "pub fn greet() {}\n");
+    const result = await findSymbols({ name: "", rootDir: tempDir });
+    const files = result.symbols.map((s) => s.file);
+    expect(files).toContain("app.ts");
+    expect(files).toContain("lib.rs");
+  });
+
+  test("filters Rust by kind", async () => {
+    writeFixture("lib.rs", "pub fn greet() {}\npub struct Config {}\n");
+    const result = await findSymbols({ name: "", kind: "struct", rootDir: tempDir });
+    expect(result.symbols).toHaveLength(1);
+    expect(result.symbols[0].name).toBe("Config");
+  });
+
+  test("filters Rust by exported", async () => {
+    writeFixture("lib.rs", "pub fn greet() {}\nfn internal() {}\n");
+    const result = await findSymbols({ name: "", exported: false, rootDir: tempDir });
+    expect(result.symbols).toHaveLength(1);
+    expect(result.symbols[0].name).toBe("internal");
+  });
+
+  test("excludes target/ directory", async () => {
+    writeFixture("src/lib.rs", "pub fn greet() {}\n");
+    writeFixture("target/debug/build.rs", "pub fn build_artifact() {}\n");
+    const result = await findSymbols({ name: "build_artifact", rootDir: tempDir });
+    expect(result.symbols).toHaveLength(0);
   });
 });

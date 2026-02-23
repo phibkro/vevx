@@ -1,8 +1,9 @@
 /**
- * Workspace-wide symbol search using oxc-parser.
+ * Workspace-wide symbol search for TypeScript and Rust.
  *
- * Recursively collects .ts/.tsx files, parses each with OxcSymbols,
- * and filters by name substring, kind, and export status.
+ * Recursively collects .ts/.tsx/.rs files, parses each with the appropriate
+ * parser (oxc for TS, tree-sitter for Rust), and filters by name, kind,
+ * and export status.
  *
  * Parsed symbols are cached in memory keyed by path + mtime. First call
  * pays the full scan cost; subsequent calls only re-parse changed files.
@@ -12,6 +13,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { parseSymbols, type OxcSymbol } from "./pure/OxcSymbols.js";
+import { initRustParser, isRustParserReady, parseRustSymbols } from "./pure/RustSymbols.js";
 
 // ── Types ──
 
@@ -35,7 +37,7 @@ export type FoundSymbol = OxcSymbol & {
 
 export type FindResult = {
   readonly symbols: FoundSymbol[];
-  /** Total .ts/.tsx files scanned. */
+  /** Total source files scanned (.ts/.tsx/.rs). */
   readonly fileCount: number;
   /** Files served from cache (0 on cold start). */
   readonly cachedFiles: number;
@@ -45,8 +47,8 @@ export type FindResult = {
 
 // ── Constants ──
 
-const EXCLUDED_DIRS = new Set(["node_modules", ".git", "dist", "build", ".varp"]);
-const TS_EXTENSIONS = new Set([".ts", ".tsx"]);
+const EXCLUDED_DIRS = new Set(["node_modules", ".git", "dist", "build", ".varp", "target"]);
+const SUPPORTED_EXTENSIONS = new Set([".ts", ".tsx", ".rs"]);
 
 // ── Symbol cache ──
 
@@ -83,7 +85,7 @@ export async function findSymbols(args: FindArgs): Promise<FindResult> {
       }
 
       const source = await readFile(f.path, "utf-8");
-      const symbols = parseSymbols(source, f.path);
+      const symbols = await parseFile(source, f.path);
       symbolCache.set(f.path, { mtimeMs: f.mtimeMs, symbols });
       return { path: f.path, symbols };
     }),
@@ -119,6 +121,16 @@ export async function findSymbols(args: FindArgs): Promise<FindResult> {
   };
 }
 
+// ── Multi-language parse router ──
+
+async function parseFile(source: string, path: string): Promise<OxcSymbol[]> {
+  if (path.endsWith(".rs")) {
+    if (!isRustParserReady()) await initRustParser();
+    return parseRustSymbols(source, path);
+  }
+  return parseSymbols(source, path);
+}
+
 // ── File collection ──
 
 type FileEntry = { path: string; mtimeMs: number };
@@ -141,7 +153,7 @@ async function collectFiles(dir: string): Promise<FileEntry[]> {
       results.push(...sub);
     } else if (entry.isFile()) {
       const ext = extname(entry.name);
-      if (TS_EXTENSIONS.has(ext)) {
+      if (SUPPORTED_EXTENSIONS.has(ext)) {
         const filePath = join(dir, entry.name);
         try {
           const st = await stat(filePath);
