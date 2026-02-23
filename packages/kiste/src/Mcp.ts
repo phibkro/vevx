@@ -1,5 +1,3 @@
-import { resolve } from "node:path";
-
 import { SqliteClient } from "@effect/sql-sqlite-bun";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";

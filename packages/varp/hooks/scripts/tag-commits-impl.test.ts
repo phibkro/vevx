@@ -5,7 +5,7 @@ const SCRIPT = resolve(import.meta.dir, "tag-commits-impl.ts");
 const PROJECT_ROOT = resolve(import.meta.dir, "../../../..");
 
 /** Run the impl script with a PreToolUse JSON input */
-function runImpl(command: string, stagedFiles: string[] = []) {
+function runImpl(command: string, _stagedFiles: string[] = []) {
   const input = JSON.stringify({
     hook_event_name: "PreToolUse",
     tool_name: "Bash",
