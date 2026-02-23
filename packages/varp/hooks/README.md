@@ -5,6 +5,7 @@ Lifecycle hooks for varp-managed sessions. Hooks inject graph-derived structural
 | Hook                  | Event                     | Purpose                                                                      |
 | --------------------- | ------------------------- | ---------------------------------------------------------------------------- |
 | `session-start.sh`    | SessionStart              | Inject graph context, active plans, and cost tracking status                 |
+| `tag-commits.sh`      | PreToolUse (Bash)         | Add `tags:` line to git commit messages from varp.yaml component mapping     |
 | `freshness-track.sh`  | PostToolUse (Write\|Edit) | Report owning component + coupling neighborhood for modified files           |
 | `subagent-context.sh` | SubagentStart             | Inject project conventions into subagent context                             |
 | `session-stop.sh`     | Stop                      | Summarize session impact: modified components, coupling warnings, file count |
@@ -29,6 +30,25 @@ Hidden coupling (3):
   plan <-> scheduler  weight=2.34
 Cost tracking: statusline ✗ | otel ✗
 ```
+
+## tag-commits.sh
+
+Intercepts `git commit -m` commands and appends a `tags:` line mapping staged files to varp.yaml components. This produces kiste-compatible commit metadata for tag-aware retrieval and co-change analysis.
+
+The bash wrapper (`tag-commits.sh`) handles cheap early exits: no `varp.yaml`, not a git commit, `--amend`, or `tags:` already present. The TypeScript impl (`tag-commits-impl.ts`) does the actual manifest lookup via `parseManifest` + `findOwningComponent` from `@vevx/varp/lib`.
+
+**Scoped to `-m` commits only.** Editor-based commits and `--amend` are skipped. This covers the common agent path.
+
+Output example (injected into the commit command):
+
+```
+tags: manifest, shared
+```
+
+**Limitations:**
+- Requires built varp library (`packages/varp/build/lib.js`)
+- Only rewrites HEREDOC-style or Co-Authored-By commits (per project convention)
+- Simple `-m "message"` without HEREDOC/Co-Authored-By is skipped
 
 ## freshness-track.sh
 
@@ -58,7 +78,8 @@ Files modified: 5
 
 ## Conventions
 
-- No runtime dependencies (no jq/python) — parse with grep/sed/awk and bash parameter expansion
+- No external runtime dependencies (no jq/python) — parse with grep/sed/awk and bash parameter expansion
+- Bun is allowed for hooks that need structured data (YAML, manifest lookups) since it's the project runtime
 - Exit 0 when `varp.yaml` is missing (graceful degradation)
 - All scripts pass `shellcheck` (enforced by `bun run check`)
 - Graph data comes from `.varp/summary.json` cache (written by CLI, read by hooks)
