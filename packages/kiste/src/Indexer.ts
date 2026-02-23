@@ -1,9 +1,13 @@
+import { Database } from "bun:sqlite";
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+
 import * as SqlClient from "@effect/sql/SqlClient";
 import { Glob } from "bun";
 import { Effect } from "effect";
 
 import { Config } from "./Config.js";
-import { getLastIndexedSha, setLastIndexedSha } from "./Db.js";
+import { getLastIndexedSha, getSnapshotMeta, setLastIndexedSha, setSnapshotMeta } from "./Db.js";
 import { DbError, IndexError } from "./Errors.js";
 import { Git, type RawCommit } from "./Git.js";
 import {
@@ -38,6 +42,7 @@ export const rebuildIndex = (
     if (commits.length > 0) {
       yield* setLastIndexedSha(commits[commits.length - 1]!.sha);
     }
+    yield* maybeAutoSnapshot(cwd, result.commits_indexed);
     return result;
   });
 
@@ -59,7 +64,149 @@ export const incrementalIndex = (
     if (commits.length > 0) {
       yield* setLastIndexedSha(commits[commits.length - 1]!.sha);
     }
+    yield* maybeAutoSnapshot(cwd, result.commits_indexed);
     return result;
+  });
+
+// ---------------------------------------------------------------------------
+// Snapshot result
+// ---------------------------------------------------------------------------
+
+export interface SnapshotResult {
+  readonly sha: string;
+  readonly path: string;
+  readonly artifact_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// createSnapshot — copy current index to .kiste/snapshots/<sha>.sqlite
+// ---------------------------------------------------------------------------
+
+export const createSnapshot = (
+  cwd: string,
+): Effect.Effect<SnapshotResult, IndexError | DbError, Config | SqlClient.SqlClient> =>
+  Effect.gen(function* () {
+    const config = yield* Config;
+    const lastSha = yield* getLastIndexedSha;
+    if (!lastSha) {
+      return yield* Effect.fail(
+        new IndexError({ message: "No indexed commits — cannot snapshot" }),
+      );
+    }
+
+    const dbPath = resolve(cwd, config.db_path);
+    const snapshotsDir = resolve(cwd, ".kiste", "snapshots");
+    if (!existsSync(snapshotsDir)) mkdirSync(snapshotsDir, { recursive: true });
+
+    const snapshotRelPath = `.kiste/snapshots/${lastSha}.sqlite`;
+    const snapshotAbsPath = resolve(cwd, snapshotRelPath);
+    copyFileSync(dbPath, snapshotAbsPath);
+
+    // Store snapshot metadata
+    yield* setSnapshotMeta(lastSha, snapshotRelPath);
+
+    // Count artifacts
+    const sql = yield* SqlClient.SqlClient;
+    const rows = (yield* sql.unsafe(
+      `SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`,
+    )) as unknown as { count: number }[];
+
+    return {
+      sha: lastSha,
+      path: snapshotRelPath,
+      artifact_count: rows[0].count,
+    };
+  });
+
+// ---------------------------------------------------------------------------
+// restoreSnapshot — copy snapshot over current index, return baseline sha
+// ---------------------------------------------------------------------------
+
+export const restoreSnapshot = (
+  cwd: string,
+): Effect.Effect<SnapshotResult, IndexError | DbError, Config> =>
+  Effect.gen(function* () {
+    const config = yield* Config;
+    const dbPath = resolve(cwd, config.db_path);
+
+    // Find snapshot: scan the snapshots directory for the latest .sqlite
+    const snapshotsDir = resolve(cwd, ".kiste", "snapshots");
+    if (!existsSync(snapshotsDir)) {
+      return yield* Effect.fail(new IndexError({ message: "No snapshots found" }));
+    }
+    const files = readdirSync(snapshotsDir)
+      .filter((f) => f.endsWith(".sqlite"))
+      .sort()
+      .reverse();
+    if (files.length === 0) {
+      return yield* Effect.fail(new IndexError({ message: "No snapshots found" }));
+    }
+    const snapshotFile = files[0];
+    const snapshotAbsPath = resolve(snapshotsDir, snapshotFile);
+
+    // Copy snapshot over current index
+    mkdirSync(dirname(dbPath), { recursive: true });
+    copyFileSync(snapshotAbsPath, dbPath);
+
+    // Extract sha from filename (<sha>.sqlite)
+    const sha = snapshotFile.replace(".sqlite", "");
+
+    // Count artifacts by opening a temporary DB connection
+    // (the existing SqlClient connection is stale after the file copy)
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const row = db.query("SELECT COUNT(*) as count FROM artifacts WHERE alive = 1").get() as {
+        count: number;
+      };
+      return {
+        sha,
+        path: `.kiste/snapshots/${snapshotFile}`,
+        artifact_count: row.count,
+      };
+    } finally {
+      db.close();
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Internal: maybeAutoSnapshot — create snapshot if commits since last exceeds threshold
+// ---------------------------------------------------------------------------
+
+const maybeAutoSnapshot = (
+  cwd: string,
+  commitsProcessed: number,
+): Effect.Effect<void, IndexError | DbError, Config | SqlClient.SqlClient> =>
+  Effect.gen(function* () {
+    if (commitsProcessed === 0) return;
+    const config = yield* Config;
+    const threshold = config.snapshot_frequency;
+    if (threshold <= 0) return;
+
+    const sql = yield* SqlClient.SqlClient;
+    const meta = yield* getSnapshotMeta;
+    const lastSnapshotSha = meta?.sha ?? null;
+
+    // Count commits since last snapshot
+    let commitsSinceSnapshot: number;
+    if (!lastSnapshotSha) {
+      const rows = (yield* sql.unsafe(`SELECT COUNT(*) as count FROM commits`)) as unknown as {
+        count: number;
+      }[];
+      commitsSinceSnapshot = rows[0].count;
+    } else {
+      // Count commits after the snapshot sha by timestamp
+      const rows = (yield* sql.unsafe(
+        `SELECT COUNT(*) as count FROM commits WHERE timestamp > (
+          SELECT timestamp FROM commits WHERE sha = ?
+        )`,
+        [lastSnapshotSha],
+      )) as unknown as { count: number }[];
+      commitsSinceSnapshot = rows[0].count;
+    }
+
+    if (commitsSinceSnapshot >= threshold) {
+      yield* createSnapshot(cwd);
+    }
   });
 
 // ---------------------------------------------------------------------------

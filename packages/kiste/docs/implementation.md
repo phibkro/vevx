@@ -15,15 +15,15 @@ src/
 ├── Db.ts               SQLite DDL, meta helpers, DbLive layer factory
 ├── Git.ts              Git service: log parsing, rev-parse, show
 ├── Indexer.ts          Orchestrator: git→sqlite pipeline
-├── Tools.ts            5 MCP tool definitions (factory: makeTools(run, repoDir))
+├── Tools.ts            6 MCP tool definitions (factory: makeTools(run, repoDir))
 ├── tool-registry.ts    Generic ToolDef→McpServer registration
 ├── Mcp.ts              MCP server entry point (createServer + stdio)
-├── Cli.ts              CLI entry point (4 subcommands)
+├── Cli.ts              CLI entry point (5 subcommands)
 ├── index.ts            Package barrel export
 ├── Config.test.ts      Config schema + layer tests
 ├── Tags.test.ts        Pure function tests (18 cases)
-├── Indexer.test.ts     Integration tests with temp git repos (4 cases)
-└── Tools.test.ts       MCP tool tests via InMemoryTransport (5 cases)
+├── Indexer.test.ts     Integration tests with temp git repos (11 cases)
+└── Tools.test.ts       MCP tool tests via InMemoryTransport (14 cases)
 ```
 
 ---
@@ -121,6 +121,8 @@ The FTS trigger is `AFTER INSERT` only. Commits use `INSERT OR IGNORE`, so the t
 
 - `getLastIndexedSha` → `string | null` — reads checkpoint from `meta` table
 - `setLastIndexedSha(sha)` — `INSERT OR REPLACE` into `meta` table
+- `getSnapshotMeta` → `{sha, path} | null` — reads snapshot checkpoint
+- `setSnapshotMeta(sha, path)` — stores snapshot SHA and file path
 
 ### `DbLive(dbPath)`
 
@@ -130,15 +132,23 @@ Factory returning `Layer<SqliteClient | SqlClient>`. Thin wrapper over `SqliteCl
 
 ## Indexer (`Indexer.ts`)
 
-The core orchestrator. Two public functions:
+The core orchestrator. Four public functions:
 
 ### `rebuildIndex(cwd)`
 
-Full reindex: fetches all commits, processes each, saves last SHA as checkpoint.
+Full reindex: fetches all commits, processes each, saves last SHA as checkpoint. Triggers auto-snapshot if `snapshot_frequency` threshold is exceeded.
 
 ### `incrementalIndex(cwd)`
 
-Reads `last_indexed_sha` from meta. If present, fetches only `since..HEAD`. Otherwise falls back to full index.
+Reads `last_indexed_sha` from meta. If present, fetches only `since..HEAD`. Otherwise falls back to full index. Triggers auto-snapshot if threshold exceeded.
+
+### `createSnapshot(cwd)`
+
+Copies current SQLite index to `.kiste/snapshots/<sha>.sqlite`. Records snapshot metadata in the `meta` table.
+
+### `restoreSnapshot(cwd)`
+
+Scans `.kiste/snapshots/` for the latest snapshot, copies it over the current index. Opens a temporary `bun:sqlite` connection to count artifacts (avoids stale Effect SqlClient after file copy). Returns the snapshot SHA for use as incremental baseline.
 
 ### `processCommits` (internal)
 
@@ -175,7 +185,7 @@ This runs on every commit that touches the artifact, ensuring tags stay current.
 
 ## MCP Tools (`Tools.ts`)
 
-5 read-only tools, all annotated with `readOnlyHint: true, destructiveHint: false`.
+6 read-only tools, all annotated with `readOnlyHint: true, destructiveHint: false`.
 
 | Tool | Input params | Query Pattern |
 |---|---|---|
@@ -184,6 +194,7 @@ This runs on every commit that touches the artifact, ensuring tags stay current.
 | `kiste_search` | `query`, `tags?`, `limit?` | FTS5 MATCH on commit messages, optional tag filter |
 | `kiste_get_provenance` | `path` | All commits for an artifact, chronological order |
 | `kiste_list_tags` | *(none)* | Distinct tags with counts, alive artifacts only |
+| `kiste_get_cochange` | `path`, `limit?` | Self-join on `artifact_commits`, jaccard similarity |
 
 Tools only accept semantic parameters — no infrastructure paths like `db_path` or `repo_dir`. These are resolved once at server startup.
 
@@ -198,7 +209,7 @@ Tools only accept semantic parameters — no infrastructure paths like `db_path`
 
 ## CLI (`Cli.ts`)
 
-`@effect/cli` with `BunRuntime.runMain`. 4 subcommands:
+`@effect/cli` with `BunRuntime.runMain`. 5 subcommands:
 
 | Command | Layers | Purpose |
 |---|---|---|
@@ -206,6 +217,7 @@ Tools only accept semantic parameters — no infrastructure paths like `db_path`
 | `kiste index [--rebuild]` | Config + Db + Git | Incremental or full reindex |
 | `kiste status` | Config + Db + Git | Print commit/artifact/tag counts |
 | `kiste query --tags <t>` | Config + Db + Git | List artifacts matching tags (AND) |
+| `kiste snapshot [--list\|--restore]` | Config + Db + Git | Create, list, or restore index snapshots |
 
 Layers are provided per-command handler (not at root level) to avoid opening SQLite during `--help` or `init`.
 
@@ -213,14 +225,15 @@ Layers are provided per-command handler (not at root level) to avoid opening SQL
 
 ## Testing
 
-30 tests across 4 files, all concurrent-safe.
+49 tests across 5 files, all concurrent-safe.
 
 | File | Tests | Strategy |
 |---|---|---|
 | `Config.test.ts` | 3 | Schema decode + layer with missing file |
 | `Tags.test.ts` | 18 | Pure function unit tests (no IO) |
-| `Indexer.test.ts` | 4 | Temp git repos with real commits, verify SQLite state |
-| `Tools.test.ts` | 5 | `InMemoryTransport` + MCP `Client`, pre-seeded DB |
+| `Indexer.test.ts` | 11 | Temp git repos with real commits, verify SQLite state + snapshots |
+| `Tools.test.ts` | 14 | `InMemoryTransport` + MCP `Client`, pre-seeded DB + co-change |
+| `Git.test.ts` | 3 | Git service integration tests |
 
 Integration tests use `mkdtempSync` for isolation and `rmSync` for cleanup. Git repos are initialized with `Bun.spawnSync`.
 

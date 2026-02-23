@@ -71,15 +71,15 @@ artifacts ──< artifact_commits >── commits
 - `artifact_tags`: materialized current tag state per artifact.
 - `tag_operations`: full add/remove history for tag replay during rebuild.
 - `commits_fts`: FTS5 virtual table over commit messages, auto-populated via trigger. Queries are sanitized — special FTS5 operators are stripped to prevent injection.
-- `meta`: key-value store for `last_indexed_sha` (incremental indexing checkpoint).
+- `meta`: key-value store for `last_indexed_sha` (incremental indexing checkpoint), `snapshot_sha` and `snapshot_path` (snapshot metadata).
 - `idx_artifact_commits_sha`: index on `artifact_commits.commit_sha` for join performance.
 
 ## Entry Points
 
 | Entry | File | Build output | Purpose |
 |---|---|---|---|
-| CLI | `src/Cli.ts` | `dist/Cli.js` | `kiste init\|index\|status\|query` |
-| MCP | `src/Mcp.ts` | `dist/Mcp.js` | 5 read-only MCP tools over stdio |
+| CLI | `src/Cli.ts` | `dist/Cli.js` | `kiste init\|index\|status\|query\|snapshot` |
+| MCP | `src/Mcp.ts` | `dist/Mcp.js` | 6 read-only MCP tools over stdio |
 
 Both built with `bun build --target bun`. CLI uses `@effect/cli` with `BunRuntime.runMain`. MCP uses `@modelcontextprotocol/sdk` with `StdioServerTransport`.
 

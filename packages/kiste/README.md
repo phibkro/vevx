@@ -5,19 +5,22 @@ Semantic artifact index over git history. Tags, provenance, and full-text search
 ## Quick Start
 
 ```bash
-kiste init          # Create .kiste/ and .kiste.yaml
-kiste index         # Index all commits
-kiste index --rebuild  # Full reindex from scratch
-kiste status        # Index summary
+kiste init              # Create .kiste/ and .kiste.yaml
+kiste index             # Index all commits
+kiste index --rebuild   # Full reindex from scratch
+kiste status            # Index summary
 kiste query --tags auth,security  # Find artifacts by tag
+kiste snapshot          # Create snapshot of current index
+kiste snapshot --list   # List existing snapshots
+kiste snapshot --restore  # Restore latest snapshot
 ```
 
 ## Entry Points
 
 | Entry | Build output | Purpose |
 |---|---|---|
-| `src/Cli.ts` | `dist/Cli.js` | CLI binary (`kiste init|index|status|query`) |
-| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 5 read-only tools) |
+| `src/Cli.ts` | `dist/Cli.js` | CLI binary (`kiste init|index|status|query|snapshot`) |
+| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 6 read-only tools) |
 
 ## MCP Tools
 
@@ -28,6 +31,7 @@ kiste query --tags auth,security  # Find artifacts by tag
 | `kiste_get_artifact` | File content (from git) + tags + commits |
 | `kiste_search` | Full-text search over commit messages (FTS5) |
 | `kiste_get_provenance` | Full commit history for a file path |
+| `kiste_get_cochange` | Co-changing files ranked by frequency (behavioral coupling) |
 
 All tools are read-only. Content is read from git on demand — SQLite stores only metadata, tags, and relationships.
 

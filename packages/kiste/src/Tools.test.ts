@@ -249,3 +249,119 @@ describe("MCP Tools", () => {
     expect(paths).toContain("src/auth/login.ts");
   });
 });
+
+// ── Co-change Tests ──
+
+describe("kiste_get_cochange", () => {
+  let tmpDir: string;
+  let client: Client;
+
+  beforeEach(async () => {
+    tmpDir = makeTempDir();
+    const dbPath = join(tmpDir, ".kiste", "index.sqlite");
+
+    initRepo(tmpDir);
+
+    // Commit 1: login + session co-change
+    writeFile(tmpDir, "src/auth/login.ts", "export const login = () => {};");
+    writeFile(tmpDir, "src/auth/session.ts", "export const session = () => {};");
+    git(tmpDir, "add", ".");
+    git(tmpDir, "commit", "-m", "feat(auth): add login and session");
+
+    // Commit 2: login + routes co-change
+    writeFile(tmpDir, "src/auth/login.ts", 'export const login = () => "v2";');
+    writeFile(tmpDir, "src/api/routes.ts", 'export const routes = ["/login"];');
+    git(tmpDir, "add", ".");
+    git(tmpDir, "commit", "-m", "feat(api): connect login to routes");
+
+    // Commit 3: session + routes co-change
+    writeFile(tmpDir, "src/auth/session.ts", 'export const session = () => "v2";');
+    writeFile(tmpDir, "src/api/routes.ts", 'export const routes = ["/login", "/session"];');
+    git(tmpDir, "add", ".");
+    git(tmpDir, "commit", "-m", "feat(api): connect session to routes");
+
+    // Commit 4: isolated file (only in one commit, alone)
+    writeFile(tmpDir, "src/standalone.ts", "export const standalone = true;");
+    git(tmpDir, "add", ".");
+    git(tmpDir, "commit", "-m", "feat: add standalone file");
+
+    const layer = makeTestLayer(tmpDir);
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* rebuildIndex(tmpDir);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    const server = createServer({ repoDir: tmpDir, dbPath });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    client = new Client({ name: "test-client", version: "1.0.0" });
+    await client.connect(clientTransport);
+  });
+
+  afterEach(async () => {
+    try {
+      await client.close();
+    } catch {}
+    try {
+      rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
+  });
+
+  test("returns co-changing files ranked by count", async () => {
+    const result = await client.callTool({
+      name: "kiste_get_cochange",
+      arguments: { path: "src/auth/login.ts" },
+    });
+
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    expect(parsed.path).toBe("src/auth/login.ts");
+    expect(parsed.total_commits).toBe(2);
+
+    const coPaths = parsed.cochanges.map((c: { path: string }) => c.path);
+    expect(coPaths).toContain("src/auth/session.ts");
+    expect(coPaths).toContain("src/api/routes.ts");
+
+    // Both have count=1 (each shares 1 commit with login.ts)
+    for (const c of parsed.cochanges) {
+      if (c.path === "src/auth/session.ts" || c.path === "src/api/routes.ts") {
+        expect(c.count).toBe(1);
+      }
+    }
+  });
+
+  test("returns jaccard similarity between 0 and 1", async () => {
+    const result = await client.callTool({
+      name: "kiste_get_cochange",
+      arguments: { path: "src/auth/login.ts" },
+    });
+
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    for (const c of parsed.cochanges) {
+      expect(c.jaccard).toBeGreaterThan(0);
+      expect(c.jaccard).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test("returns empty cochanges for isolated file", async () => {
+    const result = await client.callTool({
+      name: "kiste_get_cochange",
+      arguments: { path: "src/standalone.ts" },
+    });
+
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    expect(parsed.cochanges).toEqual([]);
+    expect(parsed.total_commits).toBe(1);
+  });
+
+  test("returns error for unknown path", async () => {
+    const result = await client.callTool({
+      name: "kiste_get_cochange",
+      arguments: { path: "does/not/exist.ts" },
+    });
+
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    expect(parsed.error).toContain("Artifact not found");
+  });
+});

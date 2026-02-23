@@ -1,5 +1,13 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  readdirSync,
+  unlinkSync,
+} from "node:fs";
 import { join } from "node:path";
 
 import { SqliteClient } from "@effect/sql-sqlite-bun";
@@ -10,7 +18,7 @@ import * as Schema from "effect/Schema";
 import { Config, ConfigSchema } from "./Config.js";
 import { initSchema } from "./Db.js";
 import { GitLive } from "./Git.js";
-import { rebuildIndex, incrementalIndex } from "./Indexer.js";
+import { rebuildIndex, incrementalIndex, createSnapshot, restoreSnapshot } from "./Indexer.js";
 
 function git(cwd: string, ...args: string[]) {
   const result = Bun.spawnSync(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
@@ -301,6 +309,134 @@ describe("Indexer", () => {
         `;
         const tagNames = tags.map((r) => r.tag);
         expect(tagNames).toContain("auth");
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+});
+
+describe("Snapshots", () => {
+  test("createSnapshot produces a valid sqlite copy", async () => {
+    const cwd = makeTempDir();
+    dirs.push(cwd);
+    initRepo(cwd);
+    writeFile(cwd, "src/a.ts", "export const a = 1;");
+    writeFile(cwd, "src/b.ts", "export const b = 2;");
+    git(cwd, "add", ".");
+    git(cwd, "commit", "-m", "feat: add files");
+
+    const layer = makeLayer(cwd);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* rebuildIndex(cwd);
+
+        const snap = yield* createSnapshot(cwd);
+        expect(snap.sha).toBeTruthy();
+        expect(snap.artifact_count).toBe(2);
+        expect(existsSync(join(cwd, snap.path))).toBe(true);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  test("restoreSnapshot + incrementalIndex produces same result as full reindex", async () => {
+    const cwd = makeTempDir();
+    dirs.push(cwd);
+    initRepo(cwd);
+
+    // Create 3 commits
+    for (let i = 1; i <= 3; i++) {
+      writeFile(cwd, `src/file${i}.ts`, `export const f${i} = ${i};`);
+      git(cwd, "add", ".");
+      git(cwd, "commit", "-m", `feat: add file${i}`);
+    }
+
+    const layer = makeLayer(cwd);
+
+    // Index 3 commits and snapshot
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* rebuildIndex(cwd);
+        yield* createSnapshot(cwd);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    // Add 2 more commits
+    for (let i = 4; i <= 5; i++) {
+      writeFile(cwd, `src/file${i}.ts`, `export const f${i} = ${i};`);
+      git(cwd, "add", ".");
+      git(cwd, "commit", "-m", `feat: add file${i}`);
+    }
+
+    // Full reindex for comparison
+    const fullLayer = makeLayer(cwd, { db_path: ".kiste/full-reindex.sqlite" });
+    const fullCount = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* rebuildIndex(cwd);
+        const sql = yield* SqlClient.SqlClient;
+        const rows = (yield* sql.unsafe(
+          `SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`,
+        )) as unknown as { count: number }[];
+        return rows[0].count;
+      }).pipe(Effect.provide(fullLayer)),
+    );
+
+    // Delete index, restore snapshot (only needs Config, not SqlClient)
+    const dbPath = join(cwd, ".kiste", "index.sqlite");
+    unlinkSync(dbPath);
+
+    const configLayer = Layer.succeed(Config, Schema.decodeUnknownSync(ConfigSchema)({}));
+    const restored = await Effect.runPromise(
+      restoreSnapshot(cwd).pipe(Effect.provide(configLayer)),
+    );
+    expect(restored.sha).toBeTruthy();
+
+    // Fresh layer to pick up the restored DB for incremental indexing
+    const incrementalLayer = makeLayer(cwd);
+    const restoredCount = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* incrementalIndex(cwd);
+
+        const sql = yield* SqlClient.SqlClient;
+        const rows = (yield* sql.unsafe(
+          `SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`,
+        )) as unknown as { count: number }[];
+        return rows[0].count;
+      }).pipe(Effect.provide(incrementalLayer)),
+    );
+
+    // Key invariant: restore + incremental == full reindex
+    expect(restoredCount).toBe(fullCount);
+  });
+
+  test("auto-snapshot triggers at configured frequency", async () => {
+    const cwd = makeTempDir();
+    dirs.push(cwd);
+    initRepo(cwd);
+
+    // Create 3 commits
+    for (let i = 1; i <= 3; i++) {
+      writeFile(cwd, `src/file${i}.ts`, `export const f${i} = ${i};`);
+      git(cwd, "add", ".");
+      git(cwd, "commit", "-m", `feat: add file${i}`);
+    }
+
+    // Set snapshot_frequency to 2 — should auto-snapshot after indexing 3 commits
+    const layer = makeLayer(cwd, { snapshot_frequency: 2 });
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* rebuildIndex(cwd);
+
+        // Verify snapshot was auto-created
+        const snapshotsDir = join(cwd, ".kiste", "snapshots");
+        expect(existsSync(snapshotsDir)).toBe(true);
+        const files = readdirSync(snapshotsDir).filter((f) => f.endsWith(".sqlite"));
+        expect(files.length).toBe(1);
       }).pipe(Effect.provide(layer)),
     );
   });

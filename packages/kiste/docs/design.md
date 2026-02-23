@@ -205,8 +205,8 @@ full commit history for an artifact, oldest first. shows how tags evolved over t
 `list_tags()` → `{tag, count}[]`
 all tags in the index with artifact counts. useful for exploration.
 
-`get_cochange(path, limit?)` → `{path, count, jaccard}[]` *(phase 2)*
-given an artifact, find other artifacts that frequently change in the same commits. returns co-change pairs ranked by frequency. this is behavioral coupling — the most valuable cross-component signal for agents.
+`get_cochange(path, limit?)` → `{path, cochanges: [{path, count, jaccard}], total_commits}`
+given an artifact, find other artifacts that frequently change in the same commits. returns co-change pairs ranked by frequency with jaccard similarity scores. this is behavioral coupling — the most valuable cross-component signal for agents.
 
 two-tier retrieval: structured tag queries for known intent, full-text search as fallback for exploration. agents use tags most of the time; full-text search handles "i know what i'm looking for but not what it's called."
 
@@ -287,15 +287,16 @@ all fields are optional with sensible defaults. missing config file = all defaul
 
 **done when:** an agent can list artifacts by tag, search commit messages, and retrieve full content + provenance for any artifact. content is read from git, not sqlite. validated on a real repo. ✅
 
-### phase 2 — co-change and extended commits
-- `get_cochange(path, limit?)` MCP tool — behavioral coupling from `artifact_commits` join
-- snapshot/checkpoint implementation (auto-trigger + on-demand)
+### phase 2 — co-change and snapshots ✅
+- `kiste_get_cochange` MCP tool — behavioral coupling from `artifact_commits` self-join with jaccard similarity
+- snapshot create/restore (auto-trigger at `snapshot_frequency` + on-demand via CLI)
+- CLI: `kiste snapshot [--list|--restore]`
 - ~~post-commit hook for automatic incremental indexing~~ ✅ done (plugin hook in `hooks/scripts/post-commit.sh`)
 - ~~varp generates `tags:` lines from manifest component matching on agent commits~~ ✅ done (varp's `tag-commits` hook)
 - ~~wire `exclude` config to indexer~~ ✅ done
 - ~~wire `db_path` config to CLI~~ ✅ done
 
-**done when:** `get_cochange` returns meaningful co-change pairs. explicit tags override folder-derived tags correctly. tag history is replayable. snapshots produce identical results to full reindex.
+**done when:** `get_cochange` returns meaningful co-change pairs. explicit tags override folder-derived tags correctly. tag history is replayable. snapshots produce identical results to full reindex. ✅
 
 ### phase 3 — varp integration
 - varp reads kiste index during planning (`varp_suggest_touches` enriched with co-change data)

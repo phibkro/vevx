@@ -100,6 +100,52 @@ export const setLastIndexedSha = (sha: string): Effect.Effect<void, DbError, Sql
   });
 
 // ---------------------------------------------------------------------------
+// Snapshot meta helpers
+// ---------------------------------------------------------------------------
+
+const META_KEY_SNAPSHOT_SHA = "snapshot_sha";
+const META_KEY_SNAPSHOT_PATH = "snapshot_path";
+
+export const getSnapshotMeta: Effect.Effect<
+  { sha: string; path: string } | null,
+  DbError,
+  SqlClient.SqlClient
+> = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  const rows = yield* sql<{
+    key: string;
+    value: string;
+  }>`SELECT key, value FROM meta WHERE key IN (${META_KEY_SNAPSHOT_SHA}, ${META_KEY_SNAPSHOT_PATH})`.pipe(
+    Effect.catchAll((e) => Effect.fail(toDbError(e))),
+  );
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+  const sha = map.get(META_KEY_SNAPSHOT_SHA);
+  const path = map.get(META_KEY_SNAPSHOT_PATH);
+  if (!sha || !path) return null;
+  return { sha, path };
+});
+
+export const setSnapshotMeta = (
+  sha: string,
+  path: string,
+): Effect.Effect<void, DbError, SqlClient.SqlClient> =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    yield* sql
+      .unsafe(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, [
+        META_KEY_SNAPSHOT_SHA,
+        sha,
+      ])
+      .pipe(Effect.catchAll((e) => Effect.fail(toDbError(e))));
+    yield* sql
+      .unsafe(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, [
+        META_KEY_SNAPSHOT_PATH,
+        path,
+      ])
+      .pipe(Effect.catchAll((e) => Effect.fail(toDbError(e))));
+  });
+
+// ---------------------------------------------------------------------------
 // Layer factory
 // ---------------------------------------------------------------------------
 

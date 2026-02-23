@@ -295,6 +295,81 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
     },
 
     {
+      name: "kiste_get_cochange",
+      description:
+        "Returns files that most frequently change alongside the queried file, ranked by co-change weight from git history.",
+      annotations: READ_ONLY,
+      inputSchema: {
+        path: z.string().describe("File path relative to repo root"),
+        limit: z.number().optional().describe("Max results (default 20)"),
+      },
+      handler: async ({ path, limit }) => {
+        return run(
+          Effect.gen(function* () {
+            const sql = yield* SqlClient.SqlClient;
+            yield* initSchema;
+
+            const lim = limit ?? 20;
+
+            // Check artifact exists
+            const artifactRows = (yield* sql.unsafe(`SELECT id FROM artifacts WHERE path = ?`, [
+              path,
+            ])) as unknown as { id: number }[];
+            if (artifactRows.length === 0) {
+              return { error: `Artifact not found: ${path}` };
+            }
+
+            // Count total commits for this artifact
+            const totalRows = (yield* sql.unsafe(
+              `SELECT COUNT(*) as count FROM artifact_commits WHERE artifact_id = ?`,
+              [artifactRows[0].id],
+            )) as unknown as { count: number }[];
+            const total_commits = totalRows[0].count;
+
+            // Find co-changing files via self-join on artifact_commits
+            const rows = (yield* sql.unsafe(
+              `WITH target AS (
+                SELECT id FROM artifacts WHERE path = ?
+              ),
+              target_commits AS (
+                SELECT commit_sha FROM artifact_commits WHERE artifact_id = (SELECT id FROM target)
+              ),
+              cochanges AS (
+                SELECT ac.artifact_id, COUNT(*) as shared_count
+                FROM artifact_commits ac
+                JOIN target_commits tc ON ac.commit_sha = tc.commit_sha
+                WHERE ac.artifact_id != (SELECT id FROM target)
+                GROUP BY ac.artifact_id
+              )
+              SELECT a.path, c.shared_count,
+                CAST(c.shared_count AS REAL) / (
+                  (SELECT COUNT(*) FROM target_commits) +
+                  (SELECT COUNT(*) FROM artifact_commits WHERE artifact_id = c.artifact_id) -
+                  c.shared_count
+                ) AS jaccard
+              FROM cochanges c
+              JOIN artifacts a ON a.id = c.artifact_id
+              WHERE a.alive = 1
+              ORDER BY c.shared_count DESC
+              LIMIT ?`,
+              [path, lim],
+            )) as unknown as { path: string; shared_count: number; jaccard: number }[];
+
+            return {
+              path,
+              cochanges: rows.map((r) => ({
+                path: r.path,
+                count: r.shared_count,
+                jaccard: r.jaccard,
+              })),
+              total_commits,
+            };
+          }),
+        );
+      },
+    },
+
+    {
       name: "kiste_list_tags",
       description: "List all tags with their artifact counts.",
       annotations: READ_ONLY,

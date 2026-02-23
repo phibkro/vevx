@@ -1,3 +1,4 @@
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { Command, Options } from "@effect/cli";
@@ -8,7 +9,7 @@ import { Console, Effect, Layer } from "effect";
 import { ConfigLive } from "./Config.js";
 import { DbFromConfig, initSchema } from "./Db.js";
 import { GitLive } from "./Git.js";
-import { incrementalIndex, rebuildIndex } from "./Indexer.js";
+import { incrementalIndex, rebuildIndex, createSnapshot, restoreSnapshot } from "./Indexer.js";
 
 // ---------------------------------------------------------------------------
 // Layers
@@ -172,11 +173,66 @@ const queryCmd = Command.make("query", { tags: tagsOpt }, ({ tags }) =>
 );
 
 // ---------------------------------------------------------------------------
+// snapshot — needs DB + Config
+// ---------------------------------------------------------------------------
+
+const listOpt = Options.boolean("list").pipe(Options.withDescription("List existing snapshots"));
+
+const restoreOpt = Options.boolean("restore").pipe(
+  Options.withDescription("Restore the latest snapshot"),
+);
+
+const snapshotCmd = Command.make(
+  "snapshot",
+  { list: listOpt, restore: restoreOpt },
+  ({ list, restore }) =>
+    Effect.gen(function* () {
+      const cwd = process.cwd();
+      yield* initSchema;
+
+      if (list) {
+        const snapshotsDir = resolve(cwd, ".kiste", "snapshots");
+        if (!existsSync(snapshotsDir)) {
+          yield* Console.log("No snapshots found.");
+          return;
+        }
+        const files = readdirSync(snapshotsDir)
+          .filter((f) => f.endsWith(".sqlite"))
+          .sort();
+        if (files.length === 0) {
+          yield* Console.log("No snapshots found.");
+          return;
+        }
+        for (const f of files) {
+          const stat = statSync(resolve(snapshotsDir, f));
+          const sha = f.replace(".sqlite", "");
+          yield* Console.log(`${sha}  ${new Date(stat.mtimeMs).toISOString()}  ${stat.size} bytes`);
+        }
+        return;
+      }
+
+      if (restore) {
+        const result = yield* restoreSnapshot(cwd);
+        yield* Console.log(
+          `Restored snapshot at ${result.sha} (${result.artifact_count} artifacts)`,
+        );
+        return;
+      }
+
+      // Default: create snapshot
+      const result = yield* createSnapshot(cwd);
+      yield* Console.log(
+        `Created snapshot at ${result.sha} → ${result.path} (${result.artifact_count} artifacts)`,
+      );
+    }).pipe(Effect.provide(dbLayer(process.cwd()))),
+);
+
+// ---------------------------------------------------------------------------
 // root command + run
 // ---------------------------------------------------------------------------
 
 const rootCmd = Command.make("kiste").pipe(
-  Command.withSubcommands([initCmd, indexCmd, statusCmd, queryCmd]),
+  Command.withSubcommands([initCmd, indexCmd, statusCmd, queryCmd, snapshotCmd]),
 );
 
 const cli = rootCmd.pipe(Command.run({ name: "kiste", version: "0.1.0" }));
