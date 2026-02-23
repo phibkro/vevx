@@ -24,7 +24,7 @@ Kiste's co-change graph captures this signal. But the signal isn't surfaced at t
 
 ## 2. what kart is
 
-Kart is a complete typescript coding toolkit for AI agents — a serena replacement scoped to typescript, built on oxc and LSP rather than python.
+Kart is a coding toolkit for AI agents — built on oxc/tree-sitter and LSP rather than python.
 
 The tool surface covers four concerns:
 
@@ -33,21 +33,23 @@ The tool surface covers four concerns:
 3. **editing** — symbol-level insert, replace, and reference-aware rename
 4. **verification** — inline lint on edit, on-demand type-aware diagnostics
 
-For typescript projects, no other tool is needed. For other languages, serena remains the right choice.
+Supports TypeScript (oxc-parser + typescript-language-server) and Rust (tree-sitter + rust-analyzer). Multi-language support follows ADR-006: build each language in kart first, extract the plugin interface from concrete implementations.
 
 ---
 
 ## 3. architecture
 
-### 3.1 two backends, one tool surface
+### 3.1 three backends, one tool surface
 
-Kart uses two backends depending on what's needed:
+Kart uses three backends depending on what's needed:
 
-**oxc** — for diagnostics, zoom levels, symbol index, and editing. Synchronous, per-file, no process lifecycle. Oxlint with `--type-aware` shells out to the oxlint+tsgolint binary pair, which uses tsgo internally. Fast, reliable, no connection management.
+**oxc** — for TS diagnostics, zoom levels, symbol index, and editing. Synchronous, per-file, no process lifecycle. Oxlint with `--type-aware` shells out to the oxlint+tsgolint binary pair. Fast, reliable, no connection management.
 
-**LSP (typescript-language-server)** — for impact, deps, and references. Cross-file type resolution is the one thing oxc can't do. `kart_impact` and `kart_deps` require the full typescript type graph, which only the language server has.
+**tree-sitter** — for Rust symbol extraction. WASM-based (`web-tree-sitter`), no native bindings. Parses `function_item`, `struct_item`, `enum_item`, `trait_item`, `impl_item`, `type_item`, `const_item`, `static_item`, `mod_item`, `macro_definition`. Returns the same `OxcSymbol` shape for compatibility.
 
-The split is clean: if a tool needs to cross file boundaries for type information, use LSP. Otherwise, use oxc.
+**LSP** — for cross-file type resolution. `typescript-language-server` for TS, `rust-analyzer` for Rust. Parameterized via `LanguageServerConfig` (binary, args, languageId, watch patterns). LSP-backed tools route by file extension.
+
+The split is clean: if a tool needs to cross file boundaries for type information, use LSP. For per-file parsing, use oxc (TS) or tree-sitter (Rust).
 
 ### 3.2 runtime architecture
 
@@ -56,24 +58,27 @@ Kart uses **per-tool runtimes** rather than a single shared runtime. Each MCP to
 ```
 McpServer
   ├─ cochangeRuntime → CochangeDb (bun:sqlite, read-only)
-  └─ zoomRuntime     → SymbolIndex → LspClient (typescript-language-server)
+  ├─ zoomRuntime     → SymbolIndex → LspClient (typescript-language-server)
+  └─ rustRuntime     → SymbolIndex → LspClient (rust-analyzer)  [lazy]
 ```
 
-This means `kart_cochange` works even when the language server fails to start. LSP startup failure is the most likely failure mode — isolating it prevents one broken tool from taking down the other. See ADR-004.
+This means `kart_cochange` works even when a language server fails to start. `rustRuntime` is created lazily on first `.rs` tool call — if `rust-analyzer` isn't installed, TS tools still work. See ADR-004.
 
 ### 3.3 language server connection
 
-Kart manages a persistent typescript-language-server process per workspace:
+Kart manages persistent language server processes per workspace, parameterized via `LanguageServerConfig`:
 
-- **init**: on first call needing LSP, spawn `typescript-language-server --stdio`, perform the handshake, cache the connection
+- **init**: on first call needing LSP, spawn the configured binary, perform the handshake, cache the connection
 - **warm**: subsequent calls reuse the connection — no per-query startup cost
 - **release**: close open documents, send `shutdown` request → `exit` notification, kill process
 
-**Binary resolution:** `node_modules/.bin/typescript-language-server` first, `Bun.which()` fallback.
+Two built-in configs: `tsLanguageServer` (typescript-language-server --stdio) and `rustLanguageServer` (rust-analyzer). Each config specifies binary, args, languageId mapping, and file watch patterns.
+
+**Binary resolution:** `node_modules/.bin/<binary>` first, `Bun.which()` fallback.
 
 **JSON-RPC transport:** `JsonRpcTransport` handles Content-Length framing with a `Uint8Array` byte buffer (Content-Length counts bytes, not characters). Request/response correlation via incrementing integer IDs.
 
-**File watching:** A recursive `fs.watch` on the workspace root monitors `*.ts`, `*.tsx`, `tsconfig.json`, and `package.json`. On change, sends `workspace/didChangeWatchedFiles` to the LS. Watcher errors (e.g. EMFILE) are silently ignored — stale state is an acceptable fallback.
+**File watching:** A recursive `fs.watch` monitors extensions and filenames from the config (e.g. `*.ts`/`tsconfig.json` for TS, `*.rs`/`Cargo.toml` for Rust). Watcher errors silently ignored — stale state is an acceptable fallback.
 
 ### 3.4 zoom levels
 
@@ -85,9 +90,9 @@ Three levels of disclosure for a file:
 | 1 | all symbols + type signatures + doc comments | understanding internals — "how does this module work?" |
 | 2 | full file content (capped at 100KB) | full context needed — "I need to read the implementation" |
 
-Export detection uses text scanning (`export` keyword on declaration line) — simple, deterministic, accurate for standard typescript including re-exports and barrel files. Semantic tokens were evaluated and rejected: LSP semantic token modifiers do not distinguish exports.
+Export detection uses text scanning — `export ` for TS, `pub `/`pub(` for Rust. Simple, deterministic, accurate for standard patterns. Semantic tokens were evaluated and rejected: LSP semantic token modifiers do not distinguish exports.
 
-**Directory zoom:** when `path` is a directory, returns level-0 for each `.ts`/`.tsx` file (non-recursive, test files excluded). Files with no exports are omitted.
+**Directory zoom:** when `path` is a directory, returns level-0 for each `.ts`/`.tsx`/`.rs` file (non-recursive, test files excluded). Files with no exports are omitted.
 
 ### 3.5 transitive impact and deps
 
@@ -107,7 +112,7 @@ As of the alpha release, tsgolint also emits typescript type-checking errors alo
 
 ### 3.7 symbol search (phase 5)
 
-`kart_find` scans the workspace using oxc-parser with an in-memory mtime cache. First call collects all `.ts`/`.tsx` files recursively (excludes `node_modules`/`dist`/`build`/`.git`/`.varp`), parses each with oxc in parallel, and caches the results keyed by path + mtime. Subsequent calls only re-parse files whose mtime changed, making warm queries near-instant. Deleted files are evicted from the cache automatically. `kart_restart` clears the cache.
+`kart_find` scans the workspace with an in-memory mtime cache. First call collects all `.ts`/`.tsx`/`.rs` files recursively (excludes `node_modules`/`dist`/`build`/`.git`/`.varp`/`target`), parses each in parallel (oxc for TS, tree-sitter for Rust), and caches results keyed by path + mtime. Subsequent calls only re-parse files whose mtime changed, making warm queries near-instant. Deleted files are evicted automatically. `kart_restart` clears the cache. The Rust parser is initialized lazily on first `.rs` encounter.
 
 ### 3.8 symbol-level editing (phase 6, ADR-005)
 
@@ -165,11 +170,8 @@ If the database is absent, returns a structured `CochangeUnavailable` response (
 | `kart_imports` | file import list with resolved paths | oxc-parser + Bun.resolveSync |
 | `kart_importers` | reverse import lookup with barrel expansion | oxc-parser + Bun.resolveSync |
 
-### future
-
-| tool | purpose | backend |
-|------|---------|---------|
-| `kart_restart` | restart language server | — |
+| `kart_unused_exports` | find exported symbols with no importers | oxc-parser + Bun.resolveSync |
+| `kart_restart` | restart all language servers + clear caches | — |
 
 ---
 
@@ -193,7 +195,7 @@ Kart is a full serena replacement for typescript projects.
 
 Serena tools kart deliberately omits: memory system (`write_memory` etc.), onboarding, reasoning scaffolding (`think_about_*`), mode switching. These are workflow conventions, not code intelligence primitives. Agents using kart manage context via varp manifests and kiste artifacts.
 
-For non-typescript projects (python, rust, go), serena remains the right choice.
+For languages not yet supported (python, go), serena remains the right choice.
 
 ---
 
@@ -228,7 +230,7 @@ Kart is an MCP server delivered as an npm package (`@vevx/kart`). Configuration 
 }
 ```
 
-The language server is managed internally. Kart finds `typescript-language-server` via `node_modules/.bin/` or `Bun.which()` fallback.
+Language servers are managed internally. Kart finds `typescript-language-server` and `rust-analyzer` via `node_modules/.bin/` or `Bun.which()` fallback.
 
 Oxlint type-aware linting (phase 4) requires `oxlint-tsgolint` in the workspace. If absent, `kart_diagnostics` returns `{ oxlintAvailable: false }` — structured degradation, not an error.
 
@@ -248,6 +250,8 @@ Oxlint type-aware linting (phase 4) requires `oxlint-tsgolint` in the workspace.
 | 7 | `kart_references` via LSP `textDocument/references` | shipped |
 | 8 | `kart_rename` via LSP `textDocument/rename` | shipped |
 | 9 | `kart_imports`, `kart_importers` via oxc + Bun.resolveSync | shipped |
+| 10 | `kart_unused_exports`, `kart_restart` | shipped |
+| 11 | Rust support — tree-sitter + rust-analyzer (ADR-006 Phase 1) | shipped |
 
 ---
 
@@ -259,9 +263,9 @@ Read-only tools are safely retryable. Write tools are not idempotent. The inline
 
 See `docs/decisions/adr-005-kart-edit-tools` for the full decision record.
 
-### typescript only for edits
+### edit tools currently TS only
 
-The edit tools use oxc's AST, which is typescript/javascript only. For non-typescript projects, serena remains the right choice. This is a documented boundary, not a temporary limitation.
+The edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`) use oxc's AST, which is typescript/javascript only. Phase 2 of ADR-006 will add Rust edit support via tree-sitter.
 
 ### per-tool runtimes (ADR-004)
 
