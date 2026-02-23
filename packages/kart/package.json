@@ -32,10 +32,11 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "effect": "^3.19.0",
     "@effect/platform": "^0.94.0",
     "@effect/platform-bun": "^0.87.0",
     "@modelcontextprotocol/sdk": "^1.9.0",
+    "effect": "^3.19.0",
+    "oxc-parser": "^0.114.0",
     "zod": "^3.24.0"
   }
 }
