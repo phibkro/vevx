@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -46,11 +46,18 @@ describe.skipIf(!hasLsp)("LspClient", () => {
   let runtime: ManagedRuntime.ManagedRuntime<LspClient, never>;
 
   beforeAll(async () => {
-    tempDir = await mkdtemp(join("/tmp/claude/", "kart-lsp-"));
+    // realpathSync resolves /tmp → /private/tmp on macOS, avoiding URI mismatches with LSP
+    tempDir = realpathSync(await mkdtemp(join("/tmp/claude/", "kart-lsp-")));
     const fixturePath = join(tempDir, "fixture.ts");
     await writeFile(fixturePath, FIXTURE_TS);
     await writeFile(join(tempDir, "tsconfig.json"), TSCONFIG);
     fixtureUri = `file://${fixturePath}`;
+
+    // Create caller.ts upfront so tests don't depend on execution order
+    await writeFile(
+      join(tempDir, "caller.ts"),
+      `import { greet, User } from "./fixture.js";\n\nexport function welcome(u: User) {\n  return greet(u);\n}\n`,
+    );
 
     // Symlink typescript into temp dir so the LS can find it
     const repoRoot = resolve(import.meta.dir, "../../..");
@@ -172,13 +179,7 @@ describe.skipIf(!hasLsp)("LspClient", () => {
   }, 30_000);
 
   test("incomingCalls returns callers", async () => {
-    // Create a caller fixture
-    const callerPath = join(tempDir, "caller.ts");
-    const callerUri = `file://${callerPath}`;
-    await writeFile(
-      callerPath,
-      `import { greet, User } from "./fixture.js";\n\nexport function welcome(u: User) {\n  return greet(u);\n}\n`,
-    );
+    const callerUri = `file://${join(tempDir, "caller.ts")}`;
 
     // Ensure LSP knows about the caller file by opening it
     await runtime.runPromise(
@@ -187,9 +188,6 @@ describe.skipIf(!hasLsp)("LspClient", () => {
         yield* lsp.documentSymbol(callerUri);
       }),
     );
-
-    // Give LSP time to cross-reference
-    await new Promise((r) => setTimeout(r, 1000));
 
     // Get the call hierarchy item for greet
     const items = await runtime.runPromise(
@@ -200,32 +198,27 @@ describe.skipIf(!hasLsp)("LspClient", () => {
     );
     expect(items.length).toBeGreaterThan(0);
 
-    // Get incoming calls
-    const start = performance.now();
-    const calls = await runtime.runPromise(
-      Effect.gen(function* () {
-        const lsp = yield* LspClient;
-        return yield* lsp.incomingCalls(items[0]);
-      }),
-    );
-    const elapsed = performance.now() - start;
+    // Retry incomingCalls until LSP has cross-referenced (replaces fixed sleep)
+    let calls: { from: { name: string } }[] = [];
+    for (let attempt = 0; attempt < 10; attempt++) {
+      calls = await runtime.runPromise(
+        Effect.gen(function* () {
+          const lsp = yield* LspClient;
+          return yield* lsp.incomingCalls(items[0]);
+        }),
+      );
+      if (calls.length > 0) break;
+      await new Promise((r) => setTimeout(r, 300));
+    }
 
-    // Should find at least 'welcome' as a caller
     expect(calls.length).toBeGreaterThan(0);
     const callerNames = calls.map((c) => c.from.name);
     expect(callerNames).toContain("welcome");
-
-    // Log latency for the spike
-    console.log(`incomingCalls latency: ${elapsed.toFixed(1)}ms for ${calls.length} callers`);
   }, 30_000);
 
   test("outgoingCalls returns callees", async () => {
-    // greet calls nothing interesting, but welcome (in caller.ts) calls greet
-    // Get call hierarchy item for welcome
-    const callerPath = join(tempDir, "caller.ts");
-    const callerUri = `file://${callerPath}`;
+    const callerUri = `file://${join(tempDir, "caller.ts")}`;
 
-    // Ensure caller.ts exists (created by incomingCalls test above)
     // Get document symbols to find welcome's position
     const symbols = await runtime.runPromise(
       Effect.gen(function* () {
