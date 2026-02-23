@@ -15,9 +15,14 @@ export default function defaultFn() {}
 export { something } from "./other.js";
 export type { SomeType } from "./other.js";
 
-// Not exported
+// Not exported — intentionally unused, used by ExportDetection tests
+// eslint-disable-next-line no-unused-vars
 function helper() {}
+// eslint-disable-next-line no-unused-vars
 const INTERNAL = 42;
+// eslint-disable-next-line no-unused-vars
 class InternalService {}
+// eslint-disable-next-line no-unused-vars
 interface InternalConfig {}
+// eslint-disable-next-line no-unused-vars
 type InternalId = string;
