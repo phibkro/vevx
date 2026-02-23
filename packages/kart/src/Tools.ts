@@ -109,7 +109,7 @@ export const kart_deps = {
 export const kart_find = {
   name: "kart_find",
   description:
-    "Search for symbols across the workspace by name, kind, or export status. Uses oxc-parser for fast, LSP-free scanning of .ts/.tsx files.",
+    "Search for symbols across the workspace by name, kind, or export status. Uses oxc-parser for fast, LSP-free scanning of .ts/.tsx files. Results are cached by file mtime — first call scans the full workspace, subsequent calls are near-instant.",
   annotations: READ_ONLY,
   inputSchema: {
     name: z.string().describe("Substring to match against symbol names. Empty string matches all."),

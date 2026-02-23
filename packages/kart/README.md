@@ -27,7 +27,7 @@ Or install via the vevx marketplace:
 
 | Entry | Build output | Purpose |
 |---|---|---|
-| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 15 tools) |
+| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 17 tools) |
 
 ## MCP Tools
 
@@ -102,7 +102,7 @@ Lists transitive dependencies (callees) of a symbol. BFS over LSP `outgoingCalls
 kart_find(name, kind?, exported?, path?)
 ```
 
-Searches `.ts`/`.tsx` files for symbols matching a name substring. Uses `oxc-parser` for fast, LSP-free scanning. Optional filters for symbol kind (`function`, `class`, `interface`, `type`, `enum`, `const`, `let`, `var`) and export status. Caps at 2000 files scanned.
+Searches `.ts`/`.tsx` files for symbols matching a name substring. Uses `oxc-parser` for fast, LSP-free scanning. Results are cached by file mtime — first call scans the full workspace, subsequent calls are near-instant. Optional filters for symbol kind (`function`, `class`, `interface`, `type`, `enum`, `const`, `let`, `var`) and export status.
 
 ### kart_search
 
@@ -208,16 +208,16 @@ Returns all files that import the given file. Barrel files (index.ts that only r
 | LspClient | `src/Lsp.ts` | TypeScript language server over stdio (JSON-RPC, Effect Layer, file watcher) |
 | SymbolIndex | `src/Symbols.ts` | Zoom + impact + deps + references + rename — workspace-scoped, combines LSP + pure functions |
 | CochangeDb | `src/Cochange.ts` | SQLite reader for co-change data (cached connections) |
-| Find | `src/Find.ts` | Workspace-wide symbol search via oxc-parser |
+| Find | `src/Find.ts` | Workspace-wide symbol search via oxc-parser (mtime-cached) |
 | Search | `src/Search.ts` | Text pattern search via ripgrep subprocess |
 | List | `src/List.ts` | Directory listing with glob filtering |
 | Editor | `src/Editor.ts` | AST-aware edit pipeline (locate → validate → splice → write → lint) |
 | Diagnostics | `src/Diagnostics.ts` | oxlint `--type-aware` integration with graceful degradation |
 | Imports | `src/Imports.ts` | Import graph queries — `getImports`, `getImporters` with barrel expansion |
-| Tools | `src/Tools.ts` | 15 MCP tool definitions (Zod schemas + Effect/async handlers) |
+| Tools | `src/Tools.ts` | 17 MCP tool definitions (Zod schemas + Effect/async handlers) |
 | Mcp | `src/Mcp.ts` | Server entrypoint, per-tool ManagedRuntime |
 
-`src/pure/` contains deterministic modules with no IO — 100% function coverage, 99% line coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates. Stateless modules (`Find.ts`, `Search.ts`, `List.ts`, `Editor.ts`, `Diagnostics.ts`, `Imports.ts`) are tested without Effect runtime.
+`src/pure/` contains deterministic modules with no IO — 100% function coverage, 99% line coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates. Stateless modules (`Search.ts`, `List.ts`, `Editor.ts`, `Diagnostics.ts`, `Imports.ts`) and cached modules (`Find.ts` — mtime-based symbol cache) are tested without Effect runtime.
 
 ## Relationship to Other Tools
 

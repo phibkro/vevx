@@ -4,10 +4,11 @@
  * Recursively collects .ts/.tsx files, parses each with OxcSymbols,
  * and filters by name substring, kind, and export status.
  *
- * Stateless async function — no Effect or LSP dependency.
+ * Parsed symbols are cached in memory keyed by path + mtime. First call
+ * pays the full scan cost; subsequent calls only re-parse changed files.
  */
 
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { parseSymbols, type OxcSymbol } from "./pure/OxcSymbols.js";
@@ -34,19 +35,28 @@ export type FoundSymbol = OxcSymbol & {
 
 export type FindResult = {
   readonly symbols: FoundSymbol[];
-  /** True if file count exceeded the 2000-file cap. */
-  readonly truncated: boolean;
-  /** Total .ts/.tsx files found (before cap). */
+  /** Total .ts/.tsx files scanned. */
   readonly fileCount: number;
+  /** Files served from cache (0 on cold start). */
+  readonly cachedFiles: number;
   /** Milliseconds elapsed. */
   readonly durationMs: number;
 };
 
 // ── Constants ──
 
-const FILE_CAP = 2000;
 const EXCLUDED_DIRS = new Set(["node_modules", ".git", "dist", "build", ".varp"]);
 const TS_EXTENSIONS = new Set([".ts", ".tsx"]);
+
+// ── Symbol cache ──
+
+type CacheEntry = { mtimeMs: number; symbols: OxcSymbol[] };
+const symbolCache = new Map<string, CacheEntry>();
+
+/** Clear the symbol cache. Called by kart_restart. */
+export function clearSymbolCache(): void {
+  symbolCache.clear();
+}
 
 // ── Implementation ──
 
@@ -55,17 +65,42 @@ export async function findSymbols(args: FindArgs): Promise<FindResult> {
   const rootDir = args.rootDir ?? process.cwd();
   const searchDir = args.path ? join(rootDir, args.path) : rootDir;
 
+  // 1. Collect all .ts/.tsx paths with mtime
   const files = await collectFiles(searchDir);
-  const totalFileCount = files.length;
-  const truncated = totalFileCount > FILE_CAP;
-  const capped = truncated ? files.slice(0, FILE_CAP) : files;
 
+  // 2. Parse or use cache (parallel on cold start)
+  let cachedFiles = 0;
+  const currentPaths = new Set<string>();
+
+  const parseResults = await Promise.all(
+    files.map(async (f) => {
+      currentPaths.add(f.path);
+
+      const cached = symbolCache.get(f.path);
+      if (cached && cached.mtimeMs === f.mtimeMs) {
+        cachedFiles++;
+        return { path: f.path, symbols: cached.symbols };
+      }
+
+      const source = await readFile(f.path, "utf-8");
+      const symbols = parseSymbols(source, f.path);
+      symbolCache.set(f.path, { mtimeMs: f.mtimeMs, symbols });
+      return { path: f.path, symbols };
+    }),
+  );
+
+  // 3. Evict cache entries for deleted files
+  for (const key of symbolCache.keys()) {
+    if (!currentPaths.has(key)) {
+      symbolCache.delete(key);
+    }
+  }
+
+  // 4. Filter symbols by query
   const symbols: FoundSymbol[] = [];
 
-  for (const absPath of capped) {
-    const source = await readFile(absPath, "utf-8");
+  for (const { path: absPath, symbols: parsed } of parseResults) {
     const relPath = relative(rootDir, absPath);
-    const parsed = parseSymbols(source, absPath);
 
     for (const sym of parsed) {
       if (args.name && !sym.name.includes(args.name)) continue;
@@ -78,15 +113,19 @@ export async function findSymbols(args: FindArgs): Promise<FindResult> {
 
   return {
     symbols,
-    truncated,
-    fileCount: totalFileCount,
+    fileCount: files.length,
+    cachedFiles,
     durationMs: Math.round(performance.now() - start),
   };
 }
 
-/** Recursively collect .ts/.tsx files, excluding common non-source directories. */
-async function collectFiles(dir: string): Promise<string[]> {
-  const results: string[] = [];
+// ── File collection ──
+
+type FileEntry = { path: string; mtimeMs: number };
+
+/** Recursively collect .ts/.tsx files with mtime, excluding common non-source directories. */
+async function collectFiles(dir: string): Promise<FileEntry[]> {
+  const results: FileEntry[] = [];
 
   let entries;
   try {
@@ -103,7 +142,13 @@ async function collectFiles(dir: string): Promise<string[]> {
     } else if (entry.isFile()) {
       const ext = extname(entry.name);
       if (TS_EXTENSIONS.has(ext)) {
-        results.push(join(dir, entry.name));
+        const filePath = join(dir, entry.name);
+        try {
+          const st = await stat(filePath);
+          results.push({ path: filePath, mtimeMs: st.mtimeMs });
+        } catch {
+          // File disappeared between readdir and stat — skip
+        }
       }
     }
   }

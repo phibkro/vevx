@@ -2,11 +2,13 @@
 
 ## overview
 
-kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Fifteen tools across four categories:
+kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Seventeen tools across five categories:
 
 - **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps`, `kart_references`, `kart_rename` — require `typescript-language-server`
-- **Stateless navigation**: `kart_find` (oxc-parser), `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint), `kart_imports` (oxc-parser), `kart_importers` (oxc-parser)
+- **Cached navigation**: `kart_find` (oxc-parser, mtime-cached symbols) — first call scans full workspace, subsequent calls near-instant
+- **Stateless navigation**: `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint), `kart_imports` (oxc-parser), `kart_importers` (oxc-parser), `kart_unused_exports` (oxc-parser)
 - **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser for symbol location + syntax validation, oxlint for diagnostics
+- **Server lifecycle**: `kart_restart` — disposes LSP runtime + clears symbol cache
 
 ```
 MCP client ──stdio──▷ Mcp.ts (McpServer + ManagedRuntime)
@@ -172,10 +174,11 @@ kart_cochange({ path: "src/auth.ts" })
 ```
 kart_find({ name: "validate", kind: "function", exported: true })
   │
-  ├─ collect .ts/.tsx files recursively (cap 2000, excludes node_modules/dist/build/.git/.varp)
-  ├─ parse each file with oxc-parser → parseSymbols()
+  ├─ collect .ts/.tsx files recursively (excludes node_modules/dist/build/.git/.varp)
+  ├─ check mtime cache → parse only new/changed files with oxc-parser
+  ├─ evict cache entries for deleted files
   ├─ filter by name substring, kind, exported status
-  └─ return FindResult { symbols[], truncated, fileCount, durationMs }
+  └─ return FindResult { symbols[], fileCount, cachedFiles, durationMs }
 ```
 
 ### kart_search request
@@ -210,9 +213,10 @@ kart_replace({ file: "src/auth.ts", symbol: "validate", content: "function valid
 
 Zod schemas at the MCP boundary (tool inputs). Each tool definition in `Tools.ts` is a self-contained object with `name`, `description`, `inputSchema` (Zod), `annotations`, and `handler`.
 
-Two handler patterns:
+Three handler patterns:
 - **Effect-based** (zoom, impact, deps, references, rename, cochange): handlers return `Effect.gen` generators, run via `ManagedRuntime.runPromise`
-- **Stateless** (find, search, list, diagnostics, edit): handlers use `Effect.promise()` or `Effect.sync()` wrapping plain async/sync functions
+- **Stateless** (search, list, diagnostics, edit, imports, importers, unused_exports): handlers use `Effect.promise()` or `Effect.sync()` wrapping plain async/sync functions
+- **Cached** (find): `Effect.promise()` wrapping mtime-cached async function
 
 `Mcp.ts` registers tools individually. All responses include `structuredContent` for direct JSON access by callers. Effect errors are unwrapped via `errorMessage()` and become `{ isError: true, content: [{ text: "Error: ..." }] }`.
 
@@ -254,13 +258,13 @@ All error types defined in `src/pure/Errors.ts`.
 | `Lsp.test.ts` | 8 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
 | `Symbols.test.ts` | 22 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS, references, rename |
-| `Find.test.ts` | 9 | symbol search by name, kind, export status, truncation |
+| `Find.test.ts` | 13 | symbol search by name, kind, export status, mtime cache hit/invalidation/eviction |
 | `Search.test.ts` | 7 | pattern search, glob filtering, path restriction, workspace boundary |
 | `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |
 | `Diagnostics.test.ts` | 5 | oxlint integration, unavailable fallback, workspace boundary |
 | `Editor.test.ts` | 10 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths |
 | `Imports.test.ts` | 8 | getImports, getImporters, barrel expansion, workspace boundary |
-| `Mcp.test.ts` | 32 | MCP integration via InMemoryTransport (all 15 tools) |
+| `Mcp.test.ts` | 31 | MCP integration via InMemoryTransport (all 17 tools) |
 | `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.

@@ -107,9 +107,7 @@ As of the alpha release, tsgolint also emits typescript type-checking errors alo
 
 ### 3.7 symbol search (phase 5)
 
-`kart_find` scans the workspace on-demand using oxc-parser. No persistent index — each query collects `.ts`/`.tsx` files recursively (cap 2000, excludes `node_modules`/`dist`/`build`/`.git`/`.varp`), parses each with oxc, extracts symbols (name, kind, file, line, exported), and filters by the query parameters.
-
-Oxc parsing is fast enough that on-demand scanning completes in <200ms for typical workspaces. A sqlite-backed index (`.varp/symbols.db`) is a future optimization if real codebases hit the file cap.
+`kart_find` scans the workspace using oxc-parser with an in-memory mtime cache. First call collects all `.ts`/`.tsx` files recursively (excludes `node_modules`/`dist`/`build`/`.git`/`.varp`), parses each with oxc in parallel, and caches the results keyed by path + mtime. Subsequent calls only re-parse files whose mtime changed, making warm queries near-instant. Deleted files are evicted from the cache automatically. `kart_restart` clears the cache.
 
 ### 3.8 symbol-level editing (phase 6, ADR-005)
 

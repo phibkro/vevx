@@ -37,7 +37,7 @@ function errorMessage(e: unknown): string {
 import { CochangeDbLive } from "./Cochange.js";
 import { runDiagnostics, type DiagnosticsArgs } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
-import { findSymbols, type FindArgs } from "./Find.js";
+import { clearSymbolCache, findSymbols, type FindArgs } from "./Find.js";
 import {
   getImporters,
   getImports,
@@ -530,6 +530,7 @@ function createServer(config: ServerConfig = {}): McpServer {
         // Ignore dispose errors — the LSP may already be dead
       }
       zoomRuntime = makeZoomRuntime();
+      clearSymbolCache();
       return {
         content: [
           { type: "text" as const, text: JSON.stringify({ restarted: true, rootDir }, null, 2) },
