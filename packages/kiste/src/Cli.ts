@@ -6,7 +6,7 @@ import * as SqlClient from "@effect/sql/SqlClient";
 import { Console, Effect, Layer } from "effect";
 
 import { ConfigLive } from "./Config.js";
-import { DbLive, initSchema } from "./Db.js";
+import { DbFromConfig, initSchema } from "./Db.js";
 import { GitLive } from "./Git.js";
 import { incrementalIndex, rebuildIndex } from "./Indexer.js";
 
@@ -14,8 +14,10 @@ import { incrementalIndex, rebuildIndex } from "./Indexer.js";
 // Layers
 // ---------------------------------------------------------------------------
 
-const dbLayer = (cwd: string) =>
-  Layer.mergeAll(ConfigLive(cwd), DbLive(resolve(cwd, ".kiste", "index.sqlite")), GitLive);
+const dbLayer = (cwd: string) => {
+  const configLayer = ConfigLive(cwd);
+  return Layer.mergeAll(configLayer, Layer.provideMerge(DbFromConfig(cwd), configLayer), GitLive);
+};
 
 // ---------------------------------------------------------------------------
 // init — no DB needed

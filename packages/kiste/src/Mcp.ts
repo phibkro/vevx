@@ -6,6 +6,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Effect, Layer } from "effect";
 
 import { ConfigLive } from "./Config.js";
+import { DbFromConfig } from "./Db.js";
 import { GitLive } from "./Git.js";
 import { registerTools } from "./tool-registry.js";
 import { makeTools, type RunEffect } from "./Tools.js";
@@ -20,13 +21,15 @@ export interface ServerOptions {
 }
 
 export function createServer(opts: ServerOptions): McpServer {
-  const { repoDir, dbPath = resolve(repoDir, ".kiste", "index.sqlite") } = opts;
+  const { repoDir, dbPath } = opts;
+  const configLayer = ConfigLive(repoDir);
 
-  const layer = Layer.mergeAll(
-    ConfigLive(repoDir),
-    SqliteClient.layer({ filename: dbPath }),
-    GitLive,
-  );
+  // Explicit dbPath overrides config; otherwise read from .kiste.yaml
+  const dbLayer = dbPath
+    ? SqliteClient.layer({ filename: dbPath })
+    : Layer.provideMerge(DbFromConfig(repoDir), configLayer);
+
+  const layer = Layer.mergeAll(configLayer, dbLayer, GitLive);
 
   const run: RunEffect = (effect) => Effect.runPromise(Effect.provide(effect, layer));
 

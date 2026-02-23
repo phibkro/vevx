@@ -1,9 +1,12 @@
+import { resolve } from "node:path";
+
 import { SqliteClient } from "@effect/sql-sqlite-bun";
 import * as SqlClient from "@effect/sql/SqlClient";
 import { SqlError } from "@effect/sql/SqlError";
 import { Effect, Layer } from "effect";
 import type { ConfigError } from "effect/ConfigError";
 
+import { Config } from "./Config.js";
 import { DbError } from "./Errors.js";
 
 // ---------------------------------------------------------------------------
@@ -104,6 +107,21 @@ export const DbLive = (
   dbPath: string,
 ): Layer.Layer<SqliteClient.SqliteClient | SqlClient.SqlClient, ConfigError> =>
   SqliteClient.layer({ filename: dbPath });
+
+/**
+ * Construct a DB layer that reads db_path from Config.
+ * Requires Config to be provided in the layer composition.
+ */
+export const DbFromConfig = (
+  cwd: string,
+): Layer.Layer<SqliteClient.SqliteClient | SqlClient.SqlClient, ConfigError, Config> =>
+  Layer.unwrapEffect(
+    Effect.gen(function* () {
+      const config = yield* Config;
+      const dbPath = resolve(cwd, config.db_path);
+      return SqliteClient.layer({ filename: dbPath });
+    }),
+  );
 
 // ---------------------------------------------------------------------------
 // Internal
