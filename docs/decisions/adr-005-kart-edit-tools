@@ -1,0 +1,103 @@
+# ADR-005: Kart Edit Tools and Full Serena Replacement for TypeScript
+
+**Status:** Proposed  
+**Date:** 2026-02-23  
+**Deciders:** @phibkro
+
+## Context
+
+Kart began as a read-only analysis layer — zoom levels, impact analysis, coupling data. Serena was the recommended complement for symbol navigation and editing. This created a two-tool dependency for typescript projects: kart for architectural intelligence, serena for code manipulation.
+
+Serena has real costs: it is a python process with its own LSP lifecycle, an onboarding system, a memory system, and workflow conventions that don't align with kart's design philosophy. For typescript projects specifically, everything serena does is implementable with oxc, ripgrep, and the LSP connection kart already maintains.
+
+Two capabilities needed for a full replacement:
+
+1. **symbol navigation** — `find_symbol`, `find_referencing_symbols`, pattern search, directory listing. serena's most-used tools.
+2. **symbol-level editing** — `replace_symbol_body`, `insert_after_symbol`, `insert_before_symbol`. serena's highest-value tools — precise edits without line numbers, without loading entire files.
+
+The edit tools represent a character change for kart: from read-only to read-write. This boundary is worth recording explicitly.
+
+## Decision
+
+Expand kart to cover the full serena tool surface for typescript projects, adding:
+
+**navigation tools** — backed by oxc and ripgrep, no LSP required:
+- `kart_find` — workspace symbol index (oxc + sqlite, lazy rebuild on dirty)
+- `kart_search` — pattern search (ripgrep subprocess)
+- `kart_list` — directory listing (fs + gitignore)
+- `kart_references` — cross-file references (LSP, lazy init)
+
+**edit tools** — backed by oxc AST:
+- `kart_replace(file, symbol, content)` — replace full symbol definition
+- `kart_insert_after(file, symbol, content)` — insert after symbol end
+- `kart_insert_before(file, symbol, content)` — insert before symbol start
+
+### Edit tool pipeline
+
+All three edit tools follow the same pipeline:
+
+```
+1. parse file with oxc → locate symbol by name → get byte range
+2. parse new content with oxc → reject immediately if syntax error (no disk write)
+3. splice: prefix + new content + suffix → write file
+4. run oxlint --type-aware on changed file → return diagnostics inline
+```
+
+The result type encodes all outcomes the agent needs to act on:
+
+```typescript
+interface EditResult {
+  success: boolean
+  path: string
+  symbol: string
+  diagnostics: Diagnostic[]
+  syntaxError: boolean
+  syntaxErrorMessage?: string
+}
+```
+
+`syntaxError: true` means the file was not modified. The agent retries with corrected content. Diagnostics on success give immediate feedback without a separate tool call.
+
+### Inline lint on edit
+
+Oxlint runs on the changed file after every successful edit. This is blocking — the edit tool returns after lint completes. Rationale: the agent gets a complete picture in one round trip. At sub-100ms per file, the latency cost is negligible.
+
+Type-aware lint (`--type-aware`) is used if oxlint-tsgolint is installed, basic lint otherwise. Graceful degradation to no diagnostics if oxlint is absent.
+
+### Symbol index rebuild strategy
+
+The workspace symbol index (`.varp/symbols.db`) uses lazy rebuild: the file watcher marks the index dirty on any file change, the index rebuilds on the next `kart_find` call. Full reindex on dirty rather than incremental — oxc parsing is fast enough that tracking changed files adds complexity without meaningful speedup for typical codebase sizes.
+
+### What kart deliberately omits from serena
+
+Serena's memory system, onboarding, reasoning scaffolding (`think_about_*`), and mode switching are workflow conventions that sit above the code intelligence layer. Kart does not replicate them. Agents using kart manage their own context via varp manifests and kiste artifacts — the vevx stack's equivalent of serena's memory system, with better structure and machine-validatability.
+
+### Scope boundary: typescript only
+
+The edit tools use oxc's AST, which is typescript/javascript only. Multi-language editing is not in scope. For non-typescript projects, serena remains the right choice. This is a documented boundary, not a temporary limitation — the decision to use oxc rather than a language-agnostic AST approach is explicit.
+
+## Consequences
+
+### Kart becomes read-write
+
+This is the significant consequence. Read-only tools are safely retryable — if kart_zoom returns stale data, the agent re-queries. Write tools are not idempotent — `kart_replace` called twice with the same arguments overwrites the first edit with an identical result (safe), but called with different arguments produces different outcomes. The scheduler should treat edit tool results as requiring verification (run `kart_diagnostics` or check coupling neighborhood) rather than as authoritative.
+
+The inline lint on edit partially addresses this: the agent learns immediately if the edit introduced problems. But behavioral correctness (did the edit do what was intended?) requires acceptance verification, not just lint.
+
+### Symbol resolution ambiguity
+
+`kart_replace(file, "parse", content)` — what if there are multiple symbols named `parse` in the file? The edit tools resolve by: exact name match first, then first occurrence if multiple matches. This is consistent with serena's behavior. The agent is expected to use `kart_zoom` to understand the file's symbol structure before editing, disambiguating if needed.
+
+### Oxc AST coverage
+
+Oxc's AST covers standard typescript including classes, functions, interfaces, type aliases, enums, arrow functions assigned to const. Edge cases — dynamic symbol construction, complex decorator patterns — may not resolve correctly. `kart_find` returns `symbolNotFound` for unresolvable cases rather than attempting a heuristic edit.
+
+### The symbol index is a new maintained artifact
+
+`.varp/symbols.db` joins `.varp/cochange.db` as a derived artifact in the `.varp/` directory. It is reconstructable (delete and re-query `kart_find`) and excluded from git. The dirty flag means the index is always at most one query stale.
+
+## Relationship to other ADRs
+
+- **ADR-002** (three-layer architecture): edit tools are an execution concern, not an analysis concern. oxc AST manipulation sits in the execution layer; the symbol index is analysis-layer data.
+- **ADR-004** (lazy cascade verification): edits via kart are the trigger events for cascade verification. `PostToolUse` lifecycle hook should surface the coupling neighborhood of edited files so the agent knows what acceptance criteria may need re-checking.
+- **ADR-003** (superpowers integration): `PostToolUse` after a kart edit is the natural injection point for coupling neighborhood and diagnostic context.

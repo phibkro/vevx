@@ -136,4 +136,4 @@ Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. D
 - **MCP**: `@modelcontextprotocol/sdk`
 - **Validation**: Zod
 
-See `design.md` for architecture, algorithms, and design decisions. See `architecture.md` for service graph and data flow.
+See `docs/design.md` for the full vision, roadmap, and design decisions. See `docs/architecture.md` for current implementation details and data flow.
