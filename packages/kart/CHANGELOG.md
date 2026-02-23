@@ -1,5 +1,15 @@
 # @vevx/kart
 
+## 0.6.0
+
+### Minor Changes
+
+- ed672f1: Add compact directory zoom at level 0 (oxc-based export counts, no LSP) and MCP integration tests for kart_deps, kart_workspace_symbol, kart_inlay_hints
+
+### Patch Changes
+
+- 6a11175: Compact MCP tool responses to reduce agent context window usage. `kart_find` strips debug metadata (`durationMs`, `cachedFiles`). `kart_impact` and `kart_deps` strip `range` from tree nodes and convert absolute `uri` to workspace-relative `path`.
+
 ## 0.5.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@vevx/varp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Graph-aware project analysis and manifest-driven agent orchestration",
   "type": "module",
   "license": "MIT",
