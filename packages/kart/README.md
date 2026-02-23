@@ -79,7 +79,11 @@ kart_zoom(path, level?, resolveTypes?)
 
 Levels 0 and 1 include `resolvedType` on each symbol — the LSP-resolved type from hover (e.g. inferred return types, expanded type aliases). Set `resolveTypes: false` to skip hover calls for faster scanning.
 
-When `path` is a directory, returns level-0 for each `.ts`/`.tsx`/`.rs` file. Files with no exports are omitted.
+When `path` is a directory, behavior depends on level:
+- **Level 0** (default): compact summary — file name + export count via oxc-parser (no LSP needed, fast)
+- **Level 1+**: full symbol signatures with LSP-resolved types (same as file zoom)
+
+Files with no exports are omitted in both modes.
 
 Paths are validated against the workspace root — requests outside the workspace boundary are rejected.
 

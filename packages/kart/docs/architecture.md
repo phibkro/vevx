@@ -113,7 +113,11 @@ Depends on `LspClient`. Transforms raw LSP responses into structured zoom result
 
 Level-2 reads are capped at `MAX_LEVEL2_BYTES` (100KB). Files exceeding this return a structured message with the file size instead of the content.
 
-**Directory zoom:** when path is a directory, returns level-0 for each `.ts`/`.tsx`/`.rs` file (non-recursive, test files excluded). Files with no exports are omitted.
+**Directory zoom:** when path is a directory, behavior depends on level:
+- **Level 0** (default): compact summary — file name + export count via `parseSymbols` from `pure/OxcSymbols.ts` (no LSP needed, fast). Each file is represented as a single symbol `{ name: filename, kind: "file", signature: "N exports" }`.
+- **Level 1+**: full LSP-based zoom with exported symbol signatures and resolved types.
+
+Non-recursive, test files excluded. Files with no exports are omitted in both modes.
 
 **Impact analysis:** `impact(path, symbolName, maxDepth?)` computes the blast radius of changing a symbol. Uses `documentSymbol` to locate the target by name, `prepareCallHierarchy` to get a call hierarchy item, then BFS over `incomingCalls` up to `maxDepth` (default 3, hard cap `MAX_IMPACT_DEPTH` = 5). A `visited` set prevents cycles. Returns an `ImpactResult` tree with `totalNodes`, `highFanOut` flag (triggered when any node exceeds `HIGH_FAN_OUT_THRESHOLD` = 10 callers), and the caller tree rooted at the target symbol.
 
@@ -146,7 +150,8 @@ kart_zoom({ path: "src/auth.ts", level: 0, resolveTypes: true })
   ├─ check existence (FileNotFoundError if missing)
   ├─ stat: file or directory?
   │
-  ├─ [directory] → iterate .ts files → level-0 per file → omit no-export files → enrich with hover
+  ├─ [directory, level 0] → iterate .ts files → oxc-parser export count → compact summary (no LSP)
+  ├─ [directory, level 1+] → iterate .ts files → LSP documentSymbol per file → enrich with hover
   ├─ [file, level 2] → readFileSync → return full content (no hover)
   └─ [file, level 0/1] →
        ├─ LspClient.documentSymbol(uri) → DocumentSymbol[]
@@ -264,7 +269,7 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-267 tests across 19 files, split into pure (coverage-gated) and integration:
+301 tests across 20 files, split into pure (coverage-gated) and integration:
 
 **Pure tests** (`src/pure/`, 117 tests, `test:pure` with `--coverage`, 100% function / 99% line):
 
@@ -285,7 +290,7 @@ All error types defined in `src/pure/Errors.ts`.
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
 | `Lsp.test.ts` | 14 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, outgoingCalls, hover, definition (same-file + cross-file), typeDefinition, implementation, codeAction, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
-| `Symbols.test.ts` | 27 | zoom levels, directory zoom, resolved types, resolveTypes opt-out, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS, references, rename |
+| `Symbols.test.ts` | 26 | zoom levels, directory zoom (compact + full), resolved types, resolveTypes opt-out, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS, references, rename |
 | `Find.test.ts` | 18 | symbol search by name/kind/export (TS + Rust), mtime cache, target/ exclusion |
 | `Search.test.ts` | 7 | pattern search, glob filtering, path restriction, workspace boundary |
 | `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |
@@ -293,7 +298,7 @@ All error types defined in `src/pure/Errors.ts`.
 | `Editor.test.ts` | 14 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths (TS + Rust) |
 | `Imports.test.ts` | 8 | getImports, getImporters, barrel expansion, workspace boundary |
 | `RustImports.test.ts` | 8 | tree-sitter Rust use extraction, crate-relative resolution, grouped imports |
-| `Mcp.test.ts` | 35 | MCP integration via InMemoryTransport (all 24 tools) |
+| `Mcp.test.ts` | 38 | MCP integration via InMemoryTransport (all 24 tools) |
 | `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.

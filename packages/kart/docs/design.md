@@ -96,7 +96,11 @@ Export detection uses text scanning — `export ` for TS, `pub `/`pub(` for Rust
 
 **Resolved types:** Levels 0 and 1 enrich each symbol with `resolvedType` — the LSP hover result stripped of markdown formatting. This gives agents the compiler's view (inferred return types, expanded type aliases) without a separate tool call. Hover calls average 2-10ms per symbol after warmup. The `resolveTypes` param (default `true`) allows opt-out for fast scanning.
 
-**Directory zoom:** when `path` is a directory, returns level-0 for each `.ts`/`.tsx`/`.rs` file (non-recursive, test files excluded). Files with no exports are omitted. Always includes resolved types.
+**Directory zoom:** when `path` is a directory, behavior depends on level:
+- **Level 0** (default): compact summary — file name + export count via oxc-parser (no LSP, fast). Ideal for browsing unfamiliar packages.
+- **Level 1+**: full symbol signatures with LSP-resolved types.
+
+Non-recursive, test files excluded. Files with no exports are omitted in both modes.
 
 ### 3.5 transitive impact and deps
 

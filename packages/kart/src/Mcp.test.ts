@@ -941,6 +941,59 @@ function internal() {}
     expect(Array.isArray(data.actions)).toBe(true);
   }, 30_000);
 
+  test("kart_deps returns transitive callees", async () => {
+    const result = await client.callTool({
+      name: "kart_deps",
+      arguments: {
+        path: join(tempDir, "caller.ts"),
+        symbol: "welcome",
+      },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as {
+      symbol: string;
+      depth: number;
+      maxDepth: number;
+      totalNodes: number;
+      root: { name: string; callees: { name: string }[] };
+    };
+
+    expect(data.symbol).toBe("welcome");
+    expect(data.totalNodes).toBeGreaterThanOrEqual(1);
+    expect(data.root.name).toBe("welcome");
+  }, 30_000);
+
+  test("kart_workspace_symbol finds symbols by name", async () => {
+    const result = await client.callTool({
+      name: "kart_workspace_symbol",
+      arguments: { query: "greet" },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as {
+      symbols: { name: string; kind: number; location: unknown }[];
+    };
+    expect(data.symbols.length).toBeGreaterThanOrEqual(1);
+    const names = data.symbols.map((s) => s.name);
+    expect(names).toContain("greet");
+  }, 30_000);
+
+  test("kart_inlay_hints returns hints for a file", async () => {
+    const result = await client.callTool({
+      name: "kart_inlay_hints",
+      arguments: { path: join(tempDir, "fixture.ts") },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as {
+      path: string;
+      hints: unknown[];
+    };
+    expect(data.path).toContain("fixture.ts");
+    expect(Array.isArray(data.hints)).toBe(true);
+  }, 30_000);
+
   test("kart_expand_macro rejects non-Rust files", async () => {
     const result = await client.callTool({
       name: "kart_expand_macro",

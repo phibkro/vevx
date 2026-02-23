@@ -9,7 +9,19 @@ import {
 
 const defaultConfig = {
   strip_prefixes: ["src", "lib", "components", "app", "pages"],
-  stop_tags: ["index", "utils", "helpers", "types"],
+  stop_tags: [
+    "index",
+    "utils",
+    "helpers",
+    "types",
+    "__tests__",
+    "test",
+    "tests",
+    "cache",
+    "build",
+    "coverage",
+    ".turbo",
+  ],
 };
 
 describe("deriveTagsFromPath", () => {

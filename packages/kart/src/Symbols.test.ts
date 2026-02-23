@@ -186,7 +186,7 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     }
   }, 30_000);
 
-  test("directory zoom: returns level-0 for each .ts file, omits files with no exports", async () => {
+  test("directory zoom level 0: returns compact export counts, omits files with no exports", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
@@ -198,11 +198,11 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     expect(result.files).toBeDefined();
     expect(result.files!.length).toBeGreaterThan(0);
 
-    // Each file result should have only exported symbols
+    // Compact mode: each file has one "file" symbol with export count
     for (const fileResult of result.files!) {
-      for (const sym of fileResult.symbols) {
-        expect(sym.exported).toBe(true);
-      }
+      expect(fileResult.symbols).toHaveLength(1);
+      expect(fileResult.symbols[0].kind).toBe("file");
+      expect(fileResult.symbols[0].signature).toMatch(/\d+ exports/);
     }
 
     // internal.ts should be omitted (no exports)
@@ -214,15 +214,18 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     expect(filePaths.some((p) => p.endsWith("other.ts"))).toBe(true);
   }, 30_000);
 
-  test("directory zoom: includes resolvedType on file symbols", async () => {
+  test("directory zoom level 1: includes resolvedType on file symbols", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(tempDir, 0);
+        return yield* idx.zoom(tempDir, 1);
       }),
     );
 
-    // At least one file should have symbols with resolvedType
+    expect(result.files).toBeDefined();
+    expect(result.files!.length).toBeGreaterThan(0);
+
+    // Level 1+: full symbol signatures with resolved types
     const allSymbols = result.files!.flatMap((f) => f.symbols);
     const withType = allSymbols.filter((s) => s.resolvedType);
     expect(withType.length).toBeGreaterThan(0);

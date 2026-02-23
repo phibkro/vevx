@@ -16,6 +16,13 @@ const READ_ONLY: ToolAnnotations = {
   openWorldHint: false,
 };
 
+const WRITE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
 // ── Gitignore filtering ──
 
 /**
@@ -373,6 +380,59 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
               })),
               total_commits,
             };
+          }),
+        );
+      },
+    },
+
+    {
+      name: "kiste_tag",
+      description:
+        "Add or remove tags on an artifact. Lets agents manually categorize files beyond auto-derived tags.",
+      annotations: WRITE,
+      inputSchema: {
+        path: z.string().describe("File path relative to repo root"),
+        tags: z.array(z.string()).describe("Tags to add or remove"),
+        op: z.enum(["add", "remove"]).optional().describe('Operation: "add" (default) or "remove"'),
+      },
+      handler: async ({ path, tags, op }) => {
+        return run(
+          Effect.gen(function* () {
+            const sql = yield* SqlClient.SqlClient;
+            yield* initSchema;
+
+            const operation = op ?? "add";
+
+            const artifactRows = (yield* sql.unsafe(`SELECT id FROM artifacts WHERE path = ?`, [
+              path,
+            ])) as unknown as { id: number }[];
+            if (artifactRows.length === 0) {
+              return { error: `Artifact not found: ${path}` };
+            }
+            const artifactId = artifactRows[0].id;
+
+            if (operation === "add") {
+              for (const tag of tags) {
+                yield* sql.unsafe(
+                  `INSERT OR IGNORE INTO artifact_tags (artifact_id, tag) VALUES (?, ?)`,
+                  [artifactId, tag],
+                );
+              }
+            } else {
+              for (const tag of tags) {
+                yield* sql.unsafe(`DELETE FROM artifact_tags WHERE artifact_id = ? AND tag = ?`, [
+                  artifactId,
+                  tag,
+                ]);
+              }
+            }
+
+            const currentTags = (yield* sql.unsafe(
+              `SELECT tag FROM artifact_tags WHERE artifact_id = ? ORDER BY tag`,
+              [artifactId],
+            )) as unknown as { tag: string }[];
+
+            return { path, tags: currentTags.map((r) => r.tag) };
           }),
         );
       },

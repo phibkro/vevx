@@ -36,6 +36,13 @@ const DEFAULT_CONFIG = `# .kiste.yaml — kiste configuration
 #   - utils
 #   - helpers
 #   - types
+#   - __tests__
+#   - test
+#   - tests
+#   - cache
+#   - build
+#   - coverage
+#   - .turbo
 # snapshot_frequency: 500
 # exclude:
 #   - "node_modules/**"

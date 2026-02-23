@@ -83,3 +83,4 @@ Keep the briefing concise — aim for 5-10 relevant files, not an exhaustive dum
 | `kiste_search` | FTS over commit messages |
 | `kiste_get_provenance` | Commit history for a file |
 | `kiste_get_artifact` | Full detail for a specific file |
+| `kiste_get_cochange` | Files that frequently change alongside a given file |

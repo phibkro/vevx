@@ -6,6 +6,7 @@ import { Context, Effect, Layer } from "effect";
 import { LspClient } from "./Lsp.js";
 import { FileNotFoundError, LspError, LspTimeoutError } from "./pure/Errors.js";
 import { isExported } from "./pure/ExportDetection.js";
+import { parseSymbols } from "./pure/OxcSymbols.js";
 import { extractDocComment, extractSignature, symbolKindName } from "./pure/Signatures.js";
 import type {
   CallHierarchyItem,
@@ -219,7 +220,7 @@ export const SymbolIndexLive = (config?: {
             // Directory zoom
             const stat = statSync(absPath);
             if (stat.isDirectory()) {
-              return yield* zoomDirectory(lsp, absPath);
+              return yield* zoomDirectory(lsp, absPath, level);
             }
 
             // Level 2: full file content (with size cap)
@@ -864,6 +865,7 @@ function linesToOffset(lines: string[], line: number, character: number): number
 function zoomDirectory(
   lsp: Context.Tag.Service<typeof LspClient>,
   dirPath: string,
+  level: 0 | 1 | 2 = 0,
 ): Effect.Effect<ZoomResult, LspError | LspTimeoutError | FileNotFoundError> {
   return Effect.gen(function* () {
     const entries = readdirSync(dirPath);
@@ -872,6 +874,29 @@ function zoomDirectory(
       .filter((e) => !e.endsWith(".test.ts") && !e.endsWith(".test.tsx") && !e.endsWith("_test.rs"))
       .sort();
 
+    // Level 0 compact mode: export counts via oxc-parser (no LSP needed)
+    if (level === 0) {
+      const fileResults: ZoomResult[] = [];
+      for (const file of sourceFiles) {
+        const filePath = resolve(dirPath, file);
+        const content = readFileSync(filePath, "utf-8");
+        const exportCount = file.endsWith(".rs")
+          ? 0 // Rust export counting not supported via oxc
+          : parseSymbols(content, file).filter((s) => s.exported).length;
+        if (exportCount === 0) continue;
+        fileResults.push({
+          path: filePath,
+          level: 0,
+          symbols: [
+            { name: file, kind: "file", signature: `${exportCount} exports`, exported: true },
+          ],
+          truncated: true,
+        });
+      }
+      return { path: dirPath, level: 0 as const, symbols: [], truncated: true, files: fileResults };
+    }
+
+    // Level 1+: full LSP-based zoom with symbol signatures
     const fileResults: ZoomResult[] = [];
 
     for (const file of sourceFiles) {

@@ -232,6 +232,45 @@ describe("MCP Tools", () => {
     expect(paths2).toContain("build/output.js");
   });
 
+  test("kiste_tag adds and removes tags", async () => {
+    // Add a custom tag
+    const addResult = await client.callTool({
+      name: "kiste_tag",
+      arguments: { path: "src/auth/login.ts", tags: ["critical", "reviewed"] },
+    });
+    const addParsed = JSON.parse((addResult.content as Array<{ text: string }>)[0].text);
+    expect(addParsed.path).toBe("src/auth/login.ts");
+    expect(addParsed.tags).toContain("critical");
+    expect(addParsed.tags).toContain("reviewed");
+
+    // Remove one tag
+    const removeResult = await client.callTool({
+      name: "kiste_tag",
+      arguments: { path: "src/auth/login.ts", tags: ["reviewed"], op: "remove" },
+    });
+    const removeParsed = JSON.parse((removeResult.content as Array<{ text: string }>)[0].text);
+    expect(removeParsed.tags).toContain("critical");
+    expect(removeParsed.tags).not.toContain("reviewed");
+
+    // Verify via list_artifacts tag filter
+    const listResult = await client.callTool({
+      name: "kiste_list_artifacts",
+      arguments: { tags: ["critical"] },
+    });
+    const listParsed = JSON.parse((listResult.content as Array<{ text: string }>)[0].text);
+    const paths = listParsed.artifacts.map((a: { path: string }) => a.path);
+    expect(paths).toContain("src/auth/login.ts");
+  });
+
+  test("kiste_tag returns error for nonexistent artifact", async () => {
+    const result = await client.callTool({
+      name: "kiste_tag",
+      arguments: { path: "does/not/exist.ts", tags: ["foo"] },
+    });
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    expect(parsed.error).toContain("not found");
+  });
+
   test("kiste_list_artifacts source_only filters to src/ paths", async () => {
     const result = await client.callTool({
       name: "kiste_list_artifacts",

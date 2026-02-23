@@ -8,7 +8,19 @@ export const ConfigSchema = Schema.Struct({
     default: () => ["src", "lib", "components", "app", "pages"],
   }),
   stop_tags: Schema.optionalWith(Schema.Array(Schema.String), {
-    default: () => ["index", "utils", "helpers", "types"],
+    default: () => [
+      "index",
+      "utils",
+      "helpers",
+      "types",
+      "__tests__",
+      "test",
+      "tests",
+      "cache",
+      "build",
+      "coverage",
+      ".turbo",
+    ],
   }),
   snapshot_frequency: Schema.optionalWith(Schema.Number, {
     default: () => 500,
