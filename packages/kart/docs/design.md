@@ -154,6 +154,12 @@ If the database is absent, returns a structured `CochangeUnavailable` response (
 | `kart_cochange` | co-change neighbors from git history | kiste sqlite |
 | `kart_impact` | transitive callers (blast radius) | LSP `incomingCalls` |
 | `kart_deps` | transitive callees (dependencies) | LSP `outgoingCalls` |
+| `kart_find` | workspace symbol index search | oxc-parser |
+| `kart_search` | pattern search | ripgrep subprocess |
+| `kart_list` | directory listing (gitignore-aware) | fs |
+| `kart_replace` | replace full symbol definition | oxc AST + oxlint |
+| `kart_insert_after` | insert content after symbol | oxc AST + oxlint |
+| `kart_insert_before` | insert content before symbol | oxc AST + oxlint |
 
 ### planned — phase 4: diagnostics
 
@@ -161,22 +167,11 @@ If the database is absent, returns a structured `CochangeUnavailable` response (
 |------|---------|---------|
 | `kart_diagnostics` | lint violations + type errors | oxlint `--type-aware` |
 
-### planned — phase 5: navigation
+### planned
 
 | tool | purpose | backend |
 |------|---------|---------|
-| `kart_find` | workspace symbol index search | oxc + sqlite |
 | `kart_references` | cross-file references | LSP `textDocument/references` |
-| `kart_search` | pattern search | ripgrep subprocess |
-| `kart_list` | directory listing (gitignore-aware) | fs |
-
-### planned — phase 6: editing (ADR-005)
-
-| tool | purpose | backend |
-|------|---------|---------|
-| `kart_replace` | replace full symbol definition | oxc AST + oxlint |
-| `kart_insert_after` | insert content after symbol | oxc AST + oxlint |
-| `kart_insert_before` | insert content before symbol | oxc AST + oxlint |
 
 ### future
 
@@ -191,17 +186,17 @@ If the database is absent, returns a structured `CochangeUnavailable` response (
 
 Kart is a full serena replacement for typescript projects.
 
-| serena tool | kart equivalent | phase |
-|------------|----------------|-------|
+| serena tool | kart equivalent | status |
+|------------|----------------|--------|
 | `get_symbols_overview` | `kart_zoom` level-0 | shipped |
-| `find_symbol` | `kart_find` | 5 |
-| `find_referencing_symbols` | `kart_references` | 5 |
-| `replace_symbol_body` | `kart_replace` | 6 |
-| `insert_after_symbol` | `kart_insert_after` | 6 |
-| `insert_before_symbol` | `kart_insert_before` | 6 |
-| `search_for_pattern` | `kart_search` | 5 |
-| `list_dir` | `kart_list` | 5 |
-| `find_file` | `kart_list` with glob | 5 |
+| `find_symbol` | `kart_find` | shipped |
+| `find_referencing_symbols` | `kart_references` | planned |
+| `replace_symbol_body` | `kart_replace` | shipped |
+| `insert_after_symbol` | `kart_insert_after` | shipped |
+| `insert_before_symbol` | `kart_insert_before` | shipped |
+| `search_for_pattern` | `kart_search` | shipped |
+| `list_dir` | `kart_list` | shipped |
+| `find_file` | `kart_list` with glob | shipped |
 | `restart_language_server` | `kart_restart` | future |
 | `rename_symbol` | `kart_rename` | future |
 
@@ -257,9 +252,10 @@ Oxlint type-aware linting (phase 4) requires `oxlint-tsgolint` in the workspace.
 | 2 | `kart_impact`, file watcher | shipped |
 | 3 | `kart_deps` | shipped |
 | 4 | `kart_diagnostics` via oxlint `--type-aware` | next |
-| 5 | `kart_find`, `kart_references`, `kart_search`, `kart_list` | next |
-| 6 | `kart_replace`, `kart_insert_after`, `kart_insert_before` (ADR-005) | next |
-| 7 | `kart_rename` via LSP `textDocument/rename` | future |
+| 5 | `kart_find`, `kart_search`, `kart_list` | shipped |
+| 6 | `kart_replace`, `kart_insert_after`, `kart_insert_before` (ADR-005) | shipped |
+| 7 | `kart_references` via LSP `textDocument/references` | next |
+| 8 | `kart_rename` via LSP `textDocument/rename` | future |
 
 ---
 

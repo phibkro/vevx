@@ -223,7 +223,7 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-148 tests across 14 files, split into pure (coverage-gated) and integration:
+153 tests across 14 files, split into pure (coverage-gated) and integration:
 
 **Pure tests** (`src/pure/`, 52 tests, `test:pure` with `--coverage`):
 
@@ -234,18 +234,18 @@ All error types defined in `src/pure/Errors.ts`.
 | `pure/OxcSymbols.test.ts` | 14 | parseSymbols for all declaration kinds, exports, line numbers |
 | `pure/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations |
 
-**Integration tests** (`src/*.test.ts`, 96 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 101 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
 | `Lsp.test.ts` | 8 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
-| `Symbols.test.ts` | 12 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap |
+| `Symbols.test.ts` | 17 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS |
 | `Find.test.ts` | 9 | symbol search by name, kind, export status, truncation |
 | `Search.test.ts` | 6 | pattern search, glob filtering, path restriction |
 | `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |
-| `Editor.test.ts` | 6 | replace, insert after/before, syntax validation, symbol not found |
+| `Editor.test.ts` | 8 | replace, insert after/before, syntax validation, symbol not found, workspace boundary |
 | `Mcp.test.ts` | 26 | MCP integration via InMemoryTransport (all 10 tools) |
 | `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
