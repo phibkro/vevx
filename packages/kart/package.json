@@ -20,7 +20,7 @@
     "./mcp": "./dist/Mcp.js"
   },
   "scripts": {
-    "build": "bun build ./src/Mcp.ts --outdir ./dist --target bun --external oxc-parser",
+    "build": "bun build ./src/Mcp.ts --outdir ./dist --target bun --external oxc-parser --external web-tree-sitter",
     "test": "bun run test:pure && bun run test:integration",
     "test:pure": "bun test --concurrent --coverage src/pure/",
     "test:integration": "bun test --concurrent src/*.test.ts",
@@ -37,6 +37,8 @@
     "@modelcontextprotocol/sdk": "^1.9.0",
     "effect": "^3.19.0",
     "oxc-parser": "^0.114.0",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "^0.26.5",
     "zod": "^3.24.0"
   }
 }
