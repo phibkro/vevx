@@ -44,6 +44,7 @@ export {
   type DetectionConfig,
 } from "./manifest/suggest-components.js";
 export { suggestTouches } from "./manifest/touches.js";
+export { readKisteCoChanges } from "./manifest/kiste.js";
 export { watchFreshness } from "./manifest/watch.js";
 export { findScopedTests } from "./manifest/scoped-tests.js";
 

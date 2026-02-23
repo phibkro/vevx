@@ -9,6 +9,7 @@ export function suggestTouches(
   filePaths: string[],
   manifest: Manifest,
   importDeps: ImportDep[],
+  coChangeDeps?: ImportDep[],
 ): Touches {
   const componentPaths = buildComponentPaths(manifest);
 
@@ -19,9 +20,10 @@ export function suggestTouches(
     if (owner) writes.add(owner);
   }
 
-  // Import deps → read components
+  // Import deps + co-change deps → read components
+  const allDeps = coChangeDeps ? [...importDeps, ...coChangeDeps] : importDeps;
   const reads = new Set<string>();
-  for (const dep of importDeps) {
+  for (const dep of allDeps) {
     if (writes.has(dep.from) && !writes.has(dep.to)) {
       reads.add(dep.to);
     }

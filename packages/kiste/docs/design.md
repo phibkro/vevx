@@ -299,7 +299,7 @@ all fields are optional with sensible defaults. missing config file = all defaul
 **done when:** `get_cochange` returns meaningful co-change pairs. explicit tags override folder-derived tags correctly. tag history is replayable. snapshots produce identical results to full reindex. ✅
 
 ### phase 3 — varp integration
-- varp reads kiste index during planning (`varp_suggest_touches` enriched with co-change data)
+- ~~varp reads kiste index during planning (`varp_suggest_touches` enriched with co-change data)~~ ✅ done (`readKisteCoChanges` in `manifest/kiste.ts` reads `.kiste/index.sqlite` directly via `bun:sqlite`)
 - ~~session-start hook surfaces kiste summary alongside graph summary~~ ✅ done (plugin hook in `hooks/scripts/session-start.sh`)
 - end-to-end test: multi-agent workflow with kiste providing context
 

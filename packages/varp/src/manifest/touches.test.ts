@@ -69,4 +69,58 @@ describe("suggestTouches", () => {
     expect(result.writes).toEqual(["auth"]);
     expect(result.reads).toBeUndefined();
   });
+
+  test("coChangeDeps surfaces a read that imports don't", () => {
+    const coChangeDeps: ImportDep[] = [
+      {
+        from: "api",
+        to: "web",
+        evidence: [
+          { source_file: "/project/src/api/routes.ts", import_specifier: "cochange:0.500" },
+        ],
+      },
+    ];
+    const result = suggestTouches(
+      ["/project/src/api/routes.ts"],
+      manifest,
+      importDeps,
+      coChangeDeps,
+    );
+    expect(result.writes).toEqual(["api"]);
+    // auth from imports, web from co-change
+    expect(result.reads).toEqual(["auth", "web"]);
+  });
+
+  test("coChangeDeps to write component is not duplicated in reads", () => {
+    const coChangeDeps: ImportDep[] = [
+      {
+        from: "api",
+        to: "auth",
+        evidence: [
+          { source_file: "/project/src/api/routes.ts", import_specifier: "cochange:0.800" },
+        ],
+      },
+    ];
+    const result = suggestTouches(
+      ["/project/src/api/routes.ts", "/project/src/auth/index.ts"],
+      manifest,
+      importDeps,
+      coChangeDeps,
+    );
+    expect(result.writes).toEqual(["api", "auth"]);
+    // auth is in writes, so co-change dep to auth should not appear in reads
+    expect(result.reads).toBeUndefined();
+  });
+
+  test("empty coChangeDeps has no effect", () => {
+    const result = suggestTouches(["/project/src/api/routes.ts"], manifest, importDeps, []);
+    expect(result.writes).toEqual(["api"]);
+    expect(result.reads).toEqual(["auth"]);
+  });
+
+  test("undefined coChangeDeps has no effect", () => {
+    const result = suggestTouches(["/project/src/api/routes.ts"], manifest, importDeps, undefined);
+    expect(result.writes).toEqual(["api"]);
+    expect(result.reads).toEqual(["auth"]);
+  });
 });

@@ -540,7 +540,14 @@ export function suggestTouches(
   filePaths: string[],
   manifest: Manifest,
   importDeps: ImportDep[],
+  coChangeDeps?: ImportDep[],
 ): Touches;
+export function readKisteCoChanges(
+  filePaths: string[],
+  manifest: Manifest,
+  kisteDbPath: string,
+  options?: { limit?: number; minJaccard?: number },
+): ImportDep[];
 export function watchFreshness(
   manifest: Manifest,
   since?: string,

@@ -43,6 +43,7 @@ import {
   scanImports,
   scanLinks,
   suggestComponents,
+  readKisteCoChanges,
   suggestTouches,
   validateDependencyGraph,
   validatePlan,
@@ -294,8 +295,11 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path, file_paths }) => {
       const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const manifest = parseManifest(mp);
-      const { import_deps } = scanImports(manifest, dirname(resolve(mp)));
-      return suggestTouches(file_paths, manifest, import_deps);
+      const manifestDir = dirname(resolve(mp));
+      const { import_deps } = scanImports(manifest, manifestDir);
+      const kisteDbPath = resolve(manifestDir, ".kiste", "index.sqlite");
+      const coChangeDeps = readKisteCoChanges(file_paths, manifest, kisteDbPath);
+      return suggestTouches(file_paths, manifest, import_deps, coChangeDeps);
     },
   },
 

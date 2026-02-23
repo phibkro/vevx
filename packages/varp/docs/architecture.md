@@ -22,7 +22,8 @@ src/
     suggest-components.ts     Detect components via workspace, container, indicator, layer, and domain strategies
     render-graph.ts           Render dependency graph (Mermaid + ASCII with tag/stability display)
     watch.ts                  Freshness polling — filter changes since baseline timestamp
-    touches.ts                Suggest touches declarations from file paths + import deps
+    touches.ts                Suggest touches declarations from file paths + import deps + co-change deps
+    kiste.ts                  Read kiste SQLite for co-change data → component-level ImportDep[]
     parser.ts                 Flat YAML -> Manifest (path resolution)
     resolver.ts               Touches x discovery -> doc paths with visibility
     freshness.ts              mtime comparison per component + warm agent staleness check (uses discovery)
