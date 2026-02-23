@@ -81,4 +81,4 @@ Thresholds auto-calibrate to the median of non-zero values for each signal, or c
 
 ## Design Doc
 
-[`docs/designs/002-relational-architecture-analysis.md`](../../../../docs/designs/002-relational-architecture-analysis.md) — full rationale for signal independence, graduated weighting, and the coupling matrix model.
+[`docs/designs/002-relational-architecture-analysis.md`](../../docs/designs/002-relational-architecture-analysis.md) — full rationale for signal independence, graduated weighting, and the coupling matrix model.

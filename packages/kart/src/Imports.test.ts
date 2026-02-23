@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { getImporters, getImports } from "./Imports.js";
+import { getImporters, getImports, getUnusedExports } from "./Imports.js";
 import { initRustParser } from "./pure/RustSymbols.js";
 
 mkdirSync("/tmp/claude", { recursive: true });
@@ -99,6 +99,27 @@ describe("getImporters", () => {
   });
 });
 
+describe("getUnusedExports", () => {
+  test("finds unused exports", async () => {
+    writeFixture("a.ts", 'import { greet } from "./b.js";\nconsole.log(greet());\n');
+    writeFixture("b.ts", "export function greet() {}\nexport function farewell() {}\n");
+
+    const result = await getUnusedExports(tempDir);
+    const names = result.unusedExports.map((u) => u.name);
+    expect(names).toContain("farewell");
+    expect(names).not.toContain("greet");
+  });
+
+  test("wildcard import marks all exports as used", async () => {
+    writeFixture("a.ts", 'import * as B from "./b.js";\nconsole.log(B);\n');
+    writeFixture("b.ts", "export function greet() {}\nexport function farewell() {}\n");
+
+    const result = await getUnusedExports(tempDir);
+    const paths = result.unusedExports.map((u) => u.path);
+    expect(paths.some((p) => p.endsWith("b.ts"))).toBe(false);
+  });
+});
+
 // ── Rust import tests ──
 
 describe("Rust imports", () => {
@@ -160,5 +181,32 @@ describe("Rust imports", () => {
     const result = await getImporters(join(rustDir, "src", "models", "user.rs"), rustDir);
     expect(result.totalImporters).toBeGreaterThanOrEqual(1);
     expect(result.directImporters.some((p) => p.endsWith("main.rs"))).toBe(true);
+  });
+
+  test("getUnusedExports finds unused Rust exports", async () => {
+    writeFileSync(join(rustDir, "src", "lib.rs"), "pub fn used_fn() {}\npub fn unused_fn() {}\n");
+    writeFileSync(
+      join(rustDir, "src", "main.rs"),
+      "use crate::lib::used_fn;\n\nfn main() { used_fn(); }\n",
+    );
+
+    const result = await getUnusedExports(rustDir);
+    const names = result.unusedExports.map((u) => u.name);
+    expect(names).toContain("unused_fn");
+    expect(names).not.toContain("used_fn");
+  });
+
+  test("getImporters with pub use barrel in Rust", async () => {
+    mkdirSync(join(rustDir, "src", "models"), { recursive: true });
+    writeFileSync(join(rustDir, "src", "models", "user.rs"), "pub struct User {}\n");
+    writeFileSync(join(rustDir, "src", "models", "mod.rs"), "pub use self::user::User;\n");
+    writeFileSync(
+      join(rustDir, "src", "main.rs"),
+      "use crate::models::mod::User;\n\nfn main() {}\n",
+    );
+
+    const result = await getImporters(join(rustDir, "src", "models", "user.rs"), rustDir);
+    // mod.rs directly imports user.rs via pub use
+    expect(result.directImporters.some((p) => p.endsWith("mod.rs"))).toBe(true);
   });
 });

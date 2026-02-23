@@ -65,7 +65,7 @@ audit:
   tags: [audit]
   stability: experimental
   docs:
-    - ./docs/audit/design.md
+    - ./packages/audit/docs/design.md
 
 cli:
   path: ./packages/varp/src/cli
