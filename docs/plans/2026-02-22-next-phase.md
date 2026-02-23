@@ -83,6 +83,10 @@ The audit package has no plugin structure. It's the most complex package (orches
 4. Add to root marketplace
 5. Audit depends on `@vevx/varp` — ensure the dependency works post-consolidation (`@vevx/varp/lib` import path)
 
+## Next Session: Dogfooding
+
+Use the toolkit on a real project and iterate on pain points. Pick an external codebase (or vevx itself), run `varp:init` → `varp:plan` → `varp:execute`, and note friction: missing tools, confusing output, broken workflows, token waste. Fix issues as discovered. This is the fastest path to stable v1.
+
 ## How to Pick Up
 
 1. Run `turbo build && turbo test` to verify everything passes
