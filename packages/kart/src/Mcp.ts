@@ -33,6 +33,7 @@ import { CochangeDbLive } from "./Cochange.js";
 import { runDiagnostics, type DiagnosticsArgs } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { findSymbols, type FindArgs } from "./Find.js";
+import { getImporters, getImports, type ImportersArgs, type ImportsArgs } from "./Imports.js";
 import { listDirectory, type ListArgs } from "./List.js";
 import { LspClientLive } from "./Lsp.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
@@ -45,6 +46,8 @@ import {
   kart_references,
   kart_rename,
   kart_impact,
+  kart_importers,
+  kart_imports,
   kart_insert_after,
   kart_insert_before,
   kart_list,
@@ -411,6 +414,54 @@ function createServer(config: ServerConfig = {}): McpServer {
           (args as { content: string }).content,
           rootDir,
         );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_imports (stateless — no Effect runtime needed)
+  server.registerTool(
+    kart_imports.name,
+    {
+      description: kart_imports.description,
+      inputSchema: kart_imports.inputSchema,
+      annotations: kart_imports.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await getImports((args as ImportsArgs).path, rootDir);
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_importers (stateless — no Effect runtime needed)
+  server.registerTool(
+    kart_importers.name,
+    {
+      description: kart_importers.description,
+      inputSchema: kart_importers.inputSchema,
+      annotations: kart_importers.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await getImporters((args as ImportersArgs).path, rootDir);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as unknown as Record<string, unknown>,

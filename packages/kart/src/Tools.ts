@@ -6,6 +6,7 @@ import { CochangeDb } from "./Cochange.js";
 import { runDiagnostics } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { findSymbols } from "./Find.js";
+import { getImporters, getImports } from "./Imports.js";
 import { listDirectory } from "./List.js";
 import { searchPattern } from "./Search.js";
 import { SymbolIndex } from "./Symbols.js";
@@ -249,6 +250,28 @@ export const kart_insert_before = {
     Effect.promise(() => editInsertBefore(args.file, args.symbol, args.content)),
 } as const;
 
+export const kart_imports = {
+  name: "kart_imports",
+  description:
+    "Returns what a file imports: specifiers, resolved paths, imported symbol names, and type-only status. Uses oxc-parser (no LSP needed). Useful for understanding a file's dependencies.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("Absolute or workspace-relative file path to analyze"),
+  },
+  handler: (args: { path: string }) => Effect.promise(() => getImports(args.path)),
+} as const;
+
+export const kart_importers = {
+  name: "kart_importers",
+  description:
+    "Returns files that import the given file, with transparent barrel expansion. Direct importers are files with explicit imports. Barrel importers come through index.ts re-export files. Uses oxc-parser (no LSP needed).",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("Absolute or workspace-relative file path to find importers for"),
+  },
+  handler: (args: { path: string }) => Effect.promise(() => getImporters(args.path)),
+} as const;
+
 export const tools = [
   kart_cochange,
   kart_zoom,
@@ -263,4 +286,6 @@ export const tools = [
   kart_replace,
   kart_insert_after,
   kart_insert_before,
+  kart_imports,
+  kart_importers,
 ] as const;
