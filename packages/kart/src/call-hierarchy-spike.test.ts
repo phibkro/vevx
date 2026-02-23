@@ -132,9 +132,6 @@ describe.skipIf(!hasLsp)("call hierarchy latency spike (varp codebase)", () => {
     await runtime.runPromise(Effect.void);
   }, 30_000);
 
-  // Varp symbols at varying depths
-  const targets: Array<{ file: string; line: number; char: number; name: string }> = [];
-
   // Dynamically find symbols — we'll use grep results
   test("discover symbols and measure latency", async () => {
     // parseManifest is heavily used across varp
