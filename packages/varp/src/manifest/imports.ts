@@ -263,25 +263,74 @@ export function resolveSpecifier(
 // ── Pure analysis ──
 
 /**
+ * Expand a barrel file (e.g. lib.ts) into the component names it re-exports from.
+ * Extracts re-export specifiers, resolves each relative to the barrel's directory,
+ * and maps to owning components. Returns unique component names.
+ */
+function expandBarrel(
+  barrelPath: string,
+  barrelContent: string,
+  resolveFn: ResolveFn,
+  aliases: PathAliases | undefined,
+  aliasPrefixes: string[] | undefined,
+  manifest: Manifest,
+  compPaths: ComponentPathEntry[],
+): string[] {
+  const reExports = extractImports(barrelContent, aliasPrefixes);
+  const barrelDir = dirname(barrelPath);
+  const owners = new Set<string>();
+
+  for (const imp of reExports) {
+    const resolved = resolveSpecifier(imp.specifier, barrelDir, resolveFn, aliases);
+    if (!resolved) continue;
+    const owner = findOwningComponent(resolved, manifest, compPaths);
+    if (owner) owners.add(owner);
+  }
+
+  return Array.from(owners);
+}
+
+/**
  * Analyze pre-loaded source files for cross-component import dependencies.
  * Pure function — no I/O, fully testable with synthetic data.
  *
  * @param resolveFn - Resolves a specifier from a directory to an absolute path.
  *   Use `bunResolve` for real resolution, or a custom function for tests.
+ * @param extraFiles - Content of files outside component directories (e.g. barrel files).
+ *   Keyed by absolute path. Used to expand barrel re-exports when an import resolves
+ *   to a file with no owning component.
  */
 export function analyzeImports(
   files: SourceFile[],
   manifest: Manifest,
   resolveFn: ResolveFn,
   aliases?: PathAliases,
+  extraFiles?: Map<string, string>,
 ): ImportScanResult {
-  const componentPaths = buildComponentPaths(manifest);
+  const compPaths = buildComponentPaths(manifest);
   const aliasPrefixes = aliases ? aliasPrefixesFrom(aliases) : undefined;
   const inferredDepsMap = new Map<
     string,
     { from: string; to: string; evidence: { source_file: string; import_specifier: string }[] }
   >();
   let totalImportsScanned = 0;
+
+  // Cache barrel expansions — same barrel may be imported by many files
+  const barrelCache = new Map<string, string[]>();
+
+  function recordDep(from: string, to: string, sourcePath: string, specifier: string) {
+    const key = `${from}->${to}`;
+    const existing = inferredDepsMap.get(key);
+    if (existing) {
+      existing.evidence.push({ source_file: sourcePath, import_specifier: specifier });
+    } else {
+      inferredDepsMap.set(key, {
+        from,
+        to,
+        evidence: [{ source_file: sourcePath, import_specifier: specifier }],
+      });
+    }
+  }
 
   for (const file of files) {
     const rawImports = extractImports(file.content, aliasPrefixes);
@@ -290,22 +339,32 @@ export function analyzeImports(
       totalImportsScanned++;
       const resolved = resolveSpecifier(imp.specifier, dirname(file.path), resolveFn, aliases);
       if (!resolved) continue; // unresolvable (external package, etc.)
-      const targetOwner = findOwningComponent(resolved, manifest, componentPaths);
+      const targetOwner = findOwningComponent(resolved, manifest, compPaths);
 
       if (targetOwner !== null && targetOwner !== file.component) {
-        const key = `${file.component}->${targetOwner}`;
-        const existing = inferredDepsMap.get(key);
-        if (existing) {
-          existing.evidence.push({
-            source_file: file.path,
-            import_specifier: imp.specifier,
-          });
-        } else {
-          inferredDepsMap.set(key, {
-            from: file.component,
-            to: targetOwner,
-            evidence: [{ source_file: file.path, import_specifier: imp.specifier }],
-          });
+        recordDep(file.component, targetOwner, file.path, imp.specifier);
+      } else if (targetOwner === null && extraFiles) {
+        // Resolved to a file outside all components — try barrel expansion
+        const barrelContent = extraFiles.get(resolved);
+        if (barrelContent !== undefined) {
+          let targets = barrelCache.get(resolved);
+          if (!targets) {
+            targets = expandBarrel(
+              resolved,
+              barrelContent,
+              resolveFn,
+              aliases,
+              aliasPrefixes,
+              manifest,
+              compPaths,
+            );
+            barrelCache.set(resolved, targets);
+          }
+          for (const target of targets) {
+            if (target !== file.component) {
+              recordDep(file.component, target, file.path, imp.specifier);
+            }
+          }
         }
       }
     }
@@ -466,5 +525,40 @@ export function scanImports(manifest: Manifest, _manifestDir?: string): ImportSc
     }
   }
 
-  return analyzeImports(files, manifest, bunResolve, aliases ?? undefined);
+  // Discover barrel files in parent directories of component paths.
+  // These are files like lib.ts/index.ts that sit outside component directories
+  // but re-export from them. Reading their content enables barrel expansion.
+  const extraFiles = new Map<string, string>();
+  const BARREL_NAMES = ["lib.ts", "index.ts"];
+  const seenDirs = new Set<string>();
+
+  for (const comp of Object.values(manifest.components)) {
+    for (const compPath of componentPaths(comp)) {
+      const parentDir = dirname(compPath);
+      if (seenDirs.has(parentDir)) continue;
+      seenDirs.add(parentDir);
+
+      for (const barrelName of BARREL_NAMES) {
+        const barrelPath = join(parentDir, barrelName);
+        if (extraFiles.has(barrelPath)) continue;
+        try {
+          const content = readFileSync(barrelPath, "utf-8");
+          // Only include files that actually have re-exports
+          if (content.includes("export")) {
+            extraFiles.set(barrelPath, content);
+          }
+        } catch {
+          /* barrel doesn't exist — skip */
+        }
+      }
+    }
+  }
+
+  return analyzeImports(
+    files,
+    manifest,
+    bunResolve,
+    aliases ?? undefined,
+    extraFiles.size > 0 ? extraFiles : undefined,
+  );
 }

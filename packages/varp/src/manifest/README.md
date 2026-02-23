@@ -148,7 +148,7 @@ Use `varp_read_manifest` to parse and validate. The response includes `dependenc
 
 `varp_lint` runs all manifest health checks in a single pass and returns a unified report:
 
-- **Import deps** — scans source files for static imports (including tsconfig `paths` aliases like `#shared/*`, follows `extends` chains), flags undeclared dependencies (error).
+- **Import deps** — scans source files for static imports (including tsconfig `paths` aliases like `#shared/*`, follows `extends` chains). When an import resolves to a file outside all component directories (e.g. a barrel like `lib.ts`), the scanner expands its re-exports one level to discover the actual component dependencies. Flags undeclared dependencies (error).
 - **Link integrity** — scans component docs for markdown links, flags broken links (error) and undeclared link-inferred dependencies (warning).
 - **Unused deps** (composed) — a declared dependency is only warned as unused when _both_ import scanning and link scanning agree it's extra. If either signal justifies the dep, no warning. This eliminates noise from deps that are structurally real but only evidenced by one signal. Category: `deps`.
 - **Doc freshness** — compares doc mtimes against source file mtimes (excluding doc files and test files from the source scan), flags stale docs (warning). A 5-second tolerance threshold eliminates false positives from batch edits where source and docs are updated within seconds of each other. Freshness acks (via `varp_ack_freshness`) are also considered — if a doc was acknowledged more recently than the source change, it is not flagged stale.

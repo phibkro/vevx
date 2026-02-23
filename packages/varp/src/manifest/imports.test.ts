@@ -405,6 +405,110 @@ import { helper } from './utils.js';
     expect(result.extra_deps).toHaveLength(0);
   });
 
+  test("follows barrel re-exports to discover transitive deps", () => {
+    const barrelManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        shared: { path: "/project/src/shared", docs: [] },
+        manifest: { path: "/project/src/manifest", docs: [] },
+        mcp: { path: "/project/src/mcp", deps: ["shared", "manifest"], docs: [] },
+      },
+    };
+    const knownFiles = new Set([
+      "/project/src/shared/types.ts",
+      "/project/src/manifest/parser.ts",
+      "/project/src/mcp/server.ts",
+      "/project/src/lib.ts",
+    ]);
+    const resolveFn = makeResolveFn((p) => knownFiles.has(p));
+
+    const files: SourceFile[] = [
+      {
+        path: "/project/src/mcp/server.ts",
+        component: "mcp",
+        content: "import { parseManifest } from '../lib.js';",
+      },
+    ];
+
+    // lib.ts is outside all components — provide it as extraFiles
+    const extraFiles = new Map([
+      [
+        "/project/src/lib.ts",
+        [
+          "export { componentPaths } from './shared/types.js';",
+          "export { parseManifest } from './manifest/parser.js';",
+        ].join("\n"),
+      ],
+    ]);
+
+    const result = analyzeImports(files, barrelManifest, resolveFn, undefined, extraFiles);
+    // Should discover deps on both shared and manifest via barrel expansion
+    const depTargets = result.import_deps.map((d) => d.to).sort();
+    expect(depTargets).toEqual(["manifest", "shared"]);
+    expect(result.missing_deps).toHaveLength(0);
+    expect(result.extra_deps).toHaveLength(0);
+  });
+
+  test("caches barrel expansion across multiple importers", () => {
+    const barrelManifest: Manifest = {
+      varp: "0.1.0",
+      components: {
+        shared: { path: "/project/src/shared", docs: [] },
+        api: { path: "/project/src/api", deps: ["shared"], docs: [] },
+        cli: { path: "/project/src/cli", deps: ["shared"], docs: [] },
+      },
+    };
+    const knownFiles = new Set([
+      "/project/src/shared/types.ts",
+      "/project/src/api/routes.ts",
+      "/project/src/cli/main.ts",
+      "/project/src/lib.ts",
+    ]);
+    const resolveFn = makeResolveFn((p) => knownFiles.has(p));
+
+    const files: SourceFile[] = [
+      {
+        path: "/project/src/api/routes.ts",
+        component: "api",
+        content: "import { x } from '../lib.js';",
+      },
+      {
+        path: "/project/src/cli/main.ts",
+        component: "cli",
+        content: "import { y } from '../lib.js';",
+      },
+    ];
+
+    const extraFiles = new Map([
+      ["/project/src/lib.ts", "export { componentPaths } from './shared/types.js';"],
+    ]);
+
+    const result = analyzeImports(files, barrelManifest, resolveFn, undefined, extraFiles);
+    // Both api and cli should have inferred dep on shared
+    const apiDep = result.import_deps.find((d) => d.from === "api");
+    const cliDep = result.import_deps.find((d) => d.from === "cli");
+    expect(apiDep).toBeDefined();
+    expect(apiDep!.to).toBe("shared");
+    expect(cliDep).toBeDefined();
+    expect(cliDep!.to).toBe("shared");
+    expect(result.missing_deps).toHaveLength(0);
+  });
+
+  test("barrel with no owning re-exports is a no-op", () => {
+    const files: SourceFile[] = [
+      {
+        path: "/project/src/api/routes.ts",
+        component: "api",
+        content: "import { x } from '../barrel.js';",
+      },
+    ];
+    // Barrel only re-exports from external packages (no owning component)
+    const extraFiles = new Map([["/project/src/barrel.ts", "export { z } from 'zod';"]]);
+    const resolveFn = makeResolveFn(() => false);
+    const result = analyzeImports(files, manifest, resolveFn, undefined, extraFiles);
+    expect(result.import_deps).toHaveLength(0);
+  });
+
   test("alias import without declared dep appears in missing_deps", () => {
     const aliasManifest: Manifest = {
       varp: "0.1.0",

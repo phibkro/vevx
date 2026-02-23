@@ -13,7 +13,7 @@ analysis:
 
 mcp:
   path: ./packages/varp/src/mcp
-  deps: [shared, manifest, plan, scheduler, enforcement, analysis]
+  deps: [shared, manifest, plan, scheduler, enforcement, analysis, execution]
   tags: [core]
   stability: stable
 
