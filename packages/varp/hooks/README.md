@@ -83,3 +83,4 @@ Files modified: 5
 - Exit 0 when `varp.yaml` is missing (graceful degradation)
 - All scripts pass `shellcheck` (enforced by `bun run check`)
 - Graph data comes from `.varp/summary.json` cache (written by CLI, read by hooks)
+- Script paths use `CLAUDE_PLUGIN_ROOT` with dirname fallback: `PKG_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"`. This resolves correctly both when run as a plugin (cached by Claude Code) and directly from the repo.
