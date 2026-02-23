@@ -15,9 +15,14 @@ Use kart's MCP tools to manage context budget when navigating code.
 | "How does this module work internally?" | `kart_zoom` level 1 | All symbols including non-exported |
 | "I need the full implementation" | `kart_zoom` level 2 or `read_file` | Full file content |
 | "What does this directory expose?" | `kart_zoom` on directory | Level-0 per file, no-export files omitted |
+| "Find a symbol by name" | `kart_find` | Fast oxc-parser scan, filter by kind/export |
+| "Search for a pattern" | `kart_search` | Ripgrep-backed, gitignore-aware |
+| "What files are in this dir?" | `kart_list` | Recursive, glob-filterable |
 | "What else changes when I touch this?" | `kart_cochange` | Behavioral coupling from git history |
-| "What breaks if I change this symbol?" | `kart_impact` | Transitive callers via LSP call hierarchy |
-| "What does this symbol depend on?" | `kart_deps` | Transitive callees via LSP call hierarchy |
+| "What breaks if I change this?" | `kart_impact` | Transitive callers via LSP |
+| "What does this depend on?" | `kart_deps` | Transitive callees via LSP |
+| "Replace a symbol definition" | `kart_replace` | AST-aware with syntax validation |
+| "Add code after/before a symbol" | `kart_insert_after` / `kart_insert_before` | Syntax-validated insertion |
 
 ## When to Use Each Level
 
@@ -46,25 +51,25 @@ digraph zoom_decision {
 2. If you need internals, escalate to level 1
 3. Only use level 2 when you need to read or modify the implementation
 
-### Before modifying a symbol
+### Before modifying a file
 
-1. `kart_impact` on the symbol — see what breaks (transitive callers)
-2. `kart_deps` on the symbol — see what it relies on (transitive callees)
-3. `kart_cochange` on the file — check behavioral coupling neighbors
-4. `kart_zoom` level 1 on the file — understand all symbols
-5. Review top co-change neighbors before committing — they may need coordinated changes
+1. `kart_cochange` on the file — check behavioral coupling neighbors
+2. `kart_zoom` level 1 on the file — understand all symbols
+3. Review top co-change neighbors before committing — they may need coordinated changes
 
 ### kart vs serena
 
 | serena | kart |
 |--------|------|
-| `find_symbol` — locate a symbol by name | `kart_zoom` — see a module's contract without knowing symbol names |
-| `find_referencing_symbols` — direct references | `kart_impact` / `kart_deps` — transitive callers / callees |
-| static import analysis | `kart_cochange` — behavioral coupling (files that change together) |
+| `find_symbol` — locate a symbol by name | `kart_find` — workspace-wide symbol search by name/kind/export |
+| `find_referencing_symbols` — direct references | `kart_impact` — transitive callers (blast radius) |
 | `get_symbols_overview` — flat symbol list | `kart_zoom` level 0 — exported symbols with signatures and doc comments |
 | `read_file` — full file content | `kart_zoom` level 2 — same content, structured response |
+| `search_for_pattern` — regex search | `kart_search` — ripgrep-backed text search |
+| `replace_symbol_body` — replace a symbol | `kart_replace` — replace with syntax validation + diagnostics |
+| `insert_after_symbol` / `insert_before_symbol` | `kart_insert_after` / `kart_insert_before` |
 
-Use serena when you know what you're looking for. Use kart when you're orienting.
+kart is TypeScript-focused and lightweight (oxc-parser + oxlint). serena is cross-language with full LSP integration. For TypeScript projects, kart provides equivalent functionality with lower overhead.
 
 ## Common Mistakes
 

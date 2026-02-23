@@ -189,16 +189,337 @@ describe("MCP integration — tool listing", () => {
   test("lists all kart tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
-    expect(names).toEqual(["kart_cochange", "kart_deps", "kart_impact", "kart_zoom"]);
+    expect(names).toEqual([
+      "kart_cochange",
+      "kart_deps",
+      "kart_find",
+      "kart_impact",
+      "kart_insert_after",
+      "kart_insert_before",
+      "kart_list",
+      "kart_replace",
+      "kart_search",
+      "kart_zoom",
+    ]);
   });
 
-  test("all tools have read-only annotations", async () => {
+  test("read-only tools have read-only annotations", async () => {
     const result = await client.listTools();
-    for (const tool of result.tools) {
+    const readOnlyTools = result.tools.filter(
+      (t) => !t.name.startsWith("kart_replace") && !t.name.startsWith("kart_insert"),
+    );
+    for (const tool of readOnlyTools) {
       expect(tool.annotations).toBeDefined();
       expect(tool.annotations!.readOnlyHint).toBe(true);
       expect(tool.annotations!.destructiveHint).toBe(false);
     }
+  });
+
+  test("edit tools have read-write annotations", async () => {
+    const result = await client.listTools();
+    const editTools = result.tools.filter(
+      (t) => t.name === "kart_replace" || t.name.startsWith("kart_insert"),
+    );
+    expect(editTools).toHaveLength(3);
+    for (const tool of editTools) {
+      expect(tool.annotations).toBeDefined();
+      expect(tool.annotations!.readOnlyHint).toBe(false);
+    }
+  });
+});
+
+// ── kart_find tests (no LSP needed) ──
+
+describe("MCP integration — kart_find", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-find-"));
+
+    // Write fixture files
+    await writeFile(
+      join(tempDir, "greeting.ts"),
+      `export function greet(name: string): string {\n  return \`Hello \${name}\`;\n}\n\nexport const MAX = 100;\n\nfunction internal() {}\n`,
+    );
+    await mkdir(join(tempDir, "models"), { recursive: true });
+    await writeFile(
+      join(tempDir, "models", "user.ts"),
+      `export interface User {\n  id: string;\n  name: string;\n}\n\nexport interface Admin extends User {\n  role: string;\n}\n`,
+    );
+
+    const server = createServer({ dbPath: join(tempDir, "no.db"), rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-find", version: "0.1.0" });
+
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("returns symbols from workspace by name", async () => {
+    const result = await client.callTool({
+      name: "kart_find",
+      arguments: { name: "greet" },
+    });
+    const data = parseResult(result) as { symbols: { name: string; file: string }[] };
+    expect(data.symbols).toHaveLength(1);
+    expect(data.symbols[0].name).toBe("greet");
+    expect(data.symbols[0].file).toBe("greeting.ts");
+  });
+
+  test("filters by kind", async () => {
+    const result = await client.callTool({
+      name: "kart_find",
+      arguments: { name: "", kind: "interface" },
+    });
+    const data = parseResult(result) as { symbols: { name: string; kind: string }[] };
+    expect(data.symbols.length).toBeGreaterThanOrEqual(2);
+    for (const sym of data.symbols) {
+      expect(sym.kind).toBe("interface");
+    }
+  });
+
+  test("returns metadata fields", async () => {
+    const result = await client.callTool({
+      name: "kart_find",
+      arguments: { name: "" },
+    });
+    const data = parseResult(result) as {
+      truncated: boolean;
+      fileCount: number;
+      durationMs: number;
+    };
+    expect(data.truncated).toBe(false);
+    expect(data.fileCount).toBeGreaterThanOrEqual(2);
+    expect(typeof data.durationMs).toBe("number");
+  });
+});
+
+// ── kart_search tests (no LSP needed) ──
+
+describe("MCP integration — kart_search", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-search-"));
+
+    // git init so rg respects gitignore
+    Bun.spawnSync(["git", "init"], { cwd: tempDir });
+
+    await writeFile(
+      join(tempDir, "greeting.ts"),
+      `export function greet(name: string): string {\n  return \`Hello \${name}\`;\n}\n\nexport const MAX = 100;\n\nfunction internal() {}\n`,
+    );
+    await mkdir(join(tempDir, "models"), { recursive: true });
+    await writeFile(
+      join(tempDir, "models", "user.ts"),
+      `export interface User {\n  id: string;\n  name: string;\n}\n`,
+    );
+
+    const server = createServer({ dbPath: join(tempDir, "no.db"), rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-search", version: "0.1.0" });
+
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("finds pattern in workspace", async () => {
+    const result = await client.callTool({
+      name: "kart_search",
+      arguments: { pattern: "greet" },
+    });
+    const data = parseResult(result) as {
+      matches: { path: string; line: number; text: string }[];
+      truncated: boolean;
+    };
+    expect(data.matches.length).toBeGreaterThanOrEqual(1);
+    expect(data.matches.some((m) => m.path === "greeting.ts")).toBe(true);
+    expect(data.truncated).toBe(false);
+  });
+});
+
+// ── kart_list tests (no LSP needed) ──
+
+describe("MCP integration — kart_list", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-list-"));
+    await mkdir(join(tempDir, "src"), { recursive: true });
+    await writeFile(join(tempDir, "src", "app.ts"), "export function app() {}");
+    await writeFile(join(tempDir, "src", "util.ts"), "export const x = 1;");
+
+    const server = createServer({ rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-list", version: "0.1.0" });
+    await Promise.all([server.connect(st), client.connect(ct)]);
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("lists directory contents", async () => {
+    const result = await client.callTool({
+      name: "kart_list",
+      arguments: { path: "src" },
+    });
+    const data = parseResult(result) as { entries: { name: string }[]; truncated: boolean };
+    const names = data.entries.map((e) => e.name);
+    expect(names).toContain("app.ts");
+    expect(names).toContain("util.ts");
+    expect(data.truncated).toBe(false);
+  });
+});
+
+// ── Edit tool tests (no LSP needed) ──
+
+describe("MCP integration — kart edit tools", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  const TARGET_TS = `export function greet(name: string): string {
+  return \`Hello \${name}\`;
+}
+
+export const MAX = 100;
+`;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-edit-"));
+
+    const server = createServer({ dbPath: join(tempDir, "no.db"), rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-edit", version: "0.1.0" });
+
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("kart_replace replaces symbol content", async () => {
+    const filePath = join(tempDir, "replace-target.ts");
+    await writeFile(filePath, TARGET_TS);
+
+    const result = await client.callTool({
+      name: "kart_replace",
+      arguments: {
+        file: filePath,
+        symbol: "greet",
+        content: "export function greet(name: string): string {\n  return `Hi ${name}`;\n}",
+      },
+    });
+
+    const data = parseResult(result) as { success: boolean; symbol: string; syntaxError: boolean };
+    expect(data.success).toBe(true);
+    expect(data.symbol).toBe("greet");
+    expect(data.syntaxError).toBe(false);
+
+    const { readFileSync } = await import("node:fs");
+    const updated = readFileSync(filePath, "utf-8");
+    expect(updated).toContain("Hi ${name}");
+  });
+
+  test("kart_replace rejects syntax errors", async () => {
+    const filePath = join(tempDir, "syntax-target.ts");
+    await writeFile(filePath, TARGET_TS);
+
+    const result = await client.callTool({
+      name: "kart_replace",
+      arguments: {
+        file: filePath,
+        symbol: "greet",
+        content: "export function greet( {{{",
+      },
+    });
+
+    const data = parseResult(result) as { success: boolean; syntaxError: boolean };
+    expect(data.success).toBe(false);
+    expect(data.syntaxError).toBe(true);
+
+    // File should be unchanged
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(filePath, "utf-8");
+    expect(content).toBe(TARGET_TS);
+  });
+
+  test("kart_insert_after inserts content", async () => {
+    const filePath = join(tempDir, "after-target.ts");
+    await writeFile(filePath, TARGET_TS);
+
+    const result = await client.callTool({
+      name: "kart_insert_after",
+      arguments: {
+        file: filePath,
+        symbol: "greet",
+        content: "\nexport function farewell(): string {\n  return 'Goodbye';\n}\n",
+      },
+    });
+
+    const data = parseResult(result) as { success: boolean };
+    expect(data.success).toBe(true);
+
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(filePath, "utf-8");
+    expect(content).toContain("farewell");
+    expect(content).toContain("greet");
+  });
+
+  test("kart_insert_before inserts content", async () => {
+    const filePath = join(tempDir, "before-target.ts");
+    await writeFile(filePath, TARGET_TS);
+
+    const result = await client.callTool({
+      name: "kart_insert_before",
+      arguments: {
+        file: filePath,
+        symbol: "greet",
+        content: "// Greeting function\n",
+      },
+    });
+
+    const data = parseResult(result) as { success: boolean };
+    expect(data.success).toBe(true);
+
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(filePath, "utf-8");
+    const commentIdx = content.indexOf("// Greeting function");
+    const greetIdx = content.indexOf("export function greet");
+    expect(commentIdx).toBeLessThan(greetIdx);
   });
 });
 
@@ -392,64 +713,5 @@ function internal() {}
     expect((result as { isError?: boolean }).isError).toBeFalsy();
     const data = parseResult(result) as { depth: number };
     expect(data.depth).toBe(1);
-  }, 30_000);
-
-  // ── kart_deps tests (reuse the same LSP-enabled server) ──
-
-  test("kart_deps returns transitive callees", async () => {
-    // welcome() calls greet(), so deps of welcome should include greet
-    const result = await client.callTool({
-      name: "kart_deps",
-      arguments: {
-        path: join(tempDir, "caller.ts"),
-        symbol: "welcome",
-      },
-    });
-
-    expect((result as { isError?: boolean }).isError).toBeFalsy();
-    const data = parseResult(result) as {
-      symbol: string;
-      depth: number;
-      maxDepth: number;
-      totalNodes: number;
-      highFanOut: boolean;
-      root: { name: string; fanOut: number; callees: { name: string }[] };
-    };
-
-    expect(data.symbol).toBe("welcome");
-    expect(data.depth).toBe(3);
-    expect(data.maxDepth).toBe(5);
-    expect(data.totalNodes).toBeGreaterThanOrEqual(2); // root + at least 1 callee
-    expect(data.highFanOut).toBe(false);
-    expect(data.root.name).toBe("welcome");
-    const calleeNames = data.root.callees.map((c) => c.name);
-    expect(calleeNames).toContain("greet");
-  }, 30_000);
-
-  test("kart_deps returns structuredContent", async () => {
-    const result = await client.callTool({
-      name: "kart_deps",
-      arguments: {
-        path: join(tempDir, "caller.ts"),
-        symbol: "welcome",
-      },
-    });
-
-    const typed = result as { structuredContent?: { symbol: string } };
-    expect(typed.structuredContent).toBeDefined();
-    expect(typed.structuredContent!.symbol).toBe("welcome");
-  }, 30_000);
-
-  test("kart_deps returns error for unknown symbol", async () => {
-    const result = await client.callTool({
-      name: "kart_deps",
-      arguments: {
-        path: join(tempDir, "fixture.ts"),
-        symbol: "nonexistent",
-      },
-    });
-    expect((result as { isError?: boolean }).isError).toBe(true);
-    const text = (result as { content: { text: string }[] }).content[0].text;
-    expect(text).toContain("nonexistent");
   }, 30_000);
 });

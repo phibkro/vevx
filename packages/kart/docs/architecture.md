@@ -2,22 +2,26 @@
 
 ## overview
 
-kart is an MCP server providing progressive code disclosure, behavioral coupling, and symbol neighborhood analysis. Four tools: `kart_zoom` (zoom levels on file/directory structure), `kart_cochange` (co-change neighbors from git history), `kart_impact` (blast radius of changing a symbol via LSP call hierarchy), and `kart_deps` (dependencies of a symbol via LSP call hierarchy).
+kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, and AST-aware editing. Ten tools across three categories:
+
+- **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps` — require `typescript-language-server`
+- **Stateless navigation**: `kart_find` (oxc-parser), `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite)
+- **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser for symbol location + syntax validation, oxlint for diagnostics
 
 ```
 MCP client ──stdio──▷ Mcp.ts (McpServer + ManagedRuntime)
                         │
-              ┌─────────┴──────────┐
-              ▼                    ▼
-        cochangeRuntime       zoomRuntime
-              │                    │
-        CochangeDb           SymbolIndex ─── pure/*
-        (bun:sqlite)              │
-                              LspClient
-                        (typescript-language-server)
+              ┌─────────┼──────────────────────┐
+              ▼         ▼                      ▼
+        cochangeRuntime  zoomRuntime       stateless tools
+              │              │           (find, search, list, edit)
+        CochangeDb    SymbolIndex               │
+        (bun:sqlite)      │              ┌──────┼──────┐
+                      LspClient        oxc-parser  ripgrep  oxlint
+                (typescript-language-server)
 ```
 
-Each tool has its own `ManagedRuntime` — LSP failure doesn't block cochange queries.
+LSP-backed tools share `zoomRuntime`. Cochange has its own `cochangeRuntime`. Stateless tools run without Effect runtime — direct async handlers.
 
 ## module structure
 
@@ -30,10 +34,16 @@ src/
     Errors.ts            — 3 Data.TaggedError types
     ExportDetection.ts   — isExported() pure text scanner
     Signatures.ts        — extractSignature, extractDocComment, findBodyOpenBrace, symbolKindName
+    OxcSymbols.ts        — parseSymbols() via oxc-parser — name, kind, exported, line, byte range
+    AstEdit.ts           — locateSymbol, validateSyntax, spliceReplace, spliceInsertAfter, spliceInsertBefore
   Lsp.ts                 — LspClient service, JsonRpcTransport, LspClientLive layer
   Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact + deps (BFS over call hierarchy)
   Cochange.ts            — CochangeDb service, SQL query, graceful degradation
-  Tools.ts               — kart_zoom + kart_cochange + kart_impact + kart_deps tool definitions
+  Find.ts                — findSymbols: workspace-wide symbol search via oxc-parser
+  Search.ts              — searchPattern: text search via ripgrep subprocess
+  List.ts                — listDirectory: recursive directory listing with glob
+  Editor.ts              — editReplace, editInsertAfter, editInsertBefore: AST-aware edit pipeline
+  Tools.ts               — 10 tool definitions (Zod schemas + Effect/async handlers)
   Mcp.ts                 — MCP server entrypoint, per-tool ManagedRuntime
   __fixtures__/          — test fixtures (exports.ts, other.ts, tsconfig.json)
 ```
@@ -87,8 +97,6 @@ Level-2 reads are capped at `MAX_LEVEL2_BYTES` (100KB). Files exceeding this ret
 
 **Impact analysis:** `impact(path, symbolName, maxDepth?)` computes the blast radius of changing a symbol. Uses `documentSymbol` to locate the target by name, `prepareCallHierarchy` to get a call hierarchy item, then BFS over `incomingCalls` up to `maxDepth` (default 3, hard cap `MAX_IMPACT_DEPTH` = 5). A `visited` set prevents cycles. Returns an `ImpactResult` tree with `totalNodes`, `highFanOut` flag (triggered when any node exceeds `HIGH_FAN_OUT_THRESHOLD` = 10 callers), and the caller tree rooted at the target symbol.
 
-**Dependency analysis:** `deps(path, symbolName, maxDepth?)` is the inverse of `impact` — BFS over `outgoingCalls` to find transitive callees. Same depth clamping, visited-set cycle prevention, and fan-out tracking. Returns a `DepsResult` tree with `callees` instead of `callers`. Together, `impact` + `deps` give a complete view of a symbol's neighborhood.
-
 ### CochangeDb (`src/Cochange.ts`)
 
 Read-only SQLite client for `.varp/cochange.db` (owned by kiste).
@@ -139,26 +147,6 @@ kart_impact({ path: "src/auth.ts", symbol: "validateToken", depth: 3 })
 
 **Latency profile:** ~350ms cold start (LSP initialization), then 3–5ms per `incomingCalls` hop. Depth-3 BFS on a 50-file codebase completes in <500ms total. No caching needed at current scale.
 
-### kart_deps request
-
-```
-kart_deps({ path: "src/auth.ts", symbol: "validateToken", depth: 3 })
-  │
-  ├─ resolve absolute path + workspace boundary check
-  ├─ check existence (FileNotFoundError if missing)
-  ├─ clamp depth to [1, MAX_IMPACT_DEPTH]
-  ├─ LspClient.documentSymbol(uri) → find symbol by name
-  │    └─ [not found] → FileNotFoundError
-  ├─ LspClient.prepareCallHierarchy(uri, line, char) → CallHierarchyItem[]
-  │    └─ [empty] → FileNotFoundError (call hierarchy unavailable)
-  └─ BFS: buildNode(rootItem, depth=0)
-       ├─ skip if visited (cycle prevention) or depth >= maxDepth
-       ├─ LspClient.outgoingCalls(item) → callees
-       ├─ track fanOut, set highFanOut if > HIGH_FAN_OUT_THRESHOLD
-       └─ recurse on each callee → DepsNode tree
-           → DepsResult { symbol, path, depth, maxDepth, totalNodes, highFanOut, root }
-```
-
 ### kart_cochange request
 
 ```
@@ -169,11 +157,56 @@ kart_cochange({ path: "src/auth.ts" })
   └─ [present] → open readonly → SQL query → ranked neighbors → close
 ```
 
+### kart_find request
+
+```
+kart_find({ name: "validate", kind: "function", exported: true })
+  │
+  ├─ collect .ts/.tsx files recursively (cap 2000, excludes node_modules/dist/build/.git/.varp)
+  ├─ parse each file with oxc-parser → parseSymbols()
+  ├─ filter by name substring, kind, exported status
+  └─ return FindResult { symbols[], truncated, fileCount, durationMs }
+```
+
+### kart_search request
+
+```
+kart_search({ pattern: "TODO", glob: "*.ts" })
+  │
+  ├─ Bun.spawn(["rg", "--json", pattern, ...flags])
+  ├─ parse JSON lines → extract matches (cap 100)
+  └─ return SearchResult { matches[], truncated, durationMs }
+```
+
+### kart_replace request
+
+```
+kart_replace({ file: "src/auth.ts", symbol: "validate", content: "function validate() { ... }" })
+  │
+  ├─ readFileSync(file)
+  ├─ locateSymbol(source, symbolName) via oxc-parser
+  │    └─ [not found] → error
+  ├─ validateSyntax(newContent) via oxc-parser
+  │    └─ [syntax error] → error with message
+  ├─ spliceReplace(source, range, content)
+  ├─ validateSyntax(fullFile) — check the whole file after splice
+  │    └─ [syntax error] → error, file NOT written
+  ├─ writeFileSync(file, result)
+  └─ runOxlint(file) → best-effort diagnostics
+      → EditResult { success, path, symbol, diagnostics[], syntaxError }
+```
+
 ## tool registration
 
-Zod schemas at the MCP boundary (tool inputs). Effect `Context.Tag` + `Layer` internally. Each tool definition in `Tools.ts` is a self-contained object with `name`, `description`, `inputSchema` (Zod), `annotations`, and `handler` (Effect generator).
+Zod schemas at the MCP boundary (tool inputs). Each tool definition in `Tools.ts` is a self-contained object with `name`, `description`, `inputSchema` (Zod), `annotations`, and `handler`.
 
-`Mcp.ts` registers tools individually with typed handlers. All responses include `structuredContent` for direct JSON access by callers. Effect errors are unwrapped via `errorMessage()` and become `{ isError: true, content: [{ text: "Error: ..." }] }`.
+Two handler patterns:
+- **Effect-based** (zoom, impact, deps, cochange): handlers return `Effect.gen` generators, run via `ManagedRuntime.runPromise`
+- **Stateless** (find, search, list, edit): handlers use `Effect.promise()` or `Effect.sync()` wrapping plain async/sync functions
+
+`Mcp.ts` registers tools individually. All responses include `structuredContent` for direct JSON access by callers. Effect errors are unwrapped via `errorMessage()` and become `{ isError: true, content: [{ text: "Error: ..." }] }`.
+
+Tool annotations: `READ_ONLY` for navigation tools, `READ_WRITE` for edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`).
 
 ## error model
 
@@ -190,48 +223,42 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-89 tests across 8 files, split into pure (coverage-gated) and integration:
+148 tests across 14 files, split into pure (coverage-gated) and integration:
 
-**Pure tests** (`src/pure/`, 31 tests, `test:pure` with `--coverage`):
+**Pure tests** (`src/pure/`, 52 tests, `test:pure` with `--coverage`):
 
 | file | tests | what |
 |------|-------|------|
 | `pure/ExportDetection.test.ts` | 12 | isExported text scanning against fixture |
-| `pure/Signatures.test.ts` | 19 | extractSignature, extractDocComment, symbolKindName edge cases |
+| `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
+| `pure/OxcSymbols.test.ts` | 14 | parseSymbols for all declaration kinds, exports, line numbers |
+| `pure/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations |
 
-**Integration tests** (`src/*.test.ts`, 58 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 96 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
 | `Lsp.test.ts` | 8 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
-| `Symbols.test.ts` | 16 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, impact, deps |
-| `Mcp.test.ts` | 19 | MCP integration via InMemoryTransport, cochange, zoom, impact, deps, structuredContent |
-| `call-hierarchy-spike.test.ts` | 9 | BFS latency measurement across kart + varp symbols |
+| `Symbols.test.ts` | 12 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap |
+| `Find.test.ts` | 9 | symbol search by name, kind, export status, truncation |
+| `Search.test.ts` | 6 | pattern search, glob filtering, path restriction |
+| `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |
+| `Editor.test.ts` | 6 | replace, insert after/before, syntax validation, symbol not found |
+| `Mcp.test.ts` | 26 | MCP integration via InMemoryTransport (all 10 tools) |
+| `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.
-
-**Coverage (all tests):**
-
-| module | functions | lines |
-|--------|-----------|-------|
-| pure/ExportDetection.ts | 100% | 100% |
-| pure/Signatures.ts | 100% | 100% |
-| Symbols.ts | 94% | 100% |
-| Cochange.ts | 80% | 100% |
-| Tools.ts | 100% | 100% |
-| Lsp.ts | 70% | 92% |
-| Mcp.ts | 88% | 89% |
-| **all files** | **79%** | **94%** |
 
 ## dependencies
 
 ```
 effect              — service layer (Context.Tag, Layer, ManagedRuntime, Data.TaggedError)
-@effect/platform    — (available, not heavily used in v0.1)
-@effect/platform-bun — (available, not heavily used in v0.1)
+@effect/platform    — (available, not heavily used)
+@effect/platform-bun — (available, not heavily used)
 @modelcontextprotocol/sdk — MCP server + InMemoryTransport for tests
+oxc-parser          — fast TS/TSX parsing for find + edit tools (symbol extraction, syntax validation)
 zod                 — tool input schemas
 bun:sqlite          — read-only cochange queries
 ```
