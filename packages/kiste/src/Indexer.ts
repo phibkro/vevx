@@ -1,4 +1,5 @@
 import * as SqlClient from "@effect/sql/SqlClient";
+import { Glob } from "bun";
 import { Effect } from "effect";
 
 import { Config } from "./Config.js";
@@ -100,6 +101,17 @@ const processCommits = (
   });
 
 // ---------------------------------------------------------------------------
+// Internal: isExcluded — check if a path matches any exclude glob
+// ---------------------------------------------------------------------------
+
+function isExcluded(filePath: string, excludeGlobs: readonly Glob[]): boolean {
+  for (const glob of excludeGlobs) {
+    if (glob.match(filePath)) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Internal: indexCommit
 // ---------------------------------------------------------------------------
 
@@ -113,6 +125,7 @@ const indexCommit = (
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const config = yield* Config;
+    const excludeGlobs = config.exclude.map((pattern) => new Glob(pattern));
 
     const conv = parseConventionalCommit(commit.subject);
     const tagOps = parseTagLine(commit.body);
@@ -134,9 +147,12 @@ const indexCommit = (
 
     // Track affected artifact IDs for tag materialization
     const affectedArtifactIds = new Set<number>();
+    let indexed = 0;
+    let deleted = 0;
 
     // Process added/modified files
     for (const filePath of commit.files) {
+      if (isExcluded(filePath, excludeGlobs)) continue;
       // Upsert artifact
       yield* sql
         .unsafe(`INSERT OR IGNORE INTO artifacts (path, alive) VALUES (?, 1)`, [filePath])
@@ -166,10 +182,12 @@ const indexCommit = (
       if (tagOps) {
         yield* insertTagOps(sql, artifactId, commit.sha, tagOps);
       }
+      indexed++;
     }
 
     // Process deleted files
     for (const filePath of commit.deletedFiles) {
+      if (isExcluded(filePath, excludeGlobs)) continue;
       // Ensure artifact exists
       yield* sql
         .unsafe(`INSERT OR IGNORE INTO artifacts (path, alive) VALUES (?, 0)`, [filePath])
@@ -193,6 +211,7 @@ const indexCommit = (
           commit.sha,
         ])
         .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+      deleted++;
     }
 
     // Materialize tags for all affected artifacts
@@ -200,10 +219,7 @@ const indexCommit = (
       yield* materializeTags(sql, artifactId, config);
     }
 
-    return {
-      indexed: commit.files.length,
-      deleted: commit.deletedFiles.length,
-    };
+    return { indexed, deleted };
   });
 
 // ---------------------------------------------------------------------------

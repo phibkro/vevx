@@ -35,11 +35,11 @@ function writeFile(cwd: string, relPath: string, content: string): void {
   writeFileSync(fullPath, content);
 }
 
-function makeLayer(cwd: string) {
+function makeLayer(cwd: string, configOverrides: Record<string, unknown> = {}) {
   const dbPath = join(cwd, ".kiste", "index.sqlite");
   Bun.spawnSync(["mkdir", "-p", join(cwd, ".kiste")], { cwd });
   return Layer.mergeAll(
-    Layer.succeed(Config, Schema.decodeUnknownSync(ConfigSchema)({})),
+    Layer.succeed(Config, Schema.decodeUnknownSync(ConfigSchema)(configOverrides)),
     SqliteClient.layer({ filename: dbPath }),
     GitLive,
   );
@@ -214,6 +214,65 @@ describe("Indexer", () => {
         }>`SELECT alive FROM artifacts WHERE path = ${"new-name.ts"}`;
         expect(renamed.length).toBe(1);
         expect(renamed[0].alive).toBe(1);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  test("excludes files matching exclude globs", async () => {
+    const cwd = makeTempDir();
+    dirs.push(cwd);
+    initRepo(cwd);
+    writeFile(cwd, "src/app.ts", "export const app = 1");
+    writeFile(cwd, "node_modules/foo/index.js", "module.exports = {}");
+    writeFile(cwd, "dist/bundle.js", "// bundled");
+    writeFile(cwd, "bun.lock", "lockfile content");
+    git(cwd, "add", ".");
+    git(cwd, "commit", "-m", "feat: initial with excluded files");
+
+    const layer = makeLayer(cwd);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* rebuildIndex(cwd);
+
+        const sql = yield* SqlClient.SqlClient;
+        const rows = yield* sql<{ path: string }>`SELECT path FROM artifacts`;
+        const paths = rows.map((r) => r.path);
+
+        expect(paths).toContain("src/app.ts");
+        expect(paths).not.toContain("node_modules/foo/index.js");
+        expect(paths).not.toContain("dist/bundle.js");
+        expect(paths).not.toContain("bun.lock");
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  test("custom exclude patterns override defaults", async () => {
+    const cwd = makeTempDir();
+    dirs.push(cwd);
+    initRepo(cwd);
+    writeFile(cwd, "src/app.ts", "export const app = 1");
+    writeFile(cwd, "generated/types.ts", "export type Foo = string");
+    writeFile(cwd, "node_modules/foo/index.js", "module.exports = {}");
+    git(cwd, "add", ".");
+    git(cwd, "commit", "-m", "feat: with custom excludes");
+
+    // Custom exclude replaces defaults — node_modules is no longer excluded
+    const layer = makeLayer(cwd, { exclude: ["generated/**"] });
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* initSchema;
+        yield* rebuildIndex(cwd);
+
+        const sql = yield* SqlClient.SqlClient;
+        const rows = yield* sql<{ path: string }>`SELECT path FROM artifacts`;
+        const paths = rows.map((r) => r.path);
+
+        expect(paths).toContain("src/app.ts");
+        expect(paths).toContain("node_modules/foo/index.js");
+        expect(paths).not.toContain("generated/types.ts");
       }).pipe(Effect.provide(layer)),
     );
   });

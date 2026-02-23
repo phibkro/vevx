@@ -190,10 +190,10 @@ describe("MCP Tools", () => {
   });
 
   test("kiste_list_artifacts excludes gitignored files by default", async () => {
-    // Add a gitignored file to the repo
-    writeFile(tmpDir, ".gitignore", "dist/\n");
-    writeFile(tmpDir, "dist/bundle.js", "// built output");
-    git(tmpDir, "add", "-f", "dist/bundle.js", ".gitignore");
+    // Add a gitignored file to the repo (use build/ which is gitignored but not in default exclude list)
+    writeFile(tmpDir, ".gitignore", "build/\n");
+    writeFile(tmpDir, "build/output.js", "// built output");
+    git(tmpDir, "add", "-f", "build/output.js", ".gitignore");
     git(tmpDir, "commit", "-m", "chore: add build output");
 
     // Recreate server with fresh DB connection to see reindexed data
@@ -220,7 +220,7 @@ describe("MCP Tools", () => {
     });
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
     const paths = parsed.artifacts.map((a: { path: string }) => a.path);
-    expect(paths).not.toContain("dist/bundle.js");
+    expect(paths).not.toContain("build/output.js");
     expect(paths).toContain("src/auth/login.ts");
 
     // With include_ignored: true
@@ -230,7 +230,7 @@ describe("MCP Tools", () => {
     });
     const parsed2 = JSON.parse((result2.content as Array<{ text: string }>)[0].text);
     const paths2 = parsed2.artifacts.map((a: { path: string }) => a.path);
-    expect(paths2).toContain("dist/bundle.js");
+    expect(paths2).toContain("build/output.js");
   });
 
   test("kiste_list_artifacts source_only filters to src/ paths", async () => {
