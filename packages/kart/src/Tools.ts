@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 
 import { CochangeDb } from "./Cochange.js";
+import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { findSymbols } from "./Find.js";
 import { listDirectory } from "./List.js";
 import { searchPattern } from "./Search.js";
@@ -14,6 +15,13 @@ const READ_ONLY: ToolAnnotations = {
   readOnlyHint: true,
   destructiveHint: false,
   idempotentHint: true,
+  openWorldHint: false,
+};
+
+const READ_WRITE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
   openWorldHint: false,
 };
 
@@ -148,6 +156,48 @@ export const kart_list = {
     Effect.sync(() => listDirectory(args)),
 } as const;
 
+export const kart_replace = {
+  name: "kart_replace",
+  description:
+    "Replace a symbol's full definition in a file. Validates syntax before writing. Returns inline diagnostics from oxlint.",
+  annotations: READ_WRITE,
+  inputSchema: {
+    file: z.string().describe("Absolute path to the file"),
+    symbol: z.string().describe("Name of the symbol to replace"),
+    content: z.string().describe("New content to replace the symbol with (must be valid syntax)"),
+  },
+  handler: (args: { file: string; symbol: string; content: string }) =>
+    Effect.promise(() => editReplace(args.file, args.symbol, args.content)),
+} as const;
+
+export const kart_insert_after = {
+  name: "kart_insert_after",
+  description:
+    "Insert content after a symbol's definition. Use to add new functions, types, or exports after an existing symbol.",
+  annotations: READ_WRITE,
+  inputSchema: {
+    file: z.string().describe("Absolute path to the file"),
+    symbol: z.string().describe("Name of the symbol to insert after"),
+    content: z.string().describe("Content to insert after the symbol"),
+  },
+  handler: (args: { file: string; symbol: string; content: string }) =>
+    Effect.promise(() => editInsertAfter(args.file, args.symbol, args.content)),
+} as const;
+
+export const kart_insert_before = {
+  name: "kart_insert_before",
+  description:
+    "Insert content before a symbol's definition. Use to add imports, comments, or declarations before an existing symbol.",
+  annotations: READ_WRITE,
+  inputSchema: {
+    file: z.string().describe("Absolute path to the file"),
+    symbol: z.string().describe("Name of the symbol to insert before"),
+    content: z.string().describe("Content to insert before the symbol"),
+  },
+  handler: (args: { file: string; symbol: string; content: string }) =>
+    Effect.promise(() => editInsertBefore(args.file, args.symbol, args.content)),
+} as const;
+
 export const tools = [
   kart_cochange,
   kart_zoom,
@@ -156,4 +206,7 @@ export const tools = [
   kart_find,
   kart_search,
   kart_list,
+  kart_replace,
+  kart_insert_after,
+  kart_insert_before,
 ] as const;

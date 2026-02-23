@@ -30,6 +30,7 @@ function errorMessage(e: unknown): string {
 }
 
 import { CochangeDbLive } from "./Cochange.js";
+import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { findSymbols, type FindArgs } from "./Find.js";
 import { listDirectory, type ListArgs } from "./List.js";
 import { LspClientLive } from "./Lsp.js";
@@ -40,7 +41,10 @@ import {
   kart_deps,
   kart_find,
   kart_impact,
+  kart_insert_after,
+  kart_insert_before,
   kart_list,
+  kart_replace,
   kart_search,
   kart_zoom,
 } from "./Tools.js";
@@ -236,6 +240,90 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const result = listDirectory({ ...(args as ListArgs), rootDir });
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_replace (stateless — no Effect runtime needed)
+  server.registerTool(
+    kart_replace.name,
+    {
+      description: kart_replace.description,
+      inputSchema: kart_replace.inputSchema,
+      annotations: kart_replace.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await editReplace(
+          (args as { file: string }).file,
+          (args as { symbol: string }).symbol,
+          (args as { content: string }).content,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_insert_after (stateless — no Effect runtime needed)
+  server.registerTool(
+    kart_insert_after.name,
+    {
+      description: kart_insert_after.description,
+      inputSchema: kart_insert_after.inputSchema,
+      annotations: kart_insert_after.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await editInsertAfter(
+          (args as { file: string }).file,
+          (args as { symbol: string }).symbol,
+          (args as { content: string }).content,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_insert_before (stateless — no Effect runtime needed)
+  server.registerTool(
+    kart_insert_before.name,
+    {
+      description: kart_insert_before.description,
+      inputSchema: kart_insert_before.inputSchema,
+      annotations: kart_insert_before.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await editInsertBefore(
+          (args as { file: string }).file,
+          (args as { symbol: string }).symbol,
+          (args as { content: string }).content,
+        );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as unknown as Record<string, unknown>,

@@ -194,18 +194,36 @@ describe("MCP integration — tool listing", () => {
       "kart_deps",
       "kart_find",
       "kart_impact",
+      "kart_insert_after",
+      "kart_insert_before",
       "kart_list",
+      "kart_replace",
       "kart_search",
       "kart_zoom",
     ]);
   });
 
-  test("all tools have read-only annotations", async () => {
+  test("read-only tools have read-only annotations", async () => {
     const result = await client.listTools();
-    for (const tool of result.tools) {
+    const readOnlyTools = result.tools.filter(
+      (t) => !t.name.startsWith("kart_replace") && !t.name.startsWith("kart_insert"),
+    );
+    for (const tool of readOnlyTools) {
       expect(tool.annotations).toBeDefined();
       expect(tool.annotations!.readOnlyHint).toBe(true);
       expect(tool.annotations!.destructiveHint).toBe(false);
+    }
+  });
+
+  test("edit tools have read-write annotations", async () => {
+    const result = await client.listTools();
+    const editTools = result.tools.filter(
+      (t) => t.name === "kart_replace" || t.name.startsWith("kart_insert"),
+    );
+    expect(editTools).toHaveLength(3);
+    for (const tool of editTools) {
+      expect(tool.annotations).toBeDefined();
+      expect(tool.annotations!.readOnlyHint).toBe(false);
     }
   });
 });
@@ -377,6 +395,131 @@ describe("MCP integration — kart_list", () => {
     expect(names).toContain("app.ts");
     expect(names).toContain("util.ts");
     expect(data.truncated).toBe(false);
+  });
+});
+
+// ── Edit tool tests (no LSP needed) ──
+
+describe("MCP integration — kart edit tools", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  const TARGET_TS = `export function greet(name: string): string {
+  return \`Hello \${name}\`;
+}
+
+export const MAX = 100;
+`;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-edit-"));
+
+    const server = createServer({ dbPath: join(tempDir, "no.db"), rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-edit", version: "0.1.0" });
+
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("kart_replace replaces symbol content", async () => {
+    const filePath = join(tempDir, "replace-target.ts");
+    await writeFile(filePath, TARGET_TS);
+
+    const result = await client.callTool({
+      name: "kart_replace",
+      arguments: {
+        file: filePath,
+        symbol: "greet",
+        content: "export function greet(name: string): string {\n  return `Hi ${name}`;\n}",
+      },
+    });
+
+    const data = parseResult(result) as { success: boolean; symbol: string; syntaxError: boolean };
+    expect(data.success).toBe(true);
+    expect(data.symbol).toBe("greet");
+    expect(data.syntaxError).toBe(false);
+
+    const { readFileSync } = await import("node:fs");
+    const updated = readFileSync(filePath, "utf-8");
+    expect(updated).toContain("Hi ${name}");
+  });
+
+  test("kart_replace rejects syntax errors", async () => {
+    const filePath = join(tempDir, "syntax-target.ts");
+    await writeFile(filePath, TARGET_TS);
+
+    const result = await client.callTool({
+      name: "kart_replace",
+      arguments: {
+        file: filePath,
+        symbol: "greet",
+        content: "export function greet( {{{",
+      },
+    });
+
+    const data = parseResult(result) as { success: boolean; syntaxError: boolean };
+    expect(data.success).toBe(false);
+    expect(data.syntaxError).toBe(true);
+
+    // File should be unchanged
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(filePath, "utf-8");
+    expect(content).toBe(TARGET_TS);
+  });
+
+  test("kart_insert_after inserts content", async () => {
+    const filePath = join(tempDir, "after-target.ts");
+    await writeFile(filePath, TARGET_TS);
+
+    const result = await client.callTool({
+      name: "kart_insert_after",
+      arguments: {
+        file: filePath,
+        symbol: "greet",
+        content: "\nexport function farewell(): string {\n  return 'Goodbye';\n}\n",
+      },
+    });
+
+    const data = parseResult(result) as { success: boolean };
+    expect(data.success).toBe(true);
+
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(filePath, "utf-8");
+    expect(content).toContain("farewell");
+    expect(content).toContain("greet");
+  });
+
+  test("kart_insert_before inserts content", async () => {
+    const filePath = join(tempDir, "before-target.ts");
+    await writeFile(filePath, TARGET_TS);
+
+    const result = await client.callTool({
+      name: "kart_insert_before",
+      arguments: {
+        file: filePath,
+        symbol: "greet",
+        content: "// Greeting function\n",
+      },
+    });
+
+    const data = parseResult(result) as { success: boolean };
+    expect(data.success).toBe(true);
+
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(filePath, "utf-8");
+    const commentIdx = content.indexOf("// Greeting function");
+    const greetIdx = content.indexOf("export function greet");
+    expect(commentIdx).toBeLessThan(greetIdx);
   });
 });
 
