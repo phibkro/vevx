@@ -1,5 +1,23 @@
 # @vevx/kart
 
+## 0.5.0
+
+### Minor Changes
+
+- 6195093: Add `kart_inlay_hints` tool — returns compiler-inferred type annotations and parameter names via LSP `textDocument/inlayHint`. Supports optional line range.
+
+  Add `format` parameter to `kart_replace`, `kart_insert_after`, `kart_insert_before` — auto-formats after edit with oxfmt (TS) or rustfmt (Rust). Graceful degradation when formatter unavailable.
+
+- 6195093: Add 5 new LSP-backed tools: `kart_definition`, `kart_type_definition`, `kart_implementation`, `kart_code_actions`, `kart_expand_macro`. Navigate to definitions, find implementations of interfaces/traits, get available code actions, and expand Rust macros.
+- 6195093: Add cargo clippy support to `kart_diagnostics`. Auto-routes by file extension: `.ts`/`.tsx` → oxlint, `.rs` → cargo clippy. Graceful degradation when either tool is unavailable.
+- 6195093: Add Rust file support for `kart_replace`, `kart_insert_after`, `kart_insert_before` via tree-sitter AST. Add LSP hover integration for `kart_zoom` — levels 0 and 1 now include `resolvedType` on each symbol with compiler-inferred types.
+- 4772119: Add Rust import graph support, workspace symbol search, and file watcher cache invalidation.
+
+  - **Rust imports**: `kart_imports` and `kart_importers` now support `.rs` files via tree-sitter `use` statement parsing with `crate::`/`self::`/`super::` path resolution
+  - **`kart_workspace_symbol`**: new tool — LSP `workspace/symbol` search across the entire workspace (24th tool)
+  - **Watch mode**: file watcher automatically evicts changed `.ts`/`.tsx`/`.rs` files from the symbol cache, so `kart_find` always returns fresh results
+  - **Inlay hints tests**: added test coverage for `inlayHints` and `workspaceSymbol` LSP methods
+
 ## 0.4.0
 
 ### Minor Changes

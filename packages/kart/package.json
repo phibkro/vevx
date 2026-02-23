@@ -1,6 +1,6 @@
 {
   "name": "@vevx/kart",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Progressive code disclosure and behavioral coupling analysis",
   "type": "module",
   "license": "MIT",
