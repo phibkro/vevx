@@ -169,7 +169,7 @@ The separation matters because each graph has different consumers and different 
 | Task    | `plan.xml`  | Medium (per feature)     | Orchestrator           | `varp_validate_plan`, hazard detection  |
 | Action  | Runtime     | Fast (per execution)     | Orchestrator internals | Postconditions, capability verification |
 
-The project graph constrains the task graph: `varp_validate_plan` checks that task `touches` reference components that exist and are reachable through `deps`. The task graph constrains the action graph: `varp_compute_waves` derives execution order from data hazards. Information flows down (project constrains task constrains action); feedback flows up (execution metrics inform planning which informs manifest evolution).
+The project graph constrains the task graph: `varp_validate_plan` checks that task `touches` reference components that exist and are reachable through `deps`. The task graph constrains the action graph: `varp_schedule` derives execution order from data hazards. Information flows down (project constrains task constrains action); feedback flows up (execution metrics inform planning which informs manifest evolution).
 
 This mirrors moonrepo's separation of project graph, task graph, and action graph — validated at scale in large monorepos. The key insight is that conflating these graphs (e.g., encoding execution order in the plan, or task-level detail in the manifest) creates coupling between layers that change at different rates.
 

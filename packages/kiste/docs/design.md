@@ -190,8 +190,8 @@ a read-only, stateless MCP server. tools operate over sqlite for metadata and gi
 
 **tools:**
 
-`list_artifacts(tags?, alive?, limit?, cursor?)` → `{path, tags, last_modified}[]`
-list artifacts, optionally filtered by tags. returns summaries only — no content. defaults to alive artifacts only.
+`list_artifacts(tags?, include_deleted?, include_ignored?, source_only?, limit?, offset?)` → `{path, tags, last_modified}[]`
+list artifacts, optionally filtered by tags. returns summaries only — no content. defaults to alive, non-gitignored artifacts. `source_only` restricts to files under `src/` directories. offset-based pagination.
 
 `get_artifact(path, ref?)` → `{path, content, tags, commits[]}`
 full artifact content (read from git at `ref`, default HEAD) plus commit history and current tags.
@@ -290,16 +290,16 @@ all fields are optional with sensible defaults. missing config file = all defaul
 ### phase 2 — co-change and extended commits
 - `get_cochange(path, limit?)` MCP tool — behavioral coupling from `artifact_commits` join
 - snapshot/checkpoint implementation (auto-trigger + on-demand)
-- post-commit hook for automatic incremental indexing
-- varp generates `tags:` lines from manifest component matching on agent commits
-- wire `exclude` config to indexer (currently parsed but unused)
-- wire `db_path` config to CLI (currently hardcoded)
+- ~~post-commit hook for automatic incremental indexing~~ ✅ done (plugin hook in `hooks/scripts/post-commit.sh`)
+- ~~varp generates `tags:` lines from manifest component matching on agent commits~~ ✅ done (varp's `tag-commits` hook)
+- ~~wire `exclude` config to indexer~~ ✅ done
+- ~~wire `db_path` config to CLI~~ ✅ done
 
 **done when:** `get_cochange` returns meaningful co-change pairs. explicit tags override folder-derived tags correctly. tag history is replayable. snapshots produce identical results to full reindex.
 
 ### phase 3 — varp integration
 - varp reads kiste index during planning (`varp_suggest_touches` enriched with co-change data)
-- session-start hook surfaces kiste summary alongside graph summary
+- ~~session-start hook surfaces kiste summary alongside graph summary~~ ✅ done (plugin hook in `hooks/scripts/session-start.sh`)
 - end-to-end test: multi-agent workflow with kiste providing context
 
 **done when:** varp sessions are demonstrably better with kiste than without.

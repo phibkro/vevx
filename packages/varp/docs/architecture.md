@@ -4,19 +4,19 @@ Implementation details for the Varp MCP server. For the public API surface, see 
 
 ## Module Map
 
-Components: `shared` (types, ownership), `server` (MCP wiring), `manifest/`, `plan/`, `scheduler/`, `enforcement/`, `analysis/`, `execution/` (domain tools), `skills/`, `hooks/`. Domain components depend on `shared` via `#shared/*` import alias. `server` depends on all domain components (hub pattern). Skills and hooks depend on manifest.
+Components: `shared` (types, ownership), `mcp` (MCP wiring), `manifest/`, `plan/`, `scheduler/`, `enforcement/`, `analysis/`, `execution/` (domain tools), `skills/`, `hooks/`. Domain components depend on `shared` via `#shared/*` import alias. `mcp` depends on all domain components (hub pattern). Skills and hooks depend on manifest.
 
 ```
 src/
-  index.ts                    MCP server — tool definitions + server startup (server)
-  lib.ts                      Library entry point — all types + functions (@varp/core/lib)
-  tool-registry.ts            ToolDef type + registerTools() helper (JSON + error wrapping) (server)
+  index.ts                    MCP server — tool definitions + server startup (mcp)
+  lib.ts                      Library entry point — all types + functions (@vevx/varp/lib)
+  tool-registry.ts            ToolDef type + registerTools() helper (JSON + error wrapping) (mcp)
   shared/
     types.ts                  Zod schemas -> TypeScript types (single source of truth)
     ownership.ts              findOwningComponent() — longest-prefix match
   manifest/
     discovery.ts              Auto-discover README.md + docs/*.md for components
-    imports.ts                Static import scanner — extract, resolve, cross-component dep inference (tsconfig path alias aware)
+    imports.ts                Static import scanner — extract, resolve, cross-component dep inference (tsconfig path alias aware, barrel re-export following)
     links.ts                  Markdown link scanner — extract, resolve, integrity + dep inference
     scoped-tests.ts           Find test files scoped to a touches declaration
     suggest-components.ts     Detect components via workspace, container, indicator, layer, and domain strategies
@@ -220,7 +220,7 @@ Tools are defined as `ToolDef` objects in `index.ts` — each with name, descrip
 
 Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manifestPath`, `touchesSchema`, `mutexesSchema`, `taskRefSchema`, `schedulableTaskSchema`) are defined once and reused across tool definitions. Scheduler and enforcement tools accept `TaskDefinition` objects (`{id, touches, mutexes?}`) rather than full `Task` schemas — reduces tool description token overhead.
 
-`varp_compute_waves` accepts inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
+`varp_schedule` accepts inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 
 ## Doc Discovery (`discovery.ts`)
 

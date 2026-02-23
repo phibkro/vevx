@@ -43,6 +43,7 @@ src/
     AstEdit.ts           — locateSymbol, validateSyntax, spliceReplace, spliceInsertAfter, spliceInsertBefore (TS + Rust dispatch)
     Resolve.ts           — loadTsconfigPaths, resolveAlias, resolveSpecifier, bunResolve (tsconfig path resolution)
     ImportGraph.ts       — extractFileImports, buildImportGraph, transitiveImporters (oxc AST import graph)
+    RustImports.ts       — extractRustFileImportsSync/Async, rustResolve (tree-sitter Rust use statement extraction + crate-relative path resolution)
   Lsp.ts                 — LspClient service, JsonRpcTransport, LspClientLive layer, LanguageServerConfig (TS/Rust)
   Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact, deps, references, rename, definition, typeDefinition, implementation, codeActions, expandMacro, inlayHints
   Cochange.ts            — CochangeDb service, SQL query, graceful degradation
@@ -52,7 +53,7 @@ src/
   Editor.ts              — editReplace, editInsertAfter, editInsertBefore: AST-aware edit pipeline with optional formatting (TS + Rust)
   Diagnostics.ts         — runDiagnostics: oxlint (TS) + cargo clippy (Rust), auto-routed by extension
   Imports.ts             — getImports, getImporters: import graph queries with barrel expansion
-  Tools.ts               — 23 tool definitions (Zod schemas + Effect/async handlers)
+  Tools.ts               — 24 tool definitions (Zod schemas + Effect/async handlers)
   Mcp.ts                 — MCP server entrypoint, per-tool ManagedRuntime
   __fixtures__/          — test fixtures (exports.ts, other.ts, tsconfig.json)
 ```
@@ -287,7 +288,8 @@ All error types defined in `src/pure/Errors.ts`.
 | `Diagnostics.test.ts` | 7 | oxlint + clippy integration, language routing, unavailable fallback, workspace boundary |
 | `Editor.test.ts` | 14 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths (TS + Rust) |
 | `Imports.test.ts` | 8 | getImports, getImporters, barrel expansion, workspace boundary |
-| `Mcp.test.ts` | 35 | MCP integration via InMemoryTransport (all 22 tools) |
+| `RustImports.test.ts` | 8 | tree-sitter Rust use extraction, crate-relative resolution, grouped imports |
+| `Mcp.test.ts` | 35 | MCP integration via InMemoryTransport (all 24 tools) |
 | `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.
