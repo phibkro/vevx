@@ -16,6 +16,9 @@
     "dist/",
     "README.md"
   ],
+  "exports": {
+    "./mcp": "./dist/Mcp.js"
+  },
   "bin": {
     "kiste": "./dist/Cli.js"
   },
