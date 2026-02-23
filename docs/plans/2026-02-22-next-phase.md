@@ -1,6 +1,7 @@
 # Next Phase Plan
 
 **Date:** 2026-02-22
+**Updated:** 2026-02-23
 **Status:** Ready for pickup by any agent
 
 ## Current State
@@ -9,10 +10,10 @@
 
 | Package | Version | Tests | Coverage | Plugin | Status |
 |---------|---------|-------|----------|--------|--------|
-| @vevx/varp | 0.1.0 | 481 pass | 96% lines | 6 skills, 4 hooks, MCP (14 tools) | Stable |
+| @vevx/varp | 0.1.0 | 498 pass | 96% lines | 6 skills, 4 hooks, MCP (23 tools) | Stable |
 | @vevx/audit | 0.1.0 | ~60 pass | ~80% lines | None | Experimental |
-| @vevx/kiste | 0.1.0 | 38 pass | 91% lines | 3 skills, 2 hooks, MCP (5 tools) | Experimental |
-| @vevx/kart | 0.2.0 | 56 pass | ~90% lines | 1 skill, 2 hooks, MCP (2 tools) | Experimental |
+| @vevx/kiste | 0.1.0 | 49 pass | 91% lines | 3 skills, 2 hooks, MCP (6 tools) | Experimental |
+| @vevx/kart | 0.6.0 | 298 pass | ~90% lines | 1 skill, 2 hooks, MCP (24 tools) | Experimental |
 
 ### Infrastructure
 
@@ -28,17 +29,11 @@
 - **Plugin cache keys on version** — Bump version in plugin.json for cache to pick up new files.
 - **PostToolUse hook pattern for post-commit** — `matcher: "Bash"`, script greps stdin for `git commit`.
 
-### Uncommitted State
-
-- `.gitignore` has `.kiste/` and `.kiste.yaml` additions (staged, not committed)
-- `docs/plans/2026-02-19-*` have unstaged formatting changes (historical, leave as-is)
-- `docs/plans/2026-02-22-kart-implementation.md` and `docs/plans/2026-02-22-kiste.md` are untracked historical plans
-
 ## Next Work
 
-### Priority 1: Commit Hygiene
+### ~~Priority 1: Commit Hygiene~~ ✅ Done
 
-Commit the `.gitignore` change and this plan doc. Clean up or gitignore the stale plan files.
+`.gitignore` committed in `46ed05c`. Plan docs clean.
 
 ### Priority 2: Audit Plugin
 
@@ -55,17 +50,15 @@ The audit package has no plugin structure. It's the most complex package (orches
 
 The three plugins (varp, kiste, kart) work independently but could compose:
 
-- **kiste + varp**: Kiste could index varp component boundaries. When you search kiste by tag, results could include which varp component owns the file. The `varp_suggest_touches` tool could use kiste's co-change data.
+- ~~**kiste + varp**: `varp_suggest_touches` uses kiste's co-change data.~~ ✅ Done — `readKisteCoChanges` reads `.kiste/index.sqlite` directly via `bun:sqlite` (no kiste dep). Remaining: kiste tag search enriched with varp component ownership.
 - **kart + kiste**: Kart's `kart_cochange` and kiste's provenance overlap. Consider whether kart's co-change DB should be replaced by kiste's, or kept separate (kart is file-level behavioral coupling, kiste is artifact-level semantic).
 - **Unified marketplace**: Currently varp's marketplace lists varp+kiste, kart has its own. Should consolidate to one repo-root marketplace listing all plugins.
 
-**Decision needed:** Is cross-plugin integration worth the coupling, or should they stay independent?
+**Decision needed:** Is further cross-plugin integration worth the coupling, or should they stay independent?
 
 ### Priority 4: Publishing Prep
 
-Not started. Deferred from prior session.
-
-- ~~Rename GitHub repo~~ Done — now `phibkro/vevx`
+- ~~Rename GitHub repo~~ ✅ Done — now `phibkro/vevx`
 - npm publish setup (scope `@vevx`, changesets publish workflow)
 - Per-package README polish for npm landing pages
 
@@ -74,6 +67,7 @@ Not started. Deferred from prior session.
 - **Write tool**: `kiste_tag` — let agents tag artifacts without going through git commits. Tradeoff: manual tags lack commit provenance.
 - **Richer tag derivation**: Current folder-derived tags are noisy (`.turbo`, `cache`, `__tests__`). Default exclusion list or smarter stop-tag config.
 - **Context skill testing**: `/kiste:context` was just created but not exercised end-to-end. Try it on a real task to validate the workflow.
+- **End-to-end kiste+varp test**: Phase 3 gate — demonstrate that varp sessions are measurably better with kiste indexed (see `packages/kiste/docs/design.md`).
 
 ### Priority 6: Kart Enhancements
 
@@ -86,5 +80,4 @@ Not started. Deferred from prior session.
 1. Run `turbo build && turbo test` to verify everything passes
 2. Read `CLAUDE.md` for conventions and architecture overview
 3. Read `packages/<pkg>/README.md` for per-package context
-4. Check `git status` — commit the `.gitignore` change first
-5. Pick a priority from above and go
+4. Pick a priority from above and go
