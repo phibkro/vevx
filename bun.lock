@@ -35,7 +35,7 @@
         "effect": "^3.19.0",
         "oxc-parser": "^0.114.0",
         "tree-sitter-wasms": "^0.1.13",
-        "web-tree-sitter": "^0.26.5",
+        "web-tree-sitter": "0.24.7",
         "zod": "^3.24.0",
       },
     },
@@ -706,7 +706,7 @@
 
     "vary": ["vary@1.1.2", "", {}, "sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg=="],
 
-    "web-tree-sitter": ["web-tree-sitter@0.26.5", "", {}, "sha512-u9sl+q21VSKX2T8dhpQw8bMGGqNfwaIyuoYE3kdOQGVDrOqrmcS9GmaQoCS602iaFnuokn3WCHW374c7GAnuaQ=="],
+    "web-tree-sitter": ["web-tree-sitter@0.24.7", "", {}, "sha512-CdC/TqVFbXqR+C51v38hv6wOPatKEUGxa39scAeFSm98wIhZxAYonhRQPSMmfZ2w7JDI0zQDdzdmgtNk06/krQ=="],
 
     "which": ["which@2.0.2", "", { "dependencies": { "isexe": "^2.0.0" }, "bin": { "node-which": "./bin/node-which" } }, "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA=="],
 

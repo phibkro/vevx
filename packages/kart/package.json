@@ -38,7 +38,7 @@
     "effect": "^3.19.0",
     "oxc-parser": "^0.114.0",
     "tree-sitter-wasms": "^0.1.13",
-    "web-tree-sitter": "^0.26.5",
+    "web-tree-sitter": "0.24.7",
     "zod": "^3.24.0"
   }
 }
