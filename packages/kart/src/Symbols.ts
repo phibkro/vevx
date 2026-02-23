@@ -561,14 +561,14 @@ function zoomDirectory(
 ): Effect.Effect<ZoomResult, LspError | LspTimeoutError | FileNotFoundError> {
   return Effect.gen(function* () {
     const entries = readdirSync(dirPath);
-    const tsFiles = entries
-      .filter((e) => e.endsWith(".ts") || e.endsWith(".tsx"))
-      .filter((e) => !e.endsWith(".test.ts") && !e.endsWith(".test.tsx"))
+    const sourceFiles = entries
+      .filter((e) => e.endsWith(".ts") || e.endsWith(".tsx") || e.endsWith(".rs"))
+      .filter((e) => !e.endsWith(".test.ts") && !e.endsWith(".test.tsx") && !e.endsWith("_test.rs"))
       .sort();
 
     const fileResults: ZoomResult[] = [];
 
-    for (const file of tsFiles) {
+    for (const file of sourceFiles) {
       const filePath = resolve(dirPath, file);
       const uri = `file://${filePath}`;
       const fileContent = readFileSync(filePath, "utf-8");
