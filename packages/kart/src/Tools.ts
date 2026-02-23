@@ -57,11 +57,15 @@ export const kart_zoom = {
       .max(2)
       .optional()
       .describe("Zoom level: 0 (exports), 1 (all symbols), 2 (full file). Default: 0"),
+    resolveTypes: z
+      .boolean()
+      .optional()
+      .describe("Resolve types via LSP hover. Default: true. Set false for faster scanning."),
   },
-  handler: (args: { path: string; level?: number }) =>
+  handler: (args: { path: string; level?: number; resolveTypes?: boolean }) =>
     Effect.gen(function* () {
       const idx = yield* SymbolIndex;
-      return yield* idx.zoom(args.path, (args.level ?? 0) as 0 | 1 | 2);
+      return yield* idx.zoom(args.path, (args.level ?? 0) as 0 | 1 | 2, args.resolveTypes);
     }),
 } as const;
 
@@ -195,6 +199,113 @@ export const kart_references = {
     }),
 } as const;
 
+export const kart_definition = {
+  name: "kart_definition",
+  description:
+    "Go to the definition of a symbol. Returns file paths and positions where the symbol is defined. Works across files via LSP.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the symbol"),
+    symbol: z.string().describe("Name of the symbol to find the definition of"),
+  },
+  handler: (args: { path: string; symbol: string }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.definition(args.path, args.symbol);
+    }),
+} as const;
+
+export const kart_type_definition = {
+  name: "kart_type_definition",
+  description:
+    "Go to the type definition of a symbol. Returns where the type of the symbol is defined. Useful for navigating through type aliases and inferred types.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the symbol"),
+    symbol: z.string().describe("Name of the symbol to find the type definition of"),
+  },
+  handler: (args: { path: string; symbol: string }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.typeDefinition(args.path, args.symbol);
+    }),
+} as const;
+
+export const kart_implementation = {
+  name: "kart_implementation",
+  description:
+    "Find implementations of an interface, trait, or abstract class. Returns file paths and positions of all concrete implementations.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the interface/trait"),
+    symbol: z.string().describe("Name of the interface, trait, or abstract class"),
+  },
+  handler: (args: { path: string; symbol: string }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.implementation(args.path, args.symbol);
+    }),
+} as const;
+
+export const kart_code_actions = {
+  name: "kart_code_actions",
+  description:
+    "Get available code actions (quick fixes, refactorings) at a symbol's position. Returns action titles and kinds without applying them.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the symbol"),
+    symbol: z.string().describe("Name of the symbol to get code actions for"),
+  },
+  handler: (args: { path: string; symbol: string }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.codeActions(args.path, args.symbol);
+    }),
+} as const;
+
+export const kart_expand_macro = {
+  name: "kart_expand_macro",
+  description:
+    "Expand a Rust macro at a symbol's position. Returns the expanded source code. Only works with Rust files via rust-analyzer.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the macro invocation (must be .rs)"),
+    symbol: z.string().describe("Name of the macro or symbol using the macro"),
+  },
+  handler: (args: { path: string; symbol: string }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.expandMacro(args.path, args.symbol);
+    }),
+} as const;
+
+export const kart_inlay_hints = {
+  name: "kart_inlay_hints",
+  description:
+    "Get inlay hints (inferred types, parameter names) for a file or range. Returns compiler-inferred type annotations that aren't written in source. Useful for understanding implicit types without reading implementation.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path to get inlay hints for"),
+    startLine: z
+      .number()
+      .optional()
+      .describe("Start line of range (0-indexed). Omit for whole file."),
+    endLine: z.number().optional().describe("End line of range (0-indexed). Omit for whole file."),
+  },
+  handler: (args: { path: string; startLine?: number; endLine?: number }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      const range =
+        args.startLine !== undefined && args.endLine !== undefined
+          ? {
+              start: { line: args.startLine, character: 0 },
+              end: { line: args.endLine, character: 0 },
+            }
+          : undefined;
+      return yield* idx.inlayHints(args.path, range);
+    }),
+} as const;
+
 export const kart_diagnostics = {
   name: "kart_diagnostics",
   description:
@@ -217,9 +328,13 @@ export const kart_replace = {
     file: z.string().describe("Absolute path to the file"),
     symbol: z.string().describe("Name of the symbol to replace"),
     content: z.string().describe("New content to replace the symbol with (must be valid syntax)"),
+    format: z
+      .boolean()
+      .optional()
+      .describe("Auto-format after edit with oxfmt (TS) or rustfmt (Rust). Default: false."),
   },
-  handler: (args: { file: string; symbol: string; content: string }) =>
-    Effect.promise(() => editReplace(args.file, args.symbol, args.content)),
+  handler: (args: { file: string; symbol: string; content: string; format?: boolean }) =>
+    Effect.promise(() => editReplace(args.file, args.symbol, args.content, undefined, args.format)),
 } as const;
 
 export const kart_insert_after = {
@@ -231,9 +346,15 @@ export const kart_insert_after = {
     file: z.string().describe("Absolute path to the file"),
     symbol: z.string().describe("Name of the symbol to insert after"),
     content: z.string().describe("Content to insert after the symbol"),
+    format: z
+      .boolean()
+      .optional()
+      .describe("Auto-format after edit with oxfmt (TS) or rustfmt (Rust). Default: false."),
   },
-  handler: (args: { file: string; symbol: string; content: string }) =>
-    Effect.promise(() => editInsertAfter(args.file, args.symbol, args.content)),
+  handler: (args: { file: string; symbol: string; content: string; format?: boolean }) =>
+    Effect.promise(() =>
+      editInsertAfter(args.file, args.symbol, args.content, undefined, args.format),
+    ),
 } as const;
 
 export const kart_insert_before = {
@@ -245,9 +366,15 @@ export const kart_insert_before = {
     file: z.string().describe("Absolute path to the file"),
     symbol: z.string().describe("Name of the symbol to insert before"),
     content: z.string().describe("Content to insert before the symbol"),
+    format: z
+      .boolean()
+      .optional()
+      .describe("Auto-format after edit with oxfmt (TS) or rustfmt (Rust). Default: false."),
   },
-  handler: (args: { file: string; symbol: string; content: string }) =>
-    Effect.promise(() => editInsertBefore(args.file, args.symbol, args.content)),
+  handler: (args: { file: string; symbol: string; content: string; format?: boolean }) =>
+    Effect.promise(() =>
+      editInsertBefore(args.file, args.symbol, args.content, undefined, args.format),
+    ),
 } as const;
 
 export const kart_imports = {
@@ -304,6 +431,12 @@ export const tools = [
   kart_list,
   kart_rename,
   kart_references,
+  kart_definition,
+  kart_type_definition,
+  kart_implementation,
+  kart_code_actions,
+  kart_expand_macro,
+  kart_inlay_hints,
   kart_diagnostics,
   kart_replace,
   kart_insert_after,

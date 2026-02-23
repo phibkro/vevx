@@ -2,12 +2,12 @@
 
 ## overview
 
-kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Seventeen tools across five categories:
+kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Twenty-three tools across five categories:
 
-- **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps`, `kart_references`, `kart_rename` — require `typescript-language-server` (TS) or `rust-analyzer` (Rust), routed by file extension
+- **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps`, `kart_references`, `kart_rename`, `kart_definition`, `kart_type_definition`, `kart_implementation`, `kart_code_actions`, `kart_expand_macro`, `kart_inlay_hints` — require `typescript-language-server` (TS) or `rust-analyzer` (Rust), routed by file extension
 - **Cached navigation**: `kart_find` (oxc-parser for TS, tree-sitter for Rust, mtime-cached symbols) — first call scans full workspace, subsequent calls near-instant
-- **Stateless navigation**: `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint), `kart_imports` (oxc-parser), `kart_importers` (oxc-parser), `kart_unused_exports` (oxc-parser)
-- **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser for symbol location + syntax validation, oxlint for diagnostics
+- **Stateless navigation**: `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint for TS, cargo clippy for Rust), `kart_imports` (oxc-parser), `kart_importers` (oxc-parser), `kart_unused_exports` (oxc-parser)
+- **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser (TS) / tree-sitter (Rust) for symbol location + syntax validation, optional post-edit formatting (oxfmt/rustfmt), oxlint for diagnostics
 - **Server lifecycle**: `kart_restart` — disposes all LSP runtimes (TS + Rust) + clears symbol cache
 
 ```
@@ -32,25 +32,25 @@ Code is split into `src/pure/` (deterministic, no IO) and `src/` (effectful serv
 ```
 src/
   pure/
-    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult
+    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult, DefinitionResult, TypeDefinitionResult, ImplementationResult, CodeActionsResult, ExpandMacroResult, InlayHint, InlayHintsResult
     Errors.ts            — 3 Data.TaggedError types
     ExportDetection.ts   — isExported() pure text scanner
     Signatures.ts        — extractSignature, extractDocComment, findBodyOpenBrace, symbolKindName
     OxcSymbols.ts        — parseSymbols() via oxc-parser — name, kind, exported, line, byte range
     RustSymbols.ts       — parseRustSymbols() via tree-sitter — same OxcSymbol shape for Rust
-    AstEdit.ts           — locateSymbol, validateSyntax, spliceReplace, spliceInsertAfter, spliceInsertBefore
+    AstEdit.ts           — locateSymbol, validateSyntax, spliceReplace, spliceInsertAfter, spliceInsertBefore (TS + Rust dispatch)
     Resolve.ts           — loadTsconfigPaths, resolveAlias, resolveSpecifier, bunResolve (tsconfig path resolution)
     ImportGraph.ts       — extractFileImports, buildImportGraph, transitiveImporters (oxc AST import graph)
   Lsp.ts                 — LspClient service, JsonRpcTransport, LspClientLive layer, LanguageServerConfig (TS/Rust)
-  Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact, deps, references, rename
+  Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact, deps, references, rename, definition, typeDefinition, implementation, codeActions, expandMacro, inlayHints
   Cochange.ts            — CochangeDb service, SQL query, graceful degradation
   Find.ts                — findSymbols: workspace-wide symbol search via oxc-parser (TS) / tree-sitter (Rust)
   Search.ts              — searchPattern: text search via ripgrep subprocess
   List.ts                — listDirectory: recursive directory listing with glob
-  Editor.ts              — editReplace, editInsertAfter, editInsertBefore: AST-aware edit pipeline
-  Diagnostics.ts         — runDiagnostics: oxlint --type-aware with graceful degradation
+  Editor.ts              — editReplace, editInsertAfter, editInsertBefore: AST-aware edit pipeline with optional formatting (TS + Rust)
+  Diagnostics.ts         — runDiagnostics: oxlint (TS) + cargo clippy (Rust), auto-routed by extension
   Imports.ts             — getImports, getImporters: import graph queries with barrel expansion
-  Tools.ts               — 17 tool definitions (Zod schemas + Effect/async handlers)
+  Tools.ts               — 23 tool definitions (Zod schemas + Effect/async handlers)
   Mcp.ts                 — MCP server entrypoint, per-tool ManagedRuntime
   __fixtures__/          — test fixtures (exports.ts, other.ts, tsconfig.json)
 ```
@@ -78,6 +78,12 @@ Manages a persistent language server process over JSON-RPC/stdio. Parameterized 
 - `outgoingCalls(item)` — callees of a call hierarchy item
 - `references(uri, line, character, includeDeclaration?)` — all references to a symbol
 - `rename(uri, line, character, newName)` — workspace edit for renaming a symbol
+- `definition(uri, line, character)` — go to definition (Location | LocationLink normalization)
+- `typeDefinition(uri, line, character)` — go to type definition
+- `implementation(uri, line, character)` — find implementations of interface/trait
+- `codeAction(uri, range)` — available code actions at a range
+- `expandMacro(uri, line, character)` — expand Rust macro (rust-analyzer extension)
+- `inlayHints(uri, range)` — inferred type annotations and parameter names for a range
 - `shutdown()` — explicit early termination (sets flag to prevent duplicate cleanup in finalizer)
 
 **File watching:** A recursive `fs.watch` on the workspace root monitors extensions and filenames from `LanguageServerConfig` (e.g. `*.ts`/`*.tsx`/`tsconfig.json` for TS, `*.rs`/`Cargo.toml` for Rust). On change, sends `workspace/didChangeWatchedFiles` to the LS. Watcher errors (e.g. EMFILE) are silently ignored — stale state is an acceptable fallback.
@@ -89,6 +95,8 @@ Depends on `LspClient`. Transforms raw LSP responses into structured zoom result
 - **Signature extraction** via `extractSignature` from `pure/Signatures.ts`
 - **Doc comment extraction** via `extractDocComment` from `pure/Signatures.ts`
 - **Export detection** via `isExported` from `pure/ExportDetection.ts`
+
+**Inlay Hints:** `inlayHints(path, range?)` returns compiler-inferred type hints and parameter names for a file or range via LSP `textDocument/inlayHint`. Defaults to the full file when range is omitted.
 
 **Factory:** `SymbolIndexLive(config?: { rootDir?: string })` returns a `Layer<SymbolIndex, never, LspClient>`. The `rootDir` parameter (defaults to `process.cwd()`) defines the workspace boundary — all path requests are validated against it. Paths outside the boundary yield `FileNotFoundError`.
 
@@ -110,6 +118,12 @@ Level-2 reads are capped at `MAX_LEVEL2_BYTES` (100KB). Files exceeding this ret
 
 **Rename:** `rename(path, symbolName, newName)` performs reference-aware rename via LSP `textDocument/rename`. Applies the returned `WorkspaceEdit` (text edits per file, applied bottom-up to preserve offsets), validates workspace boundaries for each affected file, and notifies the LSP of changes. Returns `RenameResult` with list of modified files and total edit count.
 
+**Definition / TypeDefinition / Implementation:** Same pattern as references — `findSymbolByName` → `selectionRange` position → LSP request → normalize `Location | LocationLink` responses (handles both `uri`/`range` and `targetUri`/`targetSelectionRange`).
+
+**Code Actions:** `codeActions(path, symbolName)` returns available quick fixes and refactorings at a symbol's position. Read-only — returns titles and kinds without applying.
+
+**Expand Macro:** `expandMacro(path, symbolName)` calls `rust-analyzer/expandMacro` to expand a Rust macro. Returns `{ name, expansion }` or empty expansion when the symbol isn't a macro.
+
 ### CochangeDb (`src/Cochange.ts`)
 
 Read-only SQLite client for `.varp/cochange.db` (owned by kiste).
@@ -123,19 +137,20 @@ Read-only SQLite client for `.varp/cochange.db` (owned by kiste).
 ### kart_zoom request
 
 ```
-kart_zoom({ path: "src/auth.ts", level: 0 })
+kart_zoom({ path: "src/auth.ts", level: 0, resolveTypes: true })
   │
   ├─ resolve absolute path
   ├─ check existence (FileNotFoundError if missing)
   ├─ stat: file or directory?
   │
-  ├─ [directory] → iterate .ts files → level-0 per file → omit no-export files
-  ├─ [file, level 2] → readFileSync → return full content
+  ├─ [directory] → iterate .ts files → level-0 per file → omit no-export files → enrich with hover
+  ├─ [file, level 2] → readFileSync → return full content (no hover)
   └─ [file, level 0/1] →
        ├─ LspClient.documentSymbol(uri) → DocumentSymbol[]
        ├─ readFileSync → lines
        ├─ toZoomSymbol: extractSignature + extractDocComment + isExported (pure/)
-       └─ [level 0] → filter to exported only
+       ├─ [level 0] → filter to exported only
+       └─ [resolveTypes] → batch LspClient.hover() per symbol → zip resolvedType onto ZoomSymbol
 ```
 
 ### kart_impact request
@@ -199,17 +214,19 @@ kart_search({ pattern: "TODO", glob: "*.ts" })
 ```
 kart_replace({ file: "src/auth.ts", symbol: "validate", content: "function validate() { ... }" })
   │
+  ├─ [.rs file] → initRustParser() if not ready
   ├─ readFileSync(file)
-  ├─ locateSymbol(source, symbolName) via oxc-parser
+  ├─ locateSymbol(source, symbolName) via oxc-parser (TS) or tree-sitter (Rust)
   │    └─ [not found] → error
-  ├─ validateSyntax(newContent) via oxc-parser
+  ├─ validateSyntax(newContent) via oxc-parser (TS) or tree-sitter hasError (Rust)
   │    └─ [syntax error] → error with message
   ├─ spliceReplace(source, range, content)
   ├─ validateSyntax(fullFile) — check the whole file after splice
   │    └─ [syntax error] → error, file NOT written
   ├─ writeFileSync(file, result)
+  ├─ [format: true] → formatFile(file) → oxfmt (TS) or rustfmt (Rust)
   └─ runOxlint(file) → best-effort diagnostics
-      → EditResult { success, path, symbol, diagnostics[], syntaxError }
+      → EditResult { success, path, symbol, diagnostics[], syntaxError, formatted?, formattingError? }
 ```
 
 ## tool registration
@@ -240,9 +257,9 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-239 tests across 20 files, split into pure (coverage-gated) and integration:
+267 tests across 19 files, split into pure (coverage-gated) and integration:
 
-**Pure tests** (`src/pure/`, 110 tests, `test:pure` with `--coverage`, 100% function / 99% line):
+**Pure tests** (`src/pure/`, 117 tests, `test:pure` with `--coverage`, 100% function / 99% line):
 
 | file | tests | what |
 |------|-------|------|
@@ -250,25 +267,25 @@ All error types defined in `src/pure/Errors.ts`.
 | `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
 | `pure/OxcSymbols.test.ts` | 14 | parseSymbols for all TS declaration kinds, exports, line numbers |
 | `pure/RustSymbols.test.ts` | 7 | parseRustSymbols — all Rust declaration kinds, pub detection, impl naming |
-| `pure/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations |
+| `pure/AstEdit.test.ts` | 21 | locateSymbol, validateSyntax, splice operations (TS + Rust) |
 | `pure/Resolve.test.ts` | 15 | loadTsconfigPaths, resolveAlias, resolveSpecifier, extends chain, node_modules, edge cases |
 | `pure/ImportGraph.test.ts` | 19 | extractFileImports, buildImportGraph, transitiveImporters, barrel expansion, local re-exports, default exports |
 
-**Integration tests** (`src/*.test.ts`, 129 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 150 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
-| `Lsp.test.ts` | 8 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, shutdown |
+| `Lsp.test.ts` | 14 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, outgoingCalls, hover, definition (same-file + cross-file), typeDefinition, implementation, codeAction, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
-| `Symbols.test.ts` | 22 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS, references, rename |
+| `Symbols.test.ts` | 27 | zoom levels, directory zoom, resolved types, resolveTypes opt-out, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS, references, rename |
 | `Find.test.ts` | 18 | symbol search by name/kind/export (TS + Rust), mtime cache, target/ exclusion |
 | `Search.test.ts` | 7 | pattern search, glob filtering, path restriction, workspace boundary |
 | `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |
-| `Diagnostics.test.ts` | 5 | oxlint integration, unavailable fallback, workspace boundary |
-| `Editor.test.ts` | 10 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths |
+| `Diagnostics.test.ts` | 7 | oxlint + clippy integration, language routing, unavailable fallback, workspace boundary |
+| `Editor.test.ts` | 14 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths (TS + Rust) |
 | `Imports.test.ts` | 8 | getImports, getImporters, barrel expansion, workspace boundary |
-| `Mcp.test.ts` | 31 | MCP integration via InMemoryTransport (all 17 tools) |
+| `Mcp.test.ts` | 35 | MCP integration via InMemoryTransport (all 22 tools) |
 | `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.

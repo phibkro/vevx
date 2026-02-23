@@ -91,6 +91,16 @@ export function parseRustSymbols(source: string, _filename: string): OxcSymbol[]
   return symbols;
 }
 
+// ── Validation ──
+
+/** Validate Rust syntax. Returns null if valid, error message if invalid. */
+export function validateRustSyntax(source: string): string | null {
+  if (!rustParser) return null;
+  const tree = rustParser.parse(source);
+  if (tree.rootNode.hasError) return "Rust syntax error detected";
+  return null;
+}
+
 // ── Helpers ──
 
 function extractName(node: Parser.SyntaxNode): string | null {

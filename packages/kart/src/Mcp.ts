@@ -51,10 +51,15 @@ import { initRustParser } from "./pure/RustSymbols.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
 import { SymbolIndexLive } from "./Symbols.js";
 import {
+  kart_code_actions,
   kart_cochange,
+  kart_definition,
   kart_deps,
   kart_diagnostics,
+  kart_expand_macro,
   kart_find,
+  kart_implementation,
+  kart_inlay_hints,
   kart_references,
   kart_rename,
   kart_impact,
@@ -66,6 +71,7 @@ import {
   kart_replace,
   kart_search,
   kart_restart,
+  kart_type_definition,
   kart_unused_exports,
   kart_zoom,
 } from "./Tools.js";
@@ -158,7 +164,7 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
-        const typedArgs = args as { path: string; level?: number };
+        const typedArgs = args as { path: string; level?: number; resolveTypes?: boolean };
         const result = await runtimeFor(typedArgs.path).runPromise(
           kart_zoom.handler(typedArgs) as Effect.Effect<unknown>,
         );
@@ -215,6 +221,180 @@ function createServer(config: ServerConfig = {}): McpServer {
         const typedArgs = args as { path: string; symbol: string; includeDeclaration?: boolean };
         const result = await runtimeFor(typedArgs.path).runPromise(
           kart_references.handler(typedArgs) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_definition (LSP-backed)
+  server.registerTool(
+    kart_definition.name,
+    {
+      description: kart_definition.description,
+      inputSchema: kart_definition.inputSchema,
+      annotations: kart_definition.annotations,
+    },
+    async (args) => {
+      try {
+        const typedArgs = args as { path: string; symbol: string };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_definition.handler(typedArgs) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_type_definition (LSP-backed)
+  server.registerTool(
+    kart_type_definition.name,
+    {
+      description: kart_type_definition.description,
+      inputSchema: kart_type_definition.inputSchema,
+      annotations: kart_type_definition.annotations,
+    },
+    async (args) => {
+      try {
+        const typedArgs = args as { path: string; symbol: string };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_type_definition.handler(typedArgs) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_implementation (LSP-backed)
+  server.registerTool(
+    kart_implementation.name,
+    {
+      description: kart_implementation.description,
+      inputSchema: kart_implementation.inputSchema,
+      annotations: kart_implementation.annotations,
+    },
+    async (args) => {
+      try {
+        const typedArgs = args as { path: string; symbol: string };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_implementation.handler(typedArgs) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_code_actions (LSP-backed)
+  server.registerTool(
+    kart_code_actions.name,
+    {
+      description: kart_code_actions.description,
+      inputSchema: kart_code_actions.inputSchema,
+      annotations: kart_code_actions.annotations,
+    },
+    async (args) => {
+      try {
+        const typedArgs = args as { path: string; symbol: string };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_code_actions.handler(typedArgs) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_expand_macro (Rust only, LSP-backed)
+  server.registerTool(
+    kart_expand_macro.name,
+    {
+      description: kart_expand_macro.description,
+      inputSchema: kart_expand_macro.inputSchema,
+      annotations: kart_expand_macro.annotations,
+    },
+    async (args) => {
+      const typedArgs = args as { path: string; symbol: string };
+      if (!typedArgs.path.endsWith(".rs")) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Error: kart_expand_macro only works with Rust files (.rs)",
+            },
+          ],
+          isError: true,
+        };
+      }
+      try {
+        rustRuntime ??= makeRustRuntime();
+        const result = await rustRuntime.runPromise(
+          kart_expand_macro.handler(typedArgs) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_inlay_hints (LSP-backed)
+  server.registerTool(
+    kart_inlay_hints.name,
+    {
+      description: kart_inlay_hints.description,
+      inputSchema: kart_inlay_hints.inputSchema,
+      annotations: kart_inlay_hints.annotations,
+    },
+    async (args) => {
+      try {
+        const typedArgs = args as { path: string; startLine?: number; endLine?: number };
+        const result = await runtimeFor(typedArgs.path).runPromise(
+          kart_inlay_hints.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -389,11 +569,18 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
+        const typedArgs = args as {
+          file: string;
+          symbol: string;
+          content: string;
+          format?: boolean;
+        };
         const result = await editReplace(
-          (args as { file: string }).file,
-          (args as { symbol: string }).symbol,
-          (args as { content: string }).content,
+          typedArgs.file,
+          typedArgs.symbol,
+          typedArgs.content,
           rootDir,
+          typedArgs.format,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -418,11 +605,18 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
+        const typedArgs = args as {
+          file: string;
+          symbol: string;
+          content: string;
+          format?: boolean;
+        };
         const result = await editInsertAfter(
-          (args as { file: string }).file,
-          (args as { symbol: string }).symbol,
-          (args as { content: string }).content,
+          typedArgs.file,
+          typedArgs.symbol,
+          typedArgs.content,
           rootDir,
+          typedArgs.format,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -447,11 +641,18 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
+        const typedArgs = args as {
+          file: string;
+          symbol: string;
+          content: string;
+          format?: boolean;
+        };
         const result = await editInsertBefore(
-          (args as { file: string }).file,
-          (args as { symbol: string }).symbol,
-          (args as { content: string }).content,
+          typedArgs.file,
+          typedArgs.symbol,
+          typedArgs.content,
           rootDir,
+          typedArgs.format,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],

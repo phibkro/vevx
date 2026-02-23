@@ -1,6 +1,6 @@
 # ADR-006: Kart Multi-Language Support
 
-**Status:** Proposed
+**Status:** Accepted (Phase 1 implemented)
 **Date:** 2026-02-23
 **Deciders:** @phibkro
 

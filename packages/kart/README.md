@@ -27,7 +27,7 @@ Or install via the vevx marketplace:
 
 | Entry | Build output | Purpose |
 |---|---|---|
-| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 17 tools) |
+| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 23 tools) |
 
 ## MCP Tools
 
@@ -42,8 +42,14 @@ Or install via the vevx marketplace:
 | `kart_find` | Search for symbols across the workspace by name, kind, or export status |
 | `kart_search` | Text pattern search via ripgrep (gitignore-aware) |
 | `kart_list` | List files and directories with recursive and glob support |
-| `kart_diagnostics` | Lint violations + type errors via oxlint `--type-aware` |
+| `kart_diagnostics` | Lint violations + type errors via oxlint (TS) / cargo clippy (Rust) |
 | `kart_references` | Cross-file references for a symbol via LSP |
+| `kart_definition` | Go to definition of a symbol via LSP |
+| `kart_type_definition` | Go to type definition of a symbol via LSP |
+| `kart_implementation` | Find implementations of an interface/trait via LSP |
+| `kart_code_actions` | Available code actions at a symbol's position via LSP |
+| `kart_expand_macro` | Expand a Rust macro via rust-analyzer |
+| `kart_inlay_hints` | Inferred types and parameter names for a file or range via LSP |
 | `kart_imports` | File import list with resolved paths and symbol names |
 | `kart_importers` | Reverse import lookup with barrel file expansion |
 
@@ -51,22 +57,24 @@ Or install via the vevx marketplace:
 
 | Tool | Purpose |
 |---|---|
-| `kart_replace` | Replace a symbol's full definition with syntax validation + oxlint diagnostics |
-| `kart_insert_after` | Insert content after a symbol's definition |
-| `kart_insert_before` | Insert content before a symbol's definition |
+| `kart_replace` | Replace a symbol's full definition with syntax validation + oxlint diagnostics (TS + Rust). Optional `format` param. |
+| `kart_insert_after` | Insert content after a symbol's definition (TS + Rust). Optional `format` param. |
+| `kart_insert_before` | Insert content before a symbol's definition (TS + Rust). Optional `format` param. |
 | `kart_rename` | Reference-aware rename across workspace via LSP |
 
 ### kart_zoom
 
 ```
-kart_zoom(path, level?)
+kart_zoom(path, level?, resolveTypes?)
 ```
 
 | Level | Content | When to use |
 |-------|---------|-------------|
-| 0 (default) | Exported symbols + signatures + doc comments | "What does this module expose?" |
-| 1 | All symbols + signatures + doc comments | "How does this module work?" |
+| 0 (default) | Exported symbols + signatures + doc comments + resolved types | "What does this module expose?" |
+| 1 | All symbols + signatures + doc comments + resolved types | "How does this module work?" |
 | 2 | Full file content (capped at 100KB) | "I need to read the implementation" |
+
+Levels 0 and 1 include `resolvedType` on each symbol — the LSP-resolved type from hover (e.g. inferred return types, expanded type aliases). Set `resolveTypes: false` to skip hover calls for faster scanning.
 
 When `path` is a directory, returns level-0 for each `.ts`/`.tsx`/`.rs` file. Files with no exports are omitted.
 
@@ -131,19 +139,21 @@ Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. D
 ### kart_replace
 
 ```
-kart_replace(file, symbol, content)
+kart_replace(file, symbol, content, format?)
 ```
 
-Replaces a symbol's full definition. Pipeline: read → locate (oxc-parser) → validate new content syntax → splice → validate full file → write → oxlint (best effort). Returns `EditResult` with inline diagnostics.
+Replaces a symbol's full definition. Pipeline: read → locate → validate new content syntax → splice → validate full file → write → format (if requested) → oxlint (best effort). Uses oxc-parser for TS/TSX and tree-sitter for Rust. Returns `EditResult` with inline diagnostics.
+
+Set `format: true` to auto-format after edit with `oxfmt` (TS) or `rustfmt` (Rust). Returns `formatted: boolean` and `formattingError` if formatting fails.
 
 ### kart_insert_after / kart_insert_before
 
 ```
-kart_insert_after(file, symbol, content)
-kart_insert_before(file, symbol, content)
+kart_insert_after(file, symbol, content, format?)
+kart_insert_before(file, symbol, content, format?)
 ```
 
-Insert content after or before a symbol's definition. Same pipeline as `kart_replace` (skip content-level syntax check since inserts may be partial).
+Insert content after or before a symbol's definition. Same pipeline as `kart_replace` (skip content-level syntax check since inserts may be partial). Works with both TS/TSX and Rust files. Supports `format` param.
 
 ### kart_rename
 
@@ -159,7 +169,7 @@ Reference-aware rename via LSP `textDocument/rename`. Applies edits bottom-up to
 kart_diagnostics(paths)
 ```
 
-Runs `oxlint --type-aware --format json` on the given paths. Returns structured diagnostics. If oxlint/tsgolint is unavailable, returns `{ oxlintAvailable: false }`.
+Auto-routes by file extension: `.ts`/`.tsx` → `oxlint --type-aware --format json`, `.rs` → `cargo clippy --message-format json`. Returns structured diagnostics. Graceful degradation when either tool is unavailable (`oxlintAvailable: false` or `clippyAvailable: false`).
 
 ### kart_references
 
@@ -168,6 +178,54 @@ kart_references(path, symbol, includeDeclaration?)
 ```
 
 Finds all references to a symbol across the workspace via LSP. Returns file paths, positions, and total count.
+
+### kart_definition
+
+```
+kart_definition(path, symbol)
+```
+
+Go to the definition of a symbol. Returns file paths and positions where the symbol is defined. Works across files via LSP `textDocument/definition`.
+
+### kart_type_definition
+
+```
+kart_type_definition(path, symbol)
+```
+
+Go to the type definition of a symbol. Returns where the type of the symbol is defined. Useful for navigating through type aliases and inferred types. Via LSP `textDocument/typeDefinition`.
+
+### kart_implementation
+
+```
+kart_implementation(path, symbol)
+```
+
+Find implementations of an interface, trait, or abstract class. Returns file paths and positions of all concrete implementations. Via LSP `textDocument/implementation`.
+
+### kart_code_actions
+
+```
+kart_code_actions(path, symbol)
+```
+
+Get available code actions (quick fixes, refactorings) at a symbol's position. Returns action titles and kinds without applying them. Via LSP `textDocument/codeAction`.
+
+### kart_expand_macro
+
+```
+kart_expand_macro(path, symbol)
+```
+
+Expand a Rust macro at a symbol's position. Returns the expanded source code. Only works with `.rs` files via `rust-analyzer/expandMacro`.
+
+### kart_inlay_hints
+
+```
+kart_inlay_hints(path, startLine?, endLine?)
+```
+
+Returns compiler-inferred type annotations and parameter names that aren't written in source. Useful for understanding implicit types without reading implementation. If `startLine`/`endLine` are omitted, returns hints for the entire file.
 
 ### kart_imports
 
@@ -197,13 +255,13 @@ Returns all files that import the given file. Barrel files (index.ts that only r
 
 | Module | File | Purpose |
 |---|---|---|
-| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult |
+| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult, DefinitionResult, TypeDefinitionResult, ImplementationResult, CodeActionsResult, ExpandMacroResult, InlayHint, InlayHintsResult |
 | Errors | `src/pure/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
 | ExportDetection | `src/pure/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
 | Signatures | `src/pure/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
 | OxcSymbols | `src/pure/OxcSymbols.ts` | Fast TypeScript symbol extraction via oxc-parser (LSP-free) |
 | RustSymbols | `src/pure/RustSymbols.ts` | Rust symbol extraction via tree-sitter (LSP-free) |
-| AstEdit | `src/pure/AstEdit.ts` | Symbol location, syntax validation, byte-range splicing |
+| AstEdit | `src/pure/AstEdit.ts` | Symbol location, syntax validation, byte-range splicing (TS + Rust dispatch) |
 | Resolve | `src/pure/Resolve.ts` | tsconfig path alias resolution (`loadTsconfigPaths`, `resolveAlias`, `resolveSpecifier`, `bunResolve`) |
 | ImportGraph | `src/pure/ImportGraph.ts` | oxc-based import extraction, import graph construction, barrel-aware transitive importers |
 | LspClient | `src/Lsp.ts` | Language server over stdio (JSON-RPC, Effect Layer, file watcher). Parameterized for TS and Rust. |
@@ -212,10 +270,10 @@ Returns all files that import the given file. Barrel files (index.ts that only r
 | Find | `src/Find.ts` | Workspace-wide symbol search via oxc-parser (TS) / tree-sitter (Rust), mtime-cached |
 | Search | `src/Search.ts` | Text pattern search via ripgrep subprocess |
 | List | `src/List.ts` | Directory listing with glob filtering |
-| Editor | `src/Editor.ts` | AST-aware edit pipeline (locate → validate → splice → write → lint) |
-| Diagnostics | `src/Diagnostics.ts` | oxlint `--type-aware` integration with graceful degradation |
+| Editor | `src/Editor.ts` | AST-aware edit pipeline (locate → validate → splice → write → format → lint, TS + Rust) |
+| Diagnostics | `src/Diagnostics.ts` | oxlint (TS) + cargo clippy (Rust) with graceful degradation |
 | Imports | `src/Imports.ts` | Import graph queries — `getImports`, `getImporters` with barrel expansion |
-| Tools | `src/Tools.ts` | 17 MCP tool definitions (Zod schemas + Effect/async handlers) |
+| Tools | `src/Tools.ts` | 23 MCP tool definitions (Zod schemas + Effect/async handlers) |
 | Mcp | `src/Mcp.ts` | Server entrypoint, per-tool ManagedRuntime |
 
 `src/pure/` contains deterministic modules with no IO — 100% function coverage, 99% line coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates. Stateless modules (`Search.ts`, `List.ts`, `Editor.ts`, `Diagnostics.ts`, `Imports.ts`) and cached modules (`Find.ts` — mtime-based symbol cache) are tested without Effect runtime.
@@ -236,7 +294,7 @@ Returns all files that import the given file. Barrel files (index.ts that only r
 - **Core**: Effect TS (`effect`, `@effect/platform`)
 - **LSP**: `typescript-language-server` (TS), `rust-analyzer` (Rust) — managed subprocess, for zoom/impact/deps/references/rename
 - **TS Parser**: `oxc-parser` (for find/edit — fast, LSP-free)
-- **Rust Parser**: `web-tree-sitter` with `tree-sitter-wasms` (for find — fast, LSP-free)
+- **Rust Parser**: `web-tree-sitter` with `tree-sitter-wasms` (for find + edit — fast, LSP-free)
 - **MCP**: `@modelcontextprotocol/sdk`
 - **Validation**: Zod
 

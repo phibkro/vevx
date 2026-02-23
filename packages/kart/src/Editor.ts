@@ -16,6 +16,7 @@ import {
   spliceReplace,
   validateSyntax,
 } from "./pure/AstEdit.js";
+import { initRustParser, isRustParserReady } from "./pure/RustSymbols.js";
 import type { Diagnostic } from "./pure/types.js";
 
 // ── Types ──
@@ -27,6 +28,8 @@ export type EditResult = {
   readonly diagnostics: Diagnostic[];
   readonly syntaxError: boolean;
   readonly syntaxErrorMessage?: string;
+  readonly formatted?: boolean;
+  readonly formattingError?: string;
 };
 
 // ── Oxlint ──
@@ -68,6 +71,22 @@ async function runOxlint(filePath: string): Promise<Diagnostic[]> {
   }
 }
 
+// ── Formatting ──
+
+async function formatFile(filePath: string): Promise<{ formatted: boolean; error?: string }> {
+  const isRust = filePath.endsWith(".rs");
+  const cmd = isRust ? ["rustfmt", filePath] : ["oxfmt", filePath];
+  try {
+    const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+    const stderr = await new Response(proc.stderr).text();
+    const code = await proc.exited;
+    if (code !== 0) return { formatted: false, error: stderr.trim() || `${cmd[0]} exited ${code}` };
+    return { formatted: true };
+  } catch {
+    return { formatted: false, error: `${cmd[0]} not available` };
+  }
+}
+
 // ── Workspace boundary ──
 
 function assertWithinRoot(filePath: string, rootDir: string): string | null {
@@ -89,6 +108,7 @@ async function edit(
   content: string,
   op: SpliceOp,
   rootDir?: string,
+  format?: boolean,
 ): Promise<EditResult> {
   // Workspace boundary check
   if (rootDir) {
@@ -106,6 +126,11 @@ async function edit(
   }
 
   const filename = filePath.split("/").pop() ?? "file.ts";
+
+  // Init Rust parser if needed
+  if (filename.endsWith(".rs") && !isRustParserReady()) {
+    await initRustParser();
+  }
 
   // Read
   let source: string;
@@ -175,6 +200,15 @@ async function edit(
   // Write
   writeFileSync(filePath, result);
 
+  // Format (if requested)
+  let formatted: boolean | undefined;
+  let formattingError: string | undefined;
+  if (format) {
+    const fmt = await formatFile(filePath);
+    formatted = fmt.formatted;
+    formattingError = fmt.error;
+  }
+
   // Lint (best effort)
   const diagnostics = await runOxlint(filePath);
 
@@ -184,6 +218,8 @@ async function edit(
     symbol: symbolName,
     diagnostics,
     syntaxError: false,
+    formatted,
+    formattingError,
   };
 }
 
@@ -194,8 +230,9 @@ export async function editReplace(
   symbolName: string,
   content: string,
   rootDir?: string,
+  format?: boolean,
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "replace", rootDir);
+  return edit(filePath, symbolName, content, "replace", rootDir, format);
 }
 
 export async function editInsertAfter(
@@ -203,8 +240,9 @@ export async function editInsertAfter(
   symbolName: string,
   content: string,
   rootDir?: string,
+  format?: boolean,
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "insertAfter", rootDir);
+  return edit(filePath, symbolName, content, "insertAfter", rootDir, format);
 }
 
 export async function editInsertBefore(
@@ -212,6 +250,7 @@ export async function editInsertBefore(
   symbolName: string,
   content: string,
   rootDir?: string,
+  format?: boolean,
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "insertBefore", rootDir);
+  return edit(filePath, symbolName, content, "insertBefore", rootDir, format);
 }

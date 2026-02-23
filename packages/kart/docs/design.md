@@ -92,7 +92,9 @@ Three levels of disclosure for a file:
 
 Export detection uses text scanning — `export ` for TS, `pub `/`pub(` for Rust. Simple, deterministic, accurate for standard patterns. Semantic tokens were evaluated and rejected: LSP semantic token modifiers do not distinguish exports.
 
-**Directory zoom:** when `path` is a directory, returns level-0 for each `.ts`/`.tsx`/`.rs` file (non-recursive, test files excluded). Files with no exports are omitted.
+**Resolved types:** Levels 0 and 1 enrich each symbol with `resolvedType` — the LSP hover result stripped of markdown formatting. This gives agents the compiler's view (inferred return types, expanded type aliases) without a separate tool call. Hover calls average 2-10ms per symbol after warmup. The `resolveTypes` param (default `true`) allows opt-out for fast scanning.
+
+**Directory zoom:** when `path` is a directory, returns level-0 for each `.ts`/`.tsx`/`.rs` file (non-recursive, test files excluded). Files with no exports are omitted. Always includes resolved types.
 
 ### 3.5 transitive impact and deps
 
@@ -116,17 +118,17 @@ As of the alpha release, tsgolint also emits typescript type-checking errors alo
 
 ### 3.8 symbol-level editing (phase 6, ADR-005)
 
-Kart edits files at the symbol level using oxc's AST to locate precise source ranges:
+Kart edits files at the symbol level using parser ASTs to locate precise source ranges:
 
 ```
-1. parse file with oxc → get AST
+1. parse file with oxc (TS) or tree-sitter (Rust) → get AST
 2. find symbol by name → get source range (start, end byte offsets)
-3. validate new content: parse with oxc → reject if syntax error (no disk write)
+3. validate new content: parse with oxc/tree-sitter → reject if syntax error (no disk write)
 4. splice: prefix + new content + suffix → write file
 5. run oxlint on changed file → return diagnostics inline
 ```
 
-Step 3 catches malformed edits before they hit disk. Step 5 gives the agent immediate feedback without a separate tool call. `syntaxError: true` means the file was not modified — the agent retries with corrected content.
+Step 3 catches malformed edits before they hit disk. Step 5 gives the agent immediate feedback without a separate tool call. `syntaxError: true` means the file was not modified — the agent retries with corrected content. For Rust files, syntax validation uses tree-sitter's `rootNode.hasError` (best-effort — catches missing braces, unclosed strings). The Rust parser is initialized lazily on first `.rs` edit.
 
 This crosses kart from read-only to read-write. See ADR-005 for the full decision record and consequences.
 
@@ -161,16 +163,22 @@ If the database is absent, returns a structured `CochangeUnavailable` response (
 | `kart_find` | workspace symbol index search | oxc-parser |
 | `kart_search` | pattern search | ripgrep subprocess |
 | `kart_list` | directory listing (gitignore-aware) | fs |
-| `kart_replace` | replace full symbol definition | oxc AST + oxlint |
-| `kart_insert_after` | insert content after symbol | oxc AST + oxlint |
-| `kart_insert_before` | insert content before symbol | oxc AST + oxlint |
-| `kart_diagnostics` | lint violations + type errors | oxlint `--type-aware` |
+| `kart_replace` | replace full symbol definition | oxc (TS) / tree-sitter (Rust) + oxfmt/rustfmt + oxlint |
+| `kart_insert_after` | insert content after symbol | oxc (TS) / tree-sitter (Rust) + oxfmt/rustfmt + oxlint |
+| `kart_insert_before` | insert content before symbol | oxc (TS) / tree-sitter (Rust) + oxfmt/rustfmt + oxlint |
+| `kart_diagnostics` | lint violations + type errors | oxlint (TS) / cargo clippy (Rust) |
 | `kart_references` | cross-file references | LSP `textDocument/references` |
 | `kart_rename` | reference-aware rename | LSP `textDocument/rename` |
 | `kart_imports` | file import list with resolved paths | oxc-parser + Bun.resolveSync |
 | `kart_importers` | reverse import lookup with barrel expansion | oxc-parser + Bun.resolveSync |
 
+| `kart_definition` | go to definition of a symbol | LSP `textDocument/definition` |
+| `kart_type_definition` | go to type definition | LSP `textDocument/typeDefinition` |
+| `kart_implementation` | find implementations of interface/trait | LSP `textDocument/implementation` |
+| `kart_code_actions` | available code actions at symbol position | LSP `textDocument/codeAction` |
+| `kart_expand_macro` | expand Rust macro | `rust-analyzer/expandMacro` |
 | `kart_unused_exports` | find exported symbols with no importers | oxc-parser + Bun.resolveSync |
+| `kart_inlay_hints` | inferred types and parameter names | LSP `textDocument/inlayHint` |
 | `kart_restart` | restart all language servers + clear caches | — |
 
 ---
@@ -190,7 +198,7 @@ Kart is a full serena replacement for typescript projects.
 | `search_for_pattern` | `kart_search` | shipped |
 | `list_dir` | `kart_list` | shipped |
 | `find_file` | `kart_list` with glob | shipped |
-| `restart_language_server` | `kart_restart` | future |
+| `restart_language_server` | `kart_restart` | shipped |
 | `rename_symbol` | `kart_rename` | shipped |
 
 Serena tools kart deliberately omits: memory system (`write_memory` etc.), onboarding, reasoning scaffolding (`think_about_*`), mode switching. These are workflow conventions, not code intelligence primitives. Agents using kart manage context via varp manifests and kiste artifacts.
@@ -252,6 +260,8 @@ Oxlint type-aware linting (phase 4) requires `oxlint-tsgolint` in the workspace.
 | 9 | `kart_imports`, `kart_importers` via oxc + Bun.resolveSync | shipped |
 | 10 | `kart_unused_exports`, `kart_restart` | shipped |
 | 11 | Rust support — tree-sitter + rust-analyzer (ADR-006 Phase 1) | shipped |
+| 12 | `kart_definition`, `kart_type_definition`, `kart_implementation`, `kart_code_actions`, `kart_expand_macro` | shipped |
+| 13 | `kart_inlay_hints`, post-edit formatting (`format` param on edit tools) | shipped |
 
 ---
 
@@ -263,9 +273,9 @@ Read-only tools are safely retryable. Write tools are not idempotent. The inline
 
 See `docs/decisions/adr-005-kart-edit-tools` for the full decision record.
 
-### edit tools currently TS only
+### edit tools support TS and Rust
 
-The edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`) use oxc's AST, which is typescript/javascript only. Phase 2 of ADR-006 will add Rust edit support via tree-sitter.
+The edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`) use oxc's AST for TypeScript and tree-sitter for Rust. Both parsers produce the same `OxcSymbol` shape with byte-offset ranges, so the splice functions are language-agnostic. Rust syntax validation uses tree-sitter's `rootNode.hasError` (best-effort).
 
 ### per-tool runtimes (ADR-004)
 

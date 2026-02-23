@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 
 import {
   locateSymbol,
@@ -7,6 +7,7 @@ import {
   spliceReplace,
   validateSyntax,
 } from "./AstEdit.js";
+import { initRustParser } from "./RustSymbols.js";
 
 describe("locateSymbol", () => {
   test("finds function by name", () => {
@@ -114,5 +115,76 @@ describe("spliceInsertBefore", () => {
     const file = "aaa bbb ccc";
     const result = spliceInsertBefore(file, { start: 4, end: 7 }, "INSERTED ");
     expect(result).toBe("aaa INSERTED bbb ccc");
+  });
+});
+
+describe("Rust support", () => {
+  beforeAll(async () => {
+    await initRustParser();
+  });
+
+  const RUST_SOURCE = `pub fn greet(name: &str) -> String {
+    format!("Hello {}", name)
+}
+
+pub const MAX: i32 = 100;
+
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+impl Point {
+    fn new(x: f64, y: f64) -> Self {
+        Point { x, y }
+    }
+}
+`;
+
+  describe("locateSymbol (Rust)", () => {
+    test("finds fn by name", () => {
+      const range = locateSymbol(RUST_SOURCE, "greet", "lib.rs");
+      expect(range).not.toBeNull();
+      const sliced = RUST_SOURCE.slice(range!.start, range!.end);
+      expect(sliced).toContain("pub fn greet");
+      expect(sliced).toContain("Hello {}");
+    });
+
+    test("finds const by name", () => {
+      const range = locateSymbol(RUST_SOURCE, "MAX", "lib.rs");
+      expect(range).not.toBeNull();
+      const sliced = RUST_SOURCE.slice(range!.start, range!.end);
+      expect(sliced).toContain("pub const MAX");
+    });
+
+    test("finds struct by name", () => {
+      const range = locateSymbol(RUST_SOURCE, "Point", "lib.rs");
+      expect(range).not.toBeNull();
+      const sliced = RUST_SOURCE.slice(range!.start, range!.end);
+      expect(sliced).toContain("struct Point");
+    });
+
+    test("finds impl by name", () => {
+      const range = locateSymbol(RUST_SOURCE, "Point", "lib.rs");
+      expect(range).not.toBeNull();
+    });
+
+    test("returns null for missing symbol", () => {
+      const range = locateSymbol(RUST_SOURCE, "nonexistent", "lib.rs");
+      expect(range).toBeNull();
+    });
+  });
+
+  describe("validateSyntax (Rust)", () => {
+    test("returns null for valid Rust", () => {
+      const result = validateSyntax("fn main() { let x = 42; }", "lib.rs");
+      expect(result).toBeNull();
+    });
+
+    test("returns error string for invalid Rust", () => {
+      const result = validateSyntax("fn foo( {", "lib.rs");
+      expect(result).toBeString();
+      expect(result).toContain("syntax error");
+    });
   });
 });

@@ -1,6 +1,6 @@
 # Audit Implementation Status
 
-Current state of Varp Audit relative to the [design document](design.md). Updated February 2026.
+Current state of Varp Audit relative to the [design document](design.md). Last reviewed: 2026-02-23.
 
 ## What's Built
 

@@ -26,6 +26,12 @@ export type SemanticTokensResult = {
   readonly resultId?: string;
 };
 
+// ── Hover types ──
+
+export type HoverResult = {
+  readonly contents: string;
+};
+
 // ── Call hierarchy types ──
 
 export type CallHierarchyItem = {
@@ -132,6 +138,54 @@ export type RenameResult = {
   readonly totalEdits: number;
 };
 
+// ── Definition types ──
+
+export type DefinitionResult = {
+  readonly symbol: string;
+  readonly path: string;
+  readonly definitions: ReferenceEntry[];
+  readonly totalDefinitions: number;
+};
+
+export type TypeDefinitionResult = {
+  readonly symbol: string;
+  readonly path: string;
+  readonly typeDefinitions: ReferenceEntry[];
+  readonly totalTypeDefinitions: number;
+};
+
+export type ImplementationResult = {
+  readonly symbol: string;
+  readonly path: string;
+  readonly implementations: ReferenceEntry[];
+  readonly totalImplementations: number;
+};
+
+// ── Code action types ──
+
+export type CodeActionEntry = {
+  readonly title: string;
+  readonly kind?: string;
+  readonly isPreferred?: boolean;
+  readonly diagnostics?: readonly { readonly message: string; readonly severity?: number }[];
+};
+
+export type CodeActionsResult = {
+  readonly symbol: string;
+  readonly path: string;
+  readonly actions: CodeActionEntry[];
+  readonly totalActions: number;
+};
+
+// ── Expand macro types (Rust only) ──
+
+export type ExpandMacroResult = {
+  readonly symbol: string;
+  readonly path: string;
+  readonly name: string;
+  readonly expansion: string;
+};
+
 // ── Diagnostic types ──
 
 export type Diagnostic = {
@@ -151,6 +205,7 @@ export type ZoomSymbol = {
   readonly signature: string;
   readonly doc: string | null;
   readonly exported: boolean;
+  readonly resolvedType?: string;
   readonly children?: ZoomSymbol[];
 };
 
@@ -220,6 +275,23 @@ export type ImportersResult = {
   readonly barrelImporters: readonly string[];
   /** All unique importers (direct + barrel). */
   readonly totalImporters: number;
+};
+
+// ── Inlay hints ──
+
+export type InlayHint = {
+  readonly position: { readonly line: number; readonly character: number };
+  readonly label: string;
+  /** 1 = type hint, 2 = parameter hint */
+  readonly kind?: 1 | 2;
+  readonly paddingLeft?: boolean;
+  readonly paddingRight?: boolean;
+};
+
+export type InlayHintsResult = {
+  readonly path: string;
+  readonly hints: InlayHint[];
+  readonly totalHints: number;
 };
 
 export type UnusedExport = {

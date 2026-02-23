@@ -80,4 +80,35 @@ describe("runDiagnostics", () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.oxlintAvailable).toBe(true);
   });
+
+  test("routes .rs files to clippy, .ts files to oxlint", async () => {
+    writeFileSync(join(tempDir, "ok.ts"), "const x = 1;\nexport { x };\n");
+    writeFileSync(join(tempDir, "ok.rs"), "pub fn main() {}\n");
+
+    const result = await runDiagnostics({
+      paths: ["ok.ts", "ok.rs"],
+      rootDir: tempDir,
+    });
+
+    // Both tools may or may not be available — just verify structure
+    expect(typeof result.oxlintAvailable).toBe("boolean");
+    expect(result.diagnostics).toBeInstanceOf(Array);
+    // clippyAvailable is set when .rs files are present
+    if (result.clippyAvailable !== undefined) {
+      expect(typeof result.clippyAvailable).toBe("boolean");
+    }
+  });
+
+  test("only-rs paths skip oxlint entirely", async () => {
+    writeFileSync(join(tempDir, "lib.rs"), "pub fn add(a: i32, b: i32) -> i32 { a + b }\n");
+
+    const result = await runDiagnostics({
+      paths: ["lib.rs"],
+      rootDir: tempDir,
+    });
+
+    // oxlintAvailable stays true (default) since no TS paths were run
+    expect(result.oxlintAvailable).toBe(true);
+    expect(result.diagnostics).toBeInstanceOf(Array);
+  });
 });

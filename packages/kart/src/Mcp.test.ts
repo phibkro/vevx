@@ -191,12 +191,17 @@ describe("MCP integration — tool listing", () => {
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "kart_cochange",
+      "kart_code_actions",
+      "kart_definition",
       "kart_deps",
       "kart_diagnostics",
+      "kart_expand_macro",
       "kart_find",
       "kart_impact",
+      "kart_implementation",
       "kart_importers",
       "kart_imports",
+      "kart_inlay_hints",
       "kart_insert_after",
       "kart_insert_before",
       "kart_list",
@@ -205,6 +210,7 @@ describe("MCP integration — tool listing", () => {
       "kart_replace",
       "kart_restart",
       "kart_search",
+      "kart_type_definition",
       "kart_unused_exports",
       "kart_zoom",
     ]);
@@ -871,5 +877,81 @@ function internal() {}
     expect((result as { isError?: boolean }).isError).toBeFalsy();
     const data = parseResult(result) as { depth: number };
     expect(data.depth).toBe(1);
+  }, 30_000);
+
+  test("kart_definition returns definition location", async () => {
+    const result = await client.callTool({
+      name: "kart_definition",
+      arguments: {
+        path: join(tempDir, "fixture.ts"),
+        symbol: "greet",
+      },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as {
+      symbol: string;
+      definitions: { path: string; line: number }[];
+      totalDefinitions: number;
+    };
+    expect(data.symbol).toBe("greet");
+    expect(data.totalDefinitions).toBeGreaterThanOrEqual(1);
+  }, 30_000);
+
+  test("kart_implementation returns implementations", async () => {
+    await writeFile(
+      join(tempDir, "iface.ts"),
+      "export interface Greeter {\n  greet(): string;\n}\n\nexport class FriendlyGreeter implements Greeter {\n  greet() { return 'Hi!'; }\n}\n",
+    );
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // Open the file first
+    await client.callTool({
+      name: "kart_zoom",
+      arguments: { path: join(tempDir, "iface.ts"), level: 0 },
+    });
+
+    const result = await client.callTool({
+      name: "kart_implementation",
+      arguments: {
+        path: join(tempDir, "iface.ts"),
+        symbol: "Greeter",
+      },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as {
+      symbol: string;
+      implementations: { path: string }[];
+    };
+    expect(data.symbol).toBe("Greeter");
+  }, 30_000);
+
+  test("kart_code_actions returns array", async () => {
+    const result = await client.callTool({
+      name: "kart_code_actions",
+      arguments: {
+        path: join(tempDir, "fixture.ts"),
+        symbol: "greet",
+      },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBeFalsy();
+    const data = parseResult(result) as { actions: unknown[]; totalActions: number };
+    expect(Array.isArray(data.actions)).toBe(true);
+  }, 30_000);
+
+  test("kart_expand_macro rejects non-Rust files", async () => {
+    const result = await client.callTool({
+      name: "kart_expand_macro",
+      arguments: {
+        path: join(tempDir, "fixture.ts"),
+        symbol: "greet",
+      },
+    });
+
+    expect((result as { isError?: boolean }).isError).toBe(true);
+    const text = (result as { content: { text: string }[] }).content[0].text;
+    expect(text).toContain("Rust");
   }, 30_000);
 });

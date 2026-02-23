@@ -129,6 +129,63 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     expect(result.symbols[0].signature).toBe(expectedContent);
   }, 30_000);
 
+  test("level 0: includes resolvedType on exported symbols", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.zoom(join(tempDir, "exports.ts"), 0);
+      }),
+    );
+
+    // Every exported symbol should have a resolvedType
+    for (const sym of result.symbols) {
+      expect(sym.resolvedType).toBeString();
+      expect(sym.resolvedType!.length).toBeGreaterThan(0);
+    }
+
+    // greet should have a function type
+    const greet = result.symbols.find((s) => s.name === "greet");
+    expect(greet?.resolvedType).toContain("greet");
+  }, 30_000);
+
+  test("level 1: includes resolvedType on all symbols", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.zoom(join(tempDir, "exports.ts"), 1);
+      }),
+    );
+
+    const withType = result.symbols.filter((s) => s.resolvedType);
+    expect(withType.length).toBeGreaterThan(0);
+  }, 30_000);
+
+  test("level 2: does not include resolvedType", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.zoom(join(tempDir, "exports.ts"), 2);
+      }),
+    );
+
+    for (const sym of result.symbols) {
+      expect(sym.resolvedType).toBeUndefined();
+    }
+  }, 30_000);
+
+  test("resolveTypes: false omits resolvedType", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.zoom(join(tempDir, "exports.ts"), 0, false);
+      }),
+    );
+
+    for (const sym of result.symbols) {
+      expect(sym.resolvedType).toBeUndefined();
+    }
+  }, 30_000);
+
   test("directory zoom: returns level-0 for each .ts file, omits files with no exports", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
@@ -155,6 +212,20 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     // exports.ts and other.ts should be present
     expect(filePaths.some((p) => p.endsWith("exports.ts"))).toBe(true);
     expect(filePaths.some((p) => p.endsWith("other.ts"))).toBe(true);
+  }, 30_000);
+
+  test("directory zoom: includes resolvedType on file symbols", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.zoom(tempDir, 0);
+      }),
+    );
+
+    // At least one file should have symbols with resolvedType
+    const allSymbols = result.files!.flatMap((f) => f.symbols);
+    const withType = allSymbols.filter((s) => s.resolvedType);
+    expect(withType.length).toBeGreaterThan(0);
   }, 30_000);
 
   test("file not found: fails with FileNotFoundError", async () => {

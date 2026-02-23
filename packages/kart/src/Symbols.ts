@@ -9,22 +9,34 @@ import { isExported } from "./pure/ExportDetection.js";
 import { extractDocComment, extractSignature, symbolKindName } from "./pure/Signatures.js";
 import type {
   CallHierarchyItem,
+  CodeActionsResult,
+  DefinitionResult,
   DepsNode,
   DepsResult,
   DocumentSymbol,
+  ExpandMacroResult,
   ImpactNode,
   ImpactResult,
+  ImplementationResult,
+  InlayHintsResult,
   ReferencesResult,
   RenameResult,
   TextEdit,
+  TypeDefinitionResult,
 } from "./pure/types.js";
 import type { ZoomResult, ZoomSymbol } from "./pure/types.js";
 
 export type {
+  CodeActionsResult,
+  DefinitionResult,
   DepsResult,
+  ExpandMacroResult,
   ImpactResult,
+  ImplementationResult,
+  InlayHintsResult,
   ReferencesResult,
   RenameResult,
+  TypeDefinitionResult,
   ZoomResult,
   ZoomSymbol,
 } from "./pure/types.js";
@@ -34,6 +46,48 @@ export type {
 const MAX_LEVEL2_BYTES = 100 * 1024; // 100KB cap for level-2 full file content
 const MAX_IMPACT_DEPTH = 5; // Hard cap on BFS depth to prevent full-graph traversal
 const HIGH_FAN_OUT_THRESHOLD = 10; // Warn agents when fan-out exceeds this
+
+// ── Symbol conversion ──
+
+// ── Hover enrichment ──
+
+/** Strip markdown code fence wrapper from hover response. */
+function extractTypeFromHover(contents: string): string {
+  const match = contents.match(/```\w*\n([\s\S]*?)\n```/);
+  return match ? match[1].trim() : contents.trim();
+}
+
+/** Batch hover calls for zoom symbols, zip resolved types onto results. */
+function enrichWithResolvedTypes(
+  lsp: Context.Tag.Service<typeof LspClient>,
+  uri: string,
+  docSymbols: readonly DocumentSymbol[],
+  zoomSymbols: ZoomSymbol[],
+): Effect.Effect<ZoomSymbol[], LspError | LspTimeoutError> {
+  return Effect.gen(function* () {
+    const symbolNames = new Set(zoomSymbols.map((s) => s.name));
+    const positions = docSymbols
+      .filter((s) => symbolNames.has(s.name))
+      .map((s) => ({
+        name: s.name,
+        line: s.selectionRange.start.line,
+        char: s.selectionRange.start.character,
+      }));
+
+    const hoverMap = new Map<string, string>();
+    for (const pos of positions) {
+      const result = yield* lsp.hover(uri, pos.line, pos.char);
+      if (result) {
+        hoverMap.set(pos.name, extractTypeFromHover(result.contents));
+      }
+    }
+
+    return zoomSymbols.map((s) => {
+      const resolved = hoverMap.get(s.name);
+      return resolved ? { ...s, resolvedType: resolved } : s;
+    });
+  });
+}
 
 // ── Symbol conversion ──
 
@@ -75,6 +129,7 @@ export class SymbolIndex extends Context.Tag("kart/SymbolIndex")<
     readonly zoom: (
       path: string,
       level: 0 | 1 | 2,
+      resolveTypes?: boolean,
     ) => Effect.Effect<ZoomResult, LspError | LspTimeoutError | FileNotFoundError>;
     readonly impact: (
       path: string,
@@ -96,6 +151,33 @@ export class SymbolIndex extends Context.Tag("kart/SymbolIndex")<
       symbolName: string,
       newName: string,
     ) => Effect.Effect<RenameResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly definition: (
+      path: string,
+      symbolName: string,
+    ) => Effect.Effect<DefinitionResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly typeDefinition: (
+      path: string,
+      symbolName: string,
+    ) => Effect.Effect<TypeDefinitionResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly implementation: (
+      path: string,
+      symbolName: string,
+    ) => Effect.Effect<ImplementationResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly codeActions: (
+      path: string,
+      symbolName: string,
+    ) => Effect.Effect<CodeActionsResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly expandMacro: (
+      path: string,
+      symbolName: string,
+    ) => Effect.Effect<ExpandMacroResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly inlayHints: (
+      path: string,
+      range?: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      },
+    ) => Effect.Effect<InlayHintsResult, LspError | LspTimeoutError | FileNotFoundError>;
   }
 >() {}
 
@@ -113,7 +195,7 @@ export const SymbolIndexLive = (config?: {
       const rootDir = resolve(config?.rootDir ?? process.cwd());
 
       return SymbolIndex.of({
-        zoom: (path, level) =>
+        zoom: (path, level, resolveTypes = true) =>
           Effect.gen(function* () {
             const absPath = resolve(path);
 
@@ -169,6 +251,11 @@ export const SymbolIndexLive = (config?: {
             // Level 0: filter to exported only
             if (level === 0) {
               zoomSymbols = zoomSymbols.filter((s) => s.exported);
+            }
+
+            // Enrich with LSP-resolved types
+            if (resolveTypes) {
+              zoomSymbols = yield* enrichWithResolvedTypes(lsp, uri, symbols, zoomSymbols);
             }
 
             return {
@@ -538,6 +625,214 @@ export const SymbolIndexLive = (config?: {
               totalEdits,
             };
           }),
+
+        definition: (path, symbolName) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+            const uri = `file://${absPath}`;
+            const symbols = yield* lsp.documentSymbol(uri);
+            const target = findSymbolByName(symbols, symbolName);
+            if (!target) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Symbol '${symbolName}' not found in ${path}` }),
+              );
+            }
+            const locations = yield* lsp.definition(
+              uri,
+              target.selectionRange.start.line,
+              target.selectionRange.start.character,
+            );
+            const definitions = locations.map((loc) => ({
+              path: loc.uri.replace("file://", ""),
+              line: loc.range.start.line,
+              character: loc.range.start.character,
+            }));
+            return {
+              symbol: symbolName,
+              path: absPath,
+              definitions,
+              totalDefinitions: definitions.length,
+            };
+          }),
+
+        typeDefinition: (path, symbolName) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+            const uri = `file://${absPath}`;
+            const symbols = yield* lsp.documentSymbol(uri);
+            const target = findSymbolByName(symbols, symbolName);
+            if (!target) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Symbol '${symbolName}' not found in ${path}` }),
+              );
+            }
+            const locations = yield* lsp.typeDefinition(
+              uri,
+              target.selectionRange.start.line,
+              target.selectionRange.start.character,
+            );
+            const typeDefinitions = locations.map((loc) => ({
+              path: loc.uri.replace("file://", ""),
+              line: loc.range.start.line,
+              character: loc.range.start.character,
+            }));
+            return {
+              symbol: symbolName,
+              path: absPath,
+              typeDefinitions,
+              totalTypeDefinitions: typeDefinitions.length,
+            };
+          }),
+
+        implementation: (path, symbolName) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+            const uri = `file://${absPath}`;
+            const symbols = yield* lsp.documentSymbol(uri);
+            const target = findSymbolByName(symbols, symbolName);
+            if (!target) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Symbol '${symbolName}' not found in ${path}` }),
+              );
+            }
+            const locations = yield* lsp.implementation(
+              uri,
+              target.selectionRange.start.line,
+              target.selectionRange.start.character,
+            );
+            const implementations = locations.map((loc) => ({
+              path: loc.uri.replace("file://", ""),
+              line: loc.range.start.line,
+              character: loc.range.start.character,
+            }));
+            return {
+              symbol: symbolName,
+              path: absPath,
+              implementations,
+              totalImplementations: implementations.length,
+            };
+          }),
+
+        codeActions: (path, symbolName) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+            const uri = `file://${absPath}`;
+            const symbols = yield* lsp.documentSymbol(uri);
+            const target = findSymbolByName(symbols, symbolName);
+            if (!target) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Symbol '${symbolName}' not found in ${path}` }),
+              );
+            }
+            const raw = yield* lsp.codeAction(uri, target.selectionRange);
+            const actions = raw.map((a: Record<string, unknown>) => ({
+              title: a.title as string,
+              kind: a.kind as string | undefined,
+              isPreferred: a.isPreferred as boolean | undefined,
+              diagnostics: Array.isArray(a.diagnostics)
+                ? a.diagnostics.map((d: Record<string, unknown>) => ({
+                    message: d.message as string,
+                    severity: d.severity as number | undefined,
+                  }))
+                : undefined,
+            }));
+            return {
+              symbol: symbolName,
+              path: absPath,
+              actions,
+              totalActions: actions.length,
+            };
+          }),
+
+        expandMacro: (path, symbolName) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+            const uri = `file://${absPath}`;
+            const symbols = yield* lsp.documentSymbol(uri);
+            const target = findSymbolByName(symbols, symbolName);
+            if (!target) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Symbol '${symbolName}' not found in ${path}` }),
+              );
+            }
+            const result = yield* lsp.expandMacro(
+              uri,
+              target.selectionRange.start.line,
+              target.selectionRange.start.character,
+            );
+            if (!result) {
+              return { symbol: symbolName, path: absPath, name: symbolName, expansion: "" };
+            }
+            return {
+              symbol: symbolName,
+              path: absPath,
+              name: result.name,
+              expansion: result.expansion,
+            };
+          }),
+
+        inlayHints: (path, range) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+            const uri = `file://${absPath}`;
+
+            // If no range provided, use the full file
+            const effectiveRange = range ?? {
+              start: { line: 0, character: 0 },
+              end: { line: readFileSync(absPath, "utf-8").split("\n").length, character: 0 },
+            };
+
+            const hints = yield* lsp.inlayHints(uri, effectiveRange);
+            return { path: absPath, hints, totalHints: hints.length };
+          }),
       });
     }),
   );
@@ -575,10 +870,13 @@ function zoomDirectory(
       const lines = fileContent.split("\n");
 
       const symbols = yield* lsp.documentSymbol(uri);
-      const zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines)).filter((s) => s.exported);
+      let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines)).filter((s) => s.exported);
 
       // Omit files with no exports
       if (zoomSymbols.length === 0) continue;
+
+      // Enrich with LSP-resolved types
+      zoomSymbols = yield* enrichWithResolvedTypes(lsp, uri, symbols, zoomSymbols);
 
       fileResults.push({
         path: filePath,

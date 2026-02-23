@@ -3,6 +3,8 @@
 **Status:** Draft v3
 **Date:** February 2026
 
+> **Note:** For current implementation state vs. this design, see [implementation-status.md](implementation-status.md).
+
 ## Problem
 
 Existing AI code review tools (CodeRabbit, Qodo, Greptile) are optimized for incremental PR review — they analyze diffs, not codebases. Existing compliance platforms (Vanta, Drata, Secureframe) verify organizational controls (is MFA enabled? are policies documented?) but don't analyze code behavior.

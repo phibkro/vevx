@@ -254,6 +254,114 @@ describe.skipIf(!hasLsp)("LspClient", () => {
     expect(calleeNames).toContain("greet");
   }, 30_000);
 
+  test("hover returns type information for a function", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        // greet is at line 6 in FIXTURE_TS
+        return yield* lsp.hover(fixtureUri, 6, 16);
+      }),
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.contents).toContain("greet");
+    expect(result!.contents).toContain("string");
+  }, 30_000);
+
+  test("definition returns location for a function", async () => {
+    const locations = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        // greet is at line 6 in FIXTURE_TS
+        return yield* lsp.definition(fixtureUri, 6, 16);
+      }),
+    );
+
+    expect(locations.length).toBeGreaterThanOrEqual(1);
+    expect(locations[0].uri).toBe(fixtureUri);
+  }, 30_000);
+
+  test("definition follows cross-file references", async () => {
+    const callerUri = `file://${join(tempDir, "caller.ts")}`;
+
+    // Open caller.ts first
+    await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        yield* lsp.documentSymbol(callerUri);
+      }),
+    );
+
+    // Find definition of 'greet' usage in caller.ts (line 3, where greet is called)
+    const locations = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.definition(callerUri, 3, 9);
+      }),
+    );
+
+    expect(locations.length).toBeGreaterThanOrEqual(1);
+    // Should point back to fixture.ts
+    expect(locations[0].uri).toBe(fixtureUri);
+  }, 30_000);
+
+  test("typeDefinition returns type location for a variable", async () => {
+    const typedFile = join(tempDir, "typed.ts");
+    await writeFile(
+      typedFile,
+      'import { User } from "./fixture.js";\n\nconst u: User = { name: "test", age: 25 };\nexport { u };\n',
+    );
+    const typedUri = `file://${typedFile}`;
+
+    const locations = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        yield* lsp.documentSymbol(typedUri);
+        // 'u' is on line 2
+        return yield* lsp.typeDefinition(typedUri, 2, 6);
+      }),
+    );
+
+    expect(locations.length).toBeGreaterThanOrEqual(1);
+    // Should point to User interface in fixture.ts
+    expect(locations[0].uri).toBe(fixtureUri);
+  }, 30_000);
+
+  test("implementation returns implementing classes", async () => {
+    const ifacePath = join(tempDir, "iface.ts");
+    await writeFile(
+      ifacePath,
+      "export interface Greeter {\n  greet(): string;\n}\n\nexport class FriendlyGreeter implements Greeter {\n  greet() { return 'Hi!'; }\n}\n",
+    );
+    const ifaceUri = `file://${ifacePath}`;
+
+    const locations = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        yield* lsp.documentSymbol(ifaceUri);
+        // Greeter interface at line 0
+        return yield* lsp.implementation(ifaceUri, 0, 17);
+      }),
+    );
+
+    expect(locations.length).toBeGreaterThanOrEqual(1);
+  }, 30_000);
+
+  test("codeAction returns available actions", async () => {
+    const actions = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.codeAction(fixtureUri, {
+          start: { line: 6, character: 0 },
+          end: { line: 8, character: 1 },
+        });
+      }),
+    );
+
+    // May return 0 or more actions depending on LSP capabilities
+    expect(Array.isArray(actions)).toBe(true);
+  }, 30_000);
+
   test("shutdown() terminates the language server cleanly", async () => {
     // Separate runtime — shutdown kills the process, can't reuse the shared one
     const shutdownRuntime = ManagedRuntime.make(LspClientLive({ rootDir: tempDir }));

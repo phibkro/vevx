@@ -8,7 +8,9 @@ import { LspError, LspTimeoutError } from "./pure/Errors.js";
 export type {
   CallHierarchyItem,
   DocumentSymbol,
+  HoverResult,
   IncomingCallItem,
+  InlayHint,
   Location,
   LspRange,
   OutgoingCallItem,
@@ -19,7 +21,9 @@ export type {
 import type {
   CallHierarchyItem,
   DocumentSymbol,
+  HoverResult,
   IncomingCallItem,
+  InlayHint,
   Location,
   OutgoingCallItem,
   SemanticToken,
@@ -61,6 +65,45 @@ export class LspClient extends Context.Tag("kart/LspClient")<
       character: number,
       newName: string,
     ) => Effect.Effect<WorkspaceEdit | null, LspError | LspTimeoutError>;
+    readonly definition: (
+      uri: string,
+      line: number,
+      character: number,
+    ) => Effect.Effect<Location[], LspError | LspTimeoutError>;
+    readonly typeDefinition: (
+      uri: string,
+      line: number,
+      character: number,
+    ) => Effect.Effect<Location[], LspError | LspTimeoutError>;
+    readonly implementation: (
+      uri: string,
+      line: number,
+      character: number,
+    ) => Effect.Effect<Location[], LspError | LspTimeoutError>;
+    readonly codeAction: (
+      uri: string,
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      },
+    ) => Effect.Effect<unknown[], LspError | LspTimeoutError>;
+    readonly expandMacro: (
+      uri: string,
+      line: number,
+      character: number,
+    ) => Effect.Effect<{ name: string; expansion: string } | null, LspError | LspTimeoutError>;
+    readonly hover: (
+      uri: string,
+      line: number,
+      character: number,
+    ) => Effect.Effect<HoverResult | null, LspError | LspTimeoutError>;
+    readonly inlayHints: (
+      uri: string,
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      },
+    ) => Effect.Effect<InlayHint[], LspError | LspTimeoutError>;
     readonly updateOpenDocument: (uri: string) => Effect.Effect<void, LspError>;
     readonly shutdown: () => Effect.Effect<void, LspError>;
   }
@@ -441,6 +484,26 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
                   callHierarchy: {
                     dynamicRegistration: false,
                   },
+                  definition: { dynamicRegistration: false },
+                  typeDefinition: { dynamicRegistration: false },
+                  implementation: { dynamicRegistration: false },
+                  codeAction: {
+                    dynamicRegistration: false,
+                    codeActionLiteralSupport: {
+                      codeActionKind: {
+                        valueSet: [
+                          "quickfix",
+                          "refactor",
+                          "refactor.extract",
+                          "refactor.inline",
+                          "refactor.rewrite",
+                          "source",
+                          "source.organizeImports",
+                        ],
+                      },
+                    },
+                  },
+                  inlayHint: { dynamicRegistration: false },
                 },
                 workspace: {
                   didChangeWatchedFiles: {
@@ -743,6 +806,201 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
 
               if (!result || typeof result !== "object") return null;
               return result as WorkspaceEdit;
+            }),
+
+          definition: (uri, line, character) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/definition", {
+                    textDocument: { uri },
+                    position: { line, character },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `definition request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!result) return [];
+              // LSP returns Location | Location[] | LocationLink[]
+              const locations = Array.isArray(result) ? result : [result];
+              return locations.map((loc: Record<string, unknown>) => ({
+                uri: (loc.targetUri ?? loc.uri) as string,
+                range: (loc.targetSelectionRange ?? loc.range) as Location["range"],
+              })) as Location[];
+            }),
+
+          typeDefinition: (uri, line, character) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/typeDefinition", {
+                    textDocument: { uri },
+                    position: { line, character },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `typeDefinition request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!result) return [];
+              const locations = Array.isArray(result) ? result : [result];
+              return locations.map((loc: Record<string, unknown>) => ({
+                uri: (loc.targetUri ?? loc.uri) as string,
+                range: (loc.targetSelectionRange ?? loc.range) as Location["range"],
+              })) as Location[];
+            }),
+
+          implementation: (uri, line, character) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/implementation", {
+                    textDocument: { uri },
+                    position: { line, character },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `implementation request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!result) return [];
+              const locations = Array.isArray(result) ? result : [result];
+              return locations.map((loc: Record<string, unknown>) => ({
+                uri: (loc.targetUri ?? loc.uri) as string,
+                range: (loc.targetSelectionRange ?? loc.range) as Location["range"],
+              })) as Location[];
+            }),
+
+          codeAction: (uri, range) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/codeAction", {
+                    textDocument: { uri },
+                    range,
+                    context: { diagnostics: [] },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `codeAction request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!Array.isArray(result)) return [];
+              return result;
+            }),
+
+          expandMacro: (uri, line, character) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("rust-analyzer/expandMacro", {
+                    textDocument: { uri },
+                    position: { line, character },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `expandMacro request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!result || typeof result !== "object") return null;
+              const typed = result as { name?: string; expansion?: string };
+              if (!typed.name || !typed.expansion) return null;
+              return { name: typed.name, expansion: typed.expansion };
+            }),
+
+          hover: (uri, line, character) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/hover", {
+                    textDocument: { uri },
+                    position: { line, character },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `hover request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!result || typeof result !== "object") return null;
+              const typed = result as { contents?: unknown };
+              if (!typed.contents) return null;
+
+              // contents can be MarkedString, MarkedString[], or MarkupContent
+              const contents = typed.contents;
+              if (typeof contents === "string") return { contents };
+              if (
+                typeof contents === "object" &&
+                "value" in (contents as Record<string, unknown>)
+              ) {
+                return { contents: (contents as { value: string }).value };
+              }
+              return { contents: JSON.stringify(contents) };
+            }),
+
+          inlayHints: (uri, range) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/inlayHint", {
+                    textDocument: { uri },
+                    range,
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `inlayHint request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!Array.isArray(result)) return [];
+              return result.map((h: Record<string, unknown>) => ({
+                position: h.position as InlayHint["position"],
+                label: typeof h.label === "string" ? h.label : JSON.stringify(h.label),
+                kind: h.kind as InlayHint["kind"],
+                paddingLeft: h.paddingLeft as boolean | undefined,
+                paddingRight: h.paddingRight as boolean | undefined,
+              })) as InlayHint[];
             }),
 
           updateOpenDocument: (uri) =>

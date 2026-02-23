@@ -19,6 +19,22 @@ function withTempFile(content: string, fn: (path: string) => Promise<void>): () 
   };
 }
 
+function withRustTempFile(
+  content: string,
+  fn: (path: string) => Promise<void>,
+): () => Promise<void> {
+  return async () => {
+    const dir = mkdtempSync(join("/tmp/claude/", "kart-editor-"));
+    const filePath = join(dir, "target.rs");
+    writeFileSync(filePath, content);
+    try {
+      await fn(filePath);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+}
+
 const FIXTURE = `export function greet(name: string): string {
   return \`Hello \${name}\`;
 }
@@ -169,6 +185,70 @@ describe("workspace boundary", () => {
         dir,
       );
       expect(result.success).toBe(true);
+    }),
+  );
+});
+
+const RUST_FIXTURE = `pub fn greet(name: &str) -> String {
+    format!("Hello {}", name)
+}
+
+pub const MAX: i32 = 100;
+`;
+
+describe("Rust editReplace", () => {
+  test(
+    "replaces a Rust function body",
+    withRustTempFile(RUST_FIXTURE, async (filePath) => {
+      const result = await editReplace(
+        filePath,
+        "greet",
+        'pub fn greet(name: &str) -> String {\n    format!("Hi {}", name)\n}',
+      );
+      expect(result.success).toBe(true);
+      expect(result.symbol).toBe("greet");
+      expect(result.syntaxError).toBe(false);
+      const updated = readFileSync(filePath, "utf-8");
+      expect(updated).toContain("Hi {}");
+      expect(updated).not.toContain("Hello {}");
+    }),
+  );
+
+  test(
+    "rejects Rust syntax errors without modifying file",
+    withRustTempFile(RUST_FIXTURE, async (filePath) => {
+      const before = readFileSync(filePath, "utf-8");
+      const result = await editReplace(filePath, "greet", "pub fn greet( {{{");
+      expect(result.success).toBe(false);
+      expect(result.syntaxError).toBe(true);
+      const after = readFileSync(filePath, "utf-8");
+      expect(after).toBe(before);
+    }),
+  );
+
+  test(
+    "returns error for unknown Rust symbol",
+    withRustTempFile(RUST_FIXTURE, async (filePath) => {
+      const result = await editReplace(filePath, "nonexistent", "pub fn nonexistent() {}");
+      expect(result.success).toBe(false);
+      expect(result.syntaxErrorMessage).toContain("nonexistent");
+    }),
+  );
+});
+
+describe("Rust editInsertAfter", () => {
+  test(
+    "inserts content after a Rust symbol",
+    withRustTempFile(RUST_FIXTURE, async (filePath) => {
+      const result = await editInsertAfter(
+        filePath,
+        "greet",
+        '\npub fn farewell() -> String {\n    String::from("Goodbye")\n}\n',
+      );
+      expect(result.success).toBe(true);
+      const content = readFileSync(filePath, "utf-8");
+      expect(content).toContain("farewell");
+      expect(content).toContain("greet");
     }),
   );
 });
