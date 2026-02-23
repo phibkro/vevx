@@ -21,8 +21,13 @@ Use kart's MCP tools to manage context budget when navigating code.
 | "What else changes when I touch this?" | `kart_cochange` | Behavioral coupling from git history |
 | "What breaks if I change this?" | `kart_impact` | Transitive callers via LSP |
 | "What does this depend on?" | `kart_deps` | Transitive callees via LSP |
+| "What are the lint/type errors?" | `kart_diagnostics` | oxlint `--type-aware` |
+| "Where is this symbol used?" | `kart_references` | Cross-file references via LSP |
+| "What does this file import?" | `kart_imports` | Resolved paths + symbol names |
+| "What imports this file?" | `kart_importers` | Reverse lookup with barrel expansion |
 | "Replace a symbol definition" | `kart_replace` | AST-aware with syntax validation |
 | "Add code after/before a symbol" | `kart_insert_after` / `kart_insert_before` | Syntax-validated insertion |
+| "Rename a symbol everywhere" | `kart_rename` | Reference-aware rename via LSP |
 
 ## When to Use Each Level
 
@@ -68,6 +73,9 @@ digraph zoom_decision {
 | `search_for_pattern` — regex search | `kart_search` — ripgrep-backed text search |
 | `replace_symbol_body` — replace a symbol | `kart_replace` — replace with syntax validation + diagnostics |
 | `insert_after_symbol` / `insert_before_symbol` | `kart_insert_after` / `kart_insert_before` |
+| `rename_symbol` — rename across files | `kart_rename` — reference-aware rename via LSP |
+| (no equivalent) | `kart_diagnostics` — oxlint `--type-aware` lint + type errors |
+| (no equivalent) | `kart_imports` / `kart_importers` — import graph queries |
 
 kart is TypeScript-focused and lightweight (oxc-parser + oxlint). serena is cross-language with full LSP integration. For TypeScript projects, kart provides equivalent functionality with lower overhead.
 

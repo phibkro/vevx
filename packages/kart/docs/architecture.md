@@ -233,9 +233,9 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-202 tests across 19 files, split into pure (coverage-gated) and integration:
+214 tests across 19 files, split into pure (coverage-gated) and integration:
 
-**Pure tests** (`src/pure/`, 83 tests, `test:pure` with `--coverage`):
+**Pure tests** (`src/pure/`, 95 tests, `test:pure` with `--coverage`, 100% function / 99% line):
 
 | file | tests | what |
 |------|-------|------|
@@ -243,8 +243,8 @@ All error types defined in `src/pure/Errors.ts`.
 | `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
 | `pure/OxcSymbols.test.ts` | 14 | parseSymbols for all declaration kinds, exports, line numbers |
 | `pure/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations |
-| `pure/Resolve.test.ts` | 8 | loadTsconfigPaths, resolveAlias, extends chain, edge cases |
-| `pure/ImportGraph.test.ts` | 16 | extractFileImports, buildImportGraph, transitiveImporters, barrel expansion |
+| `pure/Resolve.test.ts` | 15 | loadTsconfigPaths, resolveAlias, resolveSpecifier, extends chain, node_modules, edge cases |
+| `pure/ImportGraph.test.ts` | 19 | extractFileImports, buildImportGraph, transitiveImporters, barrel expansion, local re-exports, default exports |
 
 **Integration tests** (`src/*.test.ts`, 127 tests, `test:integration`):
 

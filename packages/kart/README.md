@@ -27,7 +27,7 @@ Or install via the vevx marketplace:
 
 | Entry | Build output | Purpose |
 |---|---|---|
-| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 10 tools) |
+| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 15 tools) |
 
 ## MCP Tools
 
@@ -42,6 +42,10 @@ Or install via the vevx marketplace:
 | `kart_find` | Search for symbols across the workspace by name, kind, or export status |
 | `kart_search` | Text pattern search via ripgrep (gitignore-aware) |
 | `kart_list` | List files and directories with recursive and glob support |
+| `kart_diagnostics` | Lint violations + type errors via oxlint `--type-aware` |
+| `kart_references` | Cross-file references for a symbol via LSP |
+| `kart_imports` | File import list with resolved paths and symbol names |
+| `kart_importers` | Reverse import lookup with barrel file expansion |
 
 ### Write tools
 
@@ -50,6 +54,7 @@ Or install via the vevx marketplace:
 | `kart_replace` | Replace a symbol's full definition with syntax validation + oxlint diagnostics |
 | `kart_insert_after` | Insert content after a symbol's definition |
 | `kart_insert_before` | Insert content before a symbol's definition |
+| `kart_rename` | Reference-aware rename across workspace via LSP |
 
 ### kart_zoom
 
@@ -140,6 +145,46 @@ kart_insert_before(file, symbol, content)
 
 Insert content after or before a symbol's definition. Same pipeline as `kart_replace` (skip content-level syntax check since inserts may be partial).
 
+### kart_rename
+
+```
+kart_rename(file, symbol, newName)
+```
+
+Reference-aware rename via LSP `textDocument/rename`. Applies edits bottom-up to preserve offsets, validates workspace boundaries, and notifies the LSP of changes.
+
+### kart_diagnostics
+
+```
+kart_diagnostics(paths)
+```
+
+Runs `oxlint --type-aware --format json` on the given paths. Returns structured diagnostics. If oxlint/tsgolint is unavailable, returns `{ oxlintAvailable: false }`.
+
+### kart_references
+
+```
+kart_references(path, symbol, includeDeclaration?)
+```
+
+Finds all references to a symbol across the workspace via LSP. Returns file paths, positions, and total count.
+
+### kart_imports
+
+```
+kart_imports(path)
+```
+
+Returns what a file imports: raw specifiers, resolved absolute paths, imported symbol names, and type-only status. Uses oxc-parser for extraction and `Bun.resolveSync` for tsconfig-aware resolution. No LSP required.
+
+### kart_importers
+
+```
+kart_importers(path)
+```
+
+Returns all files that import the given file. Barrel files (index.ts that only re-export) are expanded transparently — if `auth/index.ts` re-exports from `auth/session.ts`, then `kart_importers("auth/session.ts")` includes files that import via the barrel. No LSP required.
+
 ## Plugin Assets
 
 | Asset | Path | Purpose |
@@ -152,23 +197,27 @@ Insert content after or before a symbol's definition. Same pipeline as `kart_rep
 
 | Module | File | Purpose |
 |---|---|---|
-| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult |
+| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult |
 | Errors | `src/pure/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
 | ExportDetection | `src/pure/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
 | Signatures | `src/pure/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
 | OxcSymbols | `src/pure/OxcSymbols.ts` | Fast symbol extraction via oxc-parser (LSP-free) |
 | AstEdit | `src/pure/AstEdit.ts` | Symbol location, syntax validation, byte-range splicing |
+| Resolve | `src/pure/Resolve.ts` | tsconfig path alias resolution (`loadTsconfigPaths`, `resolveAlias`, `resolveSpecifier`, `bunResolve`) |
+| ImportGraph | `src/pure/ImportGraph.ts` | oxc-based import extraction, import graph construction, barrel-aware transitive importers |
 | LspClient | `src/Lsp.ts` | TypeScript language server over stdio (JSON-RPC, Effect Layer, file watcher) |
-| SymbolIndex | `src/Symbols.ts` | Zoom + impact + deps services — workspace-scoped, combines LSP + pure functions |
+| SymbolIndex | `src/Symbols.ts` | Zoom + impact + deps + references + rename — workspace-scoped, combines LSP + pure functions |
 | CochangeDb | `src/Cochange.ts` | SQLite reader for co-change data (cached connections) |
 | Find | `src/Find.ts` | Workspace-wide symbol search via oxc-parser |
 | Search | `src/Search.ts` | Text pattern search via ripgrep subprocess |
 | List | `src/List.ts` | Directory listing with glob filtering |
 | Editor | `src/Editor.ts` | AST-aware edit pipeline (locate → validate → splice → write → lint) |
-| Tools | `src/Tools.ts` | MCP tool definitions (Zod schemas + Effect handlers) |
+| Diagnostics | `src/Diagnostics.ts` | oxlint `--type-aware` integration with graceful degradation |
+| Imports | `src/Imports.ts` | Import graph queries — `getImports`, `getImporters` with barrel expansion |
+| Tools | `src/Tools.ts` | 15 MCP tool definitions (Zod schemas + Effect/async handlers) |
 | Mcp | `src/Mcp.ts` | Server entrypoint, per-tool ManagedRuntime |
 
-`src/pure/` contains deterministic modules with no IO — 100% test coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates. Stateless modules (`Find.ts`, `Search.ts`, `List.ts`, `Editor.ts`) are tested without Effect runtime.
+`src/pure/` contains deterministic modules with no IO — 100% function coverage, 99% line coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates. Stateless modules (`Find.ts`, `Search.ts`, `List.ts`, `Editor.ts`, `Diagnostics.ts`, `Imports.ts`) are tested without Effect runtime.
 
 ## Relationship to Other Tools
 

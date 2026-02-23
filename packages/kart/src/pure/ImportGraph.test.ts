@@ -89,6 +89,27 @@ const internal = 1;
     const result = extractFileImports(source, "test.ts");
     expect(result.exportedNames).toEqual(["greet", "MAX", "Server", "Config", "ID"]);
   });
+
+  test("export { foo } local re-export counts as local export", () => {
+    const source = `const foo = 1;\nconst bar = 2;\nexport { foo, bar };\n`;
+    const result = extractFileImports(source, "test.ts");
+    expect(result.isBarrel).toBe(false);
+    expect(result.exportedNames).toContain("foo");
+    expect(result.exportedNames).toContain("bar");
+  });
+
+  test("export default counts as local export", () => {
+    const source = `export default function main() {}\n`;
+    const result = extractFileImports(source, "test.ts");
+    expect(result.isBarrel).toBe(false);
+    expect(result.exportedNames).toContain("main");
+  });
+
+  test("export default anonymous uses 'default' name", () => {
+    const source = `export default 42;\n`;
+    const result = extractFileImports(source, "test.ts");
+    expect(result.exportedNames).toContain("default");
+  });
 });
 
 // ── buildImportGraph ──
