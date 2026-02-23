@@ -83,6 +83,21 @@ describe("searchPattern", () => {
     expect(result.truncated).toBe(true);
   });
 
+  test("filters out paths outside workspace root", async () => {
+    writeFileSync(join(tempDir, "code.ts"), "const target = 1;\n");
+
+    // Pass a path that resolves outside the rootDir via traversal
+    const result = await searchPattern({
+      pattern: "target",
+      paths: ["../../../etc/passwd", "code.ts"],
+      rootDir: tempDir,
+    });
+
+    // Only the in-bounds path should be searched
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0].path).toBe("code.ts");
+  });
+
   test("returns empty for no matches", async () => {
     writeFileSync(join(tempDir, "empty.ts"), "const x = 1;\n");
 

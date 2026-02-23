@@ -16,17 +16,9 @@ import {
   spliceReplace,
   validateSyntax,
 } from "./pure/AstEdit.js";
+import type { Diagnostic } from "./pure/types.js";
 
 // ── Types ──
-
-export type Diagnostic = {
-  readonly file: string;
-  readonly line: number;
-  readonly column: number;
-  readonly severity: string;
-  readonly message: string;
-  readonly ruleId?: string;
-};
 
 export type EditResult = {
   readonly success: boolean;

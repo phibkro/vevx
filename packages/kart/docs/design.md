@@ -160,24 +160,14 @@ If the database is absent, returns a structured `CochangeUnavailable` response (
 | `kart_replace` | replace full symbol definition | oxc AST + oxlint |
 | `kart_insert_after` | insert content after symbol | oxc AST + oxlint |
 | `kart_insert_before` | insert content before symbol | oxc AST + oxlint |
-
-### planned — phase 4: diagnostics
-
-| tool | purpose | backend |
-|------|---------|---------|
 | `kart_diagnostics` | lint violations + type errors | oxlint `--type-aware` |
-
-### planned
-
-| tool | purpose | backend |
-|------|---------|---------|
 | `kart_references` | cross-file references | LSP `textDocument/references` |
+| `kart_rename` | reference-aware rename | LSP `textDocument/rename` |
 
 ### future
 
 | tool | purpose | backend |
 |------|---------|---------|
-| `kart_rename` | reference-aware rename | LSP `textDocument/rename` |
 | `kart_restart` | restart language server | — |
 
 ---
@@ -190,7 +180,7 @@ Kart is a full serena replacement for typescript projects.
 |------------|----------------|--------|
 | `get_symbols_overview` | `kart_zoom` level-0 | shipped |
 | `find_symbol` | `kart_find` | shipped |
-| `find_referencing_symbols` | `kart_references` | planned |
+| `find_referencing_symbols` | `kart_references` | shipped |
 | `replace_symbol_body` | `kart_replace` | shipped |
 | `insert_after_symbol` | `kart_insert_after` | shipped |
 | `insert_before_symbol` | `kart_insert_before` | shipped |
@@ -198,7 +188,7 @@ Kart is a full serena replacement for typescript projects.
 | `list_dir` | `kart_list` | shipped |
 | `find_file` | `kart_list` with glob | shipped |
 | `restart_language_server` | `kart_restart` | future |
-| `rename_symbol` | `kart_rename` | future |
+| `rename_symbol` | `kart_rename` | shipped |
 
 Serena tools kart deliberately omits: memory system (`write_memory` etc.), onboarding, reasoning scaffolding (`think_about_*`), mode switching. These are workflow conventions, not code intelligence primitives. Agents using kart manage context via varp manifests and kiste artifacts.
 
@@ -251,11 +241,11 @@ Oxlint type-aware linting (phase 4) requires `oxlint-tsgolint` in the workspace.
 | 1 | LSP call hierarchy plumbing, latency spike | shipped |
 | 2 | `kart_impact`, file watcher | shipped |
 | 3 | `kart_deps` | shipped |
-| 4 | `kart_diagnostics` via oxlint `--type-aware` | next |
+| 4 | `kart_diagnostics` via oxlint `--type-aware` | shipped |
 | 5 | `kart_find`, `kart_search`, `kart_list` | shipped |
 | 6 | `kart_replace`, `kart_insert_after`, `kart_insert_before` (ADR-005) | shipped |
-| 7 | `kart_references` via LSP `textDocument/references` | next |
-| 8 | `kart_rename` via LSP `textDocument/rename` | future |
+| 7 | `kart_references` via LSP `textDocument/references` | shipped |
+| 8 | `kart_rename` via LSP `textDocument/rename` | shipped |
 
 ---
 

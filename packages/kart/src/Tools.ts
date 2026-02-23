@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 
 import { CochangeDb } from "./Cochange.js";
+import { runDiagnostics } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { findSymbols } from "./Find.js";
 import { listDirectory } from "./List.js";
@@ -156,6 +157,56 @@ export const kart_list = {
     Effect.sync(() => listDirectory(args)),
 } as const;
 
+export const kart_rename = {
+  name: "kart_rename",
+  description:
+    "Rename a symbol across the workspace. Applies reference-aware rename via LSP, modifying all files that reference the symbol. Returns which files were modified.",
+  annotations: READ_WRITE,
+  inputSchema: {
+    path: z.string().describe("File path containing the symbol to rename"),
+    symbol: z.string().describe("Current name of the symbol"),
+    newName: z.string().describe("New name for the symbol"),
+  },
+  handler: (args: { path: string; symbol: string; newName: string }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.rename(args.path, args.symbol, args.newName);
+    }),
+} as const;
+
+export const kart_references = {
+  name: "kart_references",
+  description:
+    "Find all references to a symbol across the workspace. Returns file paths and positions where the symbol is used. Requires LSP (typescript-language-server).",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the symbol"),
+    symbol: z.string().describe("Name of the symbol to find references for"),
+    includeDeclaration: z
+      .boolean()
+      .optional()
+      .describe("Include the declaration site in results (default: true)"),
+  },
+  handler: (args: { path: string; symbol: string; includeDeclaration?: boolean }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.references(args.path, args.symbol, args.includeDeclaration);
+    }),
+} as const;
+
+export const kart_diagnostics = {
+  name: "kart_diagnostics",
+  description:
+    "Run oxlint with type-aware rules on specified files or directories. Returns structured lint violations and type errors. Gracefully degrades when oxlint is unavailable.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    paths: z
+      .array(z.string())
+      .describe("File or directory paths to lint (relative to workspace root)"),
+  },
+  handler: (args: { paths: string[] }) => Effect.promise(() => runDiagnostics(args)),
+} as const;
+
 export const kart_replace = {
   name: "kart_replace",
   description:
@@ -206,6 +257,9 @@ export const tools = [
   kart_find,
   kart_search,
   kart_list,
+  kart_rename,
+  kart_references,
+  kart_diagnostics,
   kart_replace,
   kart_insert_after,
   kart_insert_before,

@@ -192,11 +192,14 @@ describe("MCP integration — tool listing", () => {
     expect(names).toEqual([
       "kart_cochange",
       "kart_deps",
+      "kart_diagnostics",
       "kart_find",
       "kart_impact",
       "kart_insert_after",
       "kart_insert_before",
       "kart_list",
+      "kart_references",
+      "kart_rename",
       "kart_replace",
       "kart_search",
       "kart_zoom",
@@ -205,9 +208,8 @@ describe("MCP integration — tool listing", () => {
 
   test("read-only tools have read-only annotations", async () => {
     const result = await client.listTools();
-    const readOnlyTools = result.tools.filter(
-      (t) => !t.name.startsWith("kart_replace") && !t.name.startsWith("kart_insert"),
-    );
+    const writeTools = new Set(["kart_replace", "kart_insert_after", "kart_insert_before", "kart_rename"]);
+    const readOnlyTools = result.tools.filter((t) => !writeTools.has(t.name));
     for (const tool of readOnlyTools) {
       expect(tool.annotations).toBeDefined();
       expect(tool.annotations!.readOnlyHint).toBe(true);
@@ -217,10 +219,9 @@ describe("MCP integration — tool listing", () => {
 
   test("edit tools have read-write annotations", async () => {
     const result = await client.listTools();
-    const editTools = result.tools.filter(
-      (t) => t.name === "kart_replace" || t.name.startsWith("kart_insert"),
-    );
-    expect(editTools).toHaveLength(3);
+    const writeToolNames = new Set(["kart_replace", "kart_insert_after", "kart_insert_before", "kart_rename"]);
+    const editTools = result.tools.filter((t) => writeToolNames.has(t.name));
+    expect(editTools).toHaveLength(4);
     for (const tool of editTools) {
       expect(tool.annotations).toBeDefined();
       expect(tool.annotations!.readOnlyHint).toBe(false);
@@ -520,6 +521,59 @@ export const MAX = 100;
     const commentIdx = content.indexOf("// Greeting function");
     const greetIdx = content.indexOf("export function greet");
     expect(commentIdx).toBeLessThan(greetIdx);
+  });
+});
+
+// ── kart_diagnostics tests (no LSP needed) ──
+
+describe("MCP integration — kart_diagnostics", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-diag-"));
+    await writeFile(join(tempDir, "code.ts"), "const x: any = 1;\nexport { x };\n");
+
+    const server = createServer({ dbPath: join(tempDir, "no.db"), rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-diag", version: "0.1.0" });
+
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("returns structured diagnostics result", async () => {
+    const result = await client.callTool({
+      name: "kart_diagnostics",
+      arguments: { paths: ["code.ts"] },
+    });
+    const data = parseResult(result) as {
+      diagnostics: unknown[];
+      oxlintAvailable: boolean;
+    };
+    expect(typeof data.oxlintAvailable).toBe("boolean");
+    expect(data.diagnostics).toBeInstanceOf(Array);
+  });
+
+  test("skips paths outside workspace root", async () => {
+    const result = await client.callTool({
+      name: "kart_diagnostics",
+      arguments: { paths: ["../../../etc/passwd"] },
+    });
+    const data = parseResult(result) as {
+      diagnostics: unknown[];
+      pathsSkipped: string[];
+    };
+    expect(data.pathsSkipped).toEqual(["../../../etc/passwd"]);
   });
 });
 

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { Context, Effect, Layer } from "effect";
@@ -14,10 +14,13 @@ import type {
   DocumentSymbol,
   ImpactNode,
   ImpactResult,
+  ReferencesResult,
+  RenameResult,
+  TextEdit,
 } from "./pure/types.js";
 import type { ZoomResult, ZoomSymbol } from "./pure/types.js";
 
-export type { DepsResult, ImpactResult, ZoomResult, ZoomSymbol } from "./pure/types.js";
+export type { DepsResult, ImpactResult, ReferencesResult, RenameResult, ZoomResult, ZoomSymbol } from "./pure/types.js";
 
 // ── Constants ──
 
@@ -76,6 +79,16 @@ export class SymbolIndex extends Context.Tag("kart/SymbolIndex")<
       symbolName: string,
       maxDepth?: number,
     ) => Effect.Effect<DepsResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly references: (
+      path: string,
+      symbolName: string,
+      includeDeclaration?: boolean,
+    ) => Effect.Effect<ReferencesResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly rename: (
+      path: string,
+      symbolName: string,
+      newName: string,
+    ) => Effect.Effect<RenameResult, LspError | LspTimeoutError | FileNotFoundError>;
   }
 >() {}
 
@@ -369,9 +382,161 @@ export const SymbolIndexLive = (config?: {
               root,
             };
           }),
+
+        references: (path, symbolName, includeDeclaration = true) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+
+            // Path traversal guard
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+
+            const uri = `file://${absPath}`;
+
+            // Find the symbol by name
+            const symbols = yield* lsp.documentSymbol(uri);
+            const target = findSymbolByName(symbols, symbolName);
+
+            if (!target) {
+              return yield* Effect.fail(
+                new FileNotFoundError({
+                  path: `Symbol '${symbolName}' not found in ${path}`,
+                }),
+              );
+            }
+
+            // Get references at the symbol's position
+            const locations = yield* lsp.references(
+              uri,
+              target.selectionRange.start.line,
+              target.selectionRange.start.character,
+              includeDeclaration,
+            );
+
+            const references = locations.map((loc) => ({
+              path: loc.uri.replace("file://", ""),
+              line: loc.range.start.line,
+              character: loc.range.start.character,
+            }));
+
+            return {
+              symbol: symbolName,
+              path: absPath,
+              references,
+              totalReferences: references.length,
+              includesDeclaration: includeDeclaration,
+            };
+          }),
+
+        rename: (path, symbolName, newName) =>
+          Effect.gen(function* () {
+            const absPath = resolve(path);
+
+            // Path traversal guard
+            if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
+              return yield* Effect.fail(
+                new FileNotFoundError({ path: `Access denied: ${path} is outside workspace root` }),
+              );
+            }
+
+            if (!existsSync(absPath)) {
+              return yield* Effect.fail(new FileNotFoundError({ path: absPath }));
+            }
+
+            const uri = `file://${absPath}`;
+
+            // Find the symbol by name
+            const symbols = yield* lsp.documentSymbol(uri);
+            const target = findSymbolByName(symbols, symbolName);
+
+            if (!target) {
+              return yield* Effect.fail(
+                new FileNotFoundError({
+                  path: `Symbol '${symbolName}' not found in ${path}`,
+                }),
+              );
+            }
+
+            // Request rename from LSP
+            const edit = yield* lsp.rename(
+              uri,
+              target.selectionRange.start.line,
+              target.selectionRange.start.character,
+              newName,
+            );
+
+            if (!edit || !edit.changes) {
+              return yield* Effect.fail(
+                new FileNotFoundError({
+                  path: `Rename not available for '${symbolName}' in ${path}`,
+                }),
+              );
+            }
+
+            // Apply edits — process each file, applying text edits in reverse order
+            const filesModified: string[] = [];
+            let totalEdits = 0;
+
+            for (const [fileUri, edits] of Object.entries(edit.changes)) {
+              const filePath = fileUri.replace("file://", "");
+
+              // Workspace boundary check for each affected file
+              if (!filePath.startsWith(rootDir + "/") && filePath !== rootDir) continue;
+
+              const content = readFileSync(filePath, "utf-8");
+              const lines = content.split("\n");
+
+              // Sort edits in reverse order (bottom-up) so offsets don't shift
+              const sorted = [...edits].sort((a: TextEdit, b: TextEdit) => {
+                if (a.range.start.line !== b.range.start.line)
+                  return b.range.start.line - a.range.start.line;
+                return b.range.start.character - a.range.start.character;
+              });
+
+              let result = content;
+              for (const textEdit of sorted) {
+                const startOffset = linesToOffset(lines, textEdit.range.start.line, textEdit.range.start.character);
+                const endOffset = linesToOffset(lines, textEdit.range.end.line, textEdit.range.end.character);
+                result = result.slice(0, startOffset) + textEdit.newText + result.slice(endOffset);
+              }
+
+              writeFileSync(filePath, result);
+              filesModified.push(filePath);
+              totalEdits += edits.length;
+
+              // Notify LSP about the change
+              yield* lsp.updateOpenDocument(fileUri);
+            }
+
+            return {
+              symbol: symbolName,
+              newName,
+              path: absPath,
+              filesModified,
+              totalEdits,
+            };
+          }),
       });
     }),
   );
+
+// ── Helpers ──
+
+/** Convert line:character to byte offset within file content. */
+function linesToOffset(lines: string[], line: number, character: number): number {
+  let offset = 0;
+  for (let i = 0; i < line && i < lines.length; i++) {
+    offset += lines[i].length + 1; // +1 for newline
+  }
+  return offset + character;
+}
 
 // ── Directory zoom helper ──
 

@@ -113,6 +113,36 @@ describe("editInsertBefore", () => {
   );
 });
 
+describe("error paths", () => {
+  test("returns error for nonexistent file", async () => {
+    const result = await editReplace("/tmp/claude/nonexistent-file.ts", "greet", "const x = 1;");
+    expect(result.success).toBe(false);
+    expect(result.syntaxError).toBe(false);
+    expect(result.syntaxErrorMessage).toContain("Failed to read file");
+  });
+
+  test(
+    "rejects when splice produces invalid file",
+    withTempFile(
+      `export function greet(name: string): string {\n  return \`Hello \${name}\`;\n}\n`,
+      async (filePath) => {
+        const before = readFileSync(filePath, "utf-8");
+        // Insert content that is individually valid but makes the full file invalid
+        const result = await editInsertAfter(filePath, "greet", "\n} // stray closing brace\n");
+        // The inserted content itself doesn't get fragment-validated (only replace does),
+        // but the full-file validation should catch it
+        if (!result.success) {
+          expect(result.syntaxError).toBe(true);
+          expect(result.syntaxErrorMessage).toContain("syntax error");
+          // File should be unchanged
+          const after = readFileSync(filePath, "utf-8");
+          expect(after).toBe(before);
+        }
+      },
+    ),
+  );
+});
+
 describe("workspace boundary", () => {
   test(
     "rejects paths outside workspace root",

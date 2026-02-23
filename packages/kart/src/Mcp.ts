@@ -30,6 +30,7 @@ function errorMessage(e: unknown): string {
 }
 
 import { CochangeDbLive } from "./Cochange.js";
+import { runDiagnostics, type DiagnosticsArgs } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { findSymbols, type FindArgs } from "./Find.js";
 import { listDirectory, type ListArgs } from "./List.js";
@@ -39,7 +40,10 @@ import { SymbolIndexLive } from "./Symbols.js";
 import {
   kart_cochange,
   kart_deps,
+  kart_diagnostics,
   kart_find,
+  kart_references,
+  kart_rename,
   kart_impact,
   kart_insert_after,
   kart_insert_before,
@@ -153,6 +157,62 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
   );
 
+  // Register kart_references (LSP-backed)
+  server.registerTool(
+    kart_references.name,
+    {
+      description: kart_references.description,
+      inputSchema: kart_references.inputSchema,
+      annotations: kart_references.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await zoomRuntime.runPromise(
+          kart_references.handler(
+            args as { path: string; symbol: string; includeDeclaration?: boolean },
+          ) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_rename (LSP-backed, write)
+  server.registerTool(
+    kart_rename.name,
+    {
+      description: kart_rename.description,
+      inputSchema: kart_rename.inputSchema,
+      annotations: kart_rename.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await zoomRuntime.runPromise(
+          kart_rename.handler(
+            args as { path: string; symbol: string; newName: string },
+          ) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   // Register kart_find (stateless — no Effect runtime needed)
   server.registerTool(
     kart_find.name,
@@ -240,6 +300,30 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const result = listDirectory({ ...(args as ListArgs), rootDir });
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_diagnostics (stateless — no Effect runtime needed)
+  server.registerTool(
+    kart_diagnostics.name,
+    {
+      description: kart_diagnostics.description,
+      inputSchema: kart_diagnostics.inputSchema,
+      annotations: kart_diagnostics.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await runDiagnostics({ ...(args as DiagnosticsArgs), rootDir });
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as unknown as Record<string, unknown>,

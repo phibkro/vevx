@@ -91,6 +91,58 @@ export type DepsResult = {
   readonly root: DepsNode;
 };
 
+// ── Reference types ──
+
+export type Location = {
+  readonly uri: string;
+  readonly range: LspRange;
+};
+
+export type ReferenceEntry = {
+  readonly path: string;
+  readonly line: number;
+  readonly character: number;
+};
+
+export type ReferencesResult = {
+  readonly symbol: string;
+  readonly path: string;
+  readonly references: ReferenceEntry[];
+  readonly totalReferences: number;
+  /** True if the declaration site is included in references. */
+  readonly includesDeclaration: boolean;
+};
+
+// ── Rename types ──
+
+export type TextEdit = {
+  readonly range: LspRange;
+  readonly newText: string;
+};
+
+export type WorkspaceEdit = {
+  readonly changes?: Record<string, TextEdit[]>;
+};
+
+export type RenameResult = {
+  readonly symbol: string;
+  readonly newName: string;
+  readonly path: string;
+  readonly filesModified: string[];
+  readonly totalEdits: number;
+};
+
+// ── Diagnostic types ──
+
+export type Diagnostic = {
+  readonly file: string;
+  readonly line: number;
+  readonly column: number;
+  readonly severity: string;
+  readonly message: string;
+  readonly ruleId?: string;
+};
+
 // ── Zoom types ──
 
 export type ZoomSymbol = {

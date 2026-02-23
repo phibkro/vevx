@@ -325,6 +325,99 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     expect(result.root.name).toBe("greet");
   }, 30_000);
 
+  // ── References tests ──
+
+  test("references: finds references for exported symbol", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.references(join(tempDir, "exports.ts"), "greet");
+      }),
+    );
+
+    expect(result.symbol).toBe("greet");
+    expect(result.totalReferences).toBeGreaterThanOrEqual(1);
+    expect(result.includesDeclaration).toBe(true);
+    expect(result.references.length).toBe(result.totalReferences);
+    // Each reference should have a path
+    for (const ref of result.references) {
+      expect(ref.path).toBeTruthy();
+      expect(typeof ref.line).toBe("number");
+      expect(typeof ref.character).toBe("number");
+    }
+  }, 30_000);
+
+  test("references: unknown symbol fails with FileNotFoundError", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.references(join(tempDir, "exports.ts"), "nonexistent"));
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+    }
+  }, 30_000);
+
+  test("references: path traversal outside workspace root fails", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.references("/etc/passwd", "greet"));
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+    }
+  }, 30_000);
+
+  // ── Rename tests ──
+
+  test("rename: renames symbol in file", async () => {
+    // Create a disposable file in tempDir for rename (uses the existing runtime/LSP)
+    const renamePath = join(tempDir, "rename-target.ts");
+    await writeFile(
+      renamePath,
+      "export function greetUser(name: string): string {\n  return `Hello ${name}`;\n}\n",
+    );
+
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* idx.rename(renamePath, "greetUser", "sayHello");
+      }),
+    );
+
+    expect(result.symbol).toBe("greetUser");
+    expect(result.newName).toBe("sayHello");
+    expect(result.filesModified.length).toBeGreaterThanOrEqual(1);
+    expect(result.totalEdits).toBeGreaterThanOrEqual(1);
+
+    // Verify the file was actually modified
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(renamePath, "utf-8");
+    expect(content).toContain("sayHello");
+    expect(content).not.toContain("greetUser");
+  }, 30_000);
+
+  test("rename: unknown symbol fails with FileNotFoundError", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const idx = yield* SymbolIndex;
+        return yield* Effect.either(idx.rename(join(tempDir, "exports.ts"), "nonexistent", "newName"));
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(FileNotFoundError);
+    }
+  }, 30_000);
+
   test("human-readable kind names", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {

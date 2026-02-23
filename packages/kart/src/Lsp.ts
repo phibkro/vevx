@@ -9,18 +9,22 @@ export type {
   CallHierarchyItem,
   DocumentSymbol,
   IncomingCallItem,
+  Location,
   LspRange,
   OutgoingCallItem,
   SemanticToken,
   SemanticTokensResult,
+  WorkspaceEdit,
 } from "./pure/types.js";
 import type {
   CallHierarchyItem,
   DocumentSymbol,
   IncomingCallItem,
+  Location,
   OutgoingCallItem,
   SemanticToken,
   SemanticTokensResult,
+  WorkspaceEdit,
 } from "./pure/types.js";
 
 // ── Service ──
@@ -45,6 +49,18 @@ export class LspClient extends Context.Tag("kart/LspClient")<
     readonly outgoingCalls: (
       item: CallHierarchyItem,
     ) => Effect.Effect<OutgoingCallItem[], LspError | LspTimeoutError>;
+    readonly references: (
+      uri: string,
+      line: number,
+      character: number,
+      includeDeclaration?: boolean,
+    ) => Effect.Effect<Location[], LspError | LspTimeoutError>;
+    readonly rename: (
+      uri: string,
+      line: number,
+      character: number,
+      newName: string,
+    ) => Effect.Effect<WorkspaceEdit | null, LspError | LspTimeoutError>;
     readonly updateOpenDocument: (uri: string) => Effect.Effect<void, LspError>;
     readonly shutdown: () => Effect.Effect<void, LspError>;
   }
@@ -650,6 +666,54 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
 
               if (!Array.isArray(result)) return [];
               return result as OutgoingCallItem[];
+            }),
+
+          references: (uri, line, character, includeDeclaration = true) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/references", {
+                    textDocument: { uri },
+                    position: { line, character },
+                    context: { includeDeclaration },
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `references request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!Array.isArray(result)) return [];
+              return result as Location[];
+            }),
+
+          rename: (uri, line, character, newName) =>
+            Effect.gen(function* () {
+              yield* ensureDocumentOpen(uri);
+
+              const result = yield* Effect.tryPromise({
+                try: () =>
+                  transport.request("textDocument/rename", {
+                    textDocument: { uri },
+                    position: { line, character },
+                    newName,
+                  }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `rename request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!result || typeof result !== "object") return null;
+              return result as WorkspaceEdit;
             }),
 
           updateOpenDocument: (uri) =>

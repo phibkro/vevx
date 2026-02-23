@@ -2,10 +2,10 @@
 
 ## overview
 
-kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, and AST-aware editing. Ten tools across three categories:
+kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, and reference-aware rename. Thirteen tools across four categories:
 
-- **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps` — require `typescript-language-server`
-- **Stateless navigation**: `kart_find` (oxc-parser), `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite)
+- **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps`, `kart_references`, `kart_rename` — require `typescript-language-server`
+- **Stateless navigation**: `kart_find` (oxc-parser), `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint)
 - **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser for symbol location + syntax validation, oxlint for diagnostics
 
 ```
@@ -14,7 +14,7 @@ MCP client ──stdio──▷ Mcp.ts (McpServer + ManagedRuntime)
               ┌─────────┼──────────────────────┐
               ▼         ▼                      ▼
         cochangeRuntime  zoomRuntime       stateless tools
-              │              │           (find, search, list, edit)
+              │              │           (find, search, list, edit, diagnostics)
         CochangeDb    SymbolIndex               │
         (bun:sqlite)      │              ┌──────┼──────┐
                       LspClient        oxc-parser  ripgrep  oxlint
@@ -37,13 +37,14 @@ src/
     OxcSymbols.ts        — parseSymbols() via oxc-parser — name, kind, exported, line, byte range
     AstEdit.ts           — locateSymbol, validateSyntax, spliceReplace, spliceInsertAfter, spliceInsertBefore
   Lsp.ts                 — LspClient service, JsonRpcTransport, LspClientLive layer
-  Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact + deps (BFS over call hierarchy)
+  Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact, deps, references, rename
   Cochange.ts            — CochangeDb service, SQL query, graceful degradation
   Find.ts                — findSymbols: workspace-wide symbol search via oxc-parser
   Search.ts              — searchPattern: text search via ripgrep subprocess
   List.ts                — listDirectory: recursive directory listing with glob
   Editor.ts              — editReplace, editInsertAfter, editInsertBefore: AST-aware edit pipeline
-  Tools.ts               — 10 tool definitions (Zod schemas + Effect/async handlers)
+  Diagnostics.ts         — runDiagnostics: oxlint --type-aware with graceful degradation
+  Tools.ts               — 13 tool definitions (Zod schemas + Effect/async handlers)
   Mcp.ts                 — MCP server entrypoint, per-tool ManagedRuntime
   __fixtures__/          — test fixtures (exports.ts, other.ts, tsconfig.json)
 ```
@@ -69,6 +70,8 @@ Manages a persistent `typescript-language-server` process over JSON-RPC/stdio.
 - `prepareCallHierarchy(uri, line, character)` — get call hierarchy items at a position
 - `incomingCalls(item)` — callers of a call hierarchy item
 - `outgoingCalls(item)` — callees of a call hierarchy item
+- `references(uri, line, character, includeDeclaration?)` — all references to a symbol
+- `rename(uri, line, character, newName)` — workspace edit for renaming a symbol
 - `shutdown()` — explicit early termination (sets flag to prevent duplicate cleanup in finalizer)
 
 **File watching:** A recursive `fs.watch` on the workspace root monitors `*.ts`, `*.tsx`, `tsconfig.json`, and `package.json`. On change, the watcher sends `workspace/didChangeWatchedFiles` notifications to the LS. For already-open documents, it also sends `textDocument/didChange` with refreshed content. The watcher is attached to the Effect `Scope` finalizer and cleaned up with the LSP process. Watcher errors (e.g. EMFILE) are silently ignored — stale state is an acceptable fallback.
@@ -96,6 +99,10 @@ Level-2 reads are capped at `MAX_LEVEL2_BYTES` (100KB). Files exceeding this ret
 **Directory zoom:** when path is a directory, returns level-0 for each `.ts`/`.tsx` file (non-recursive, test files excluded). Files with no exports are omitted.
 
 **Impact analysis:** `impact(path, symbolName, maxDepth?)` computes the blast radius of changing a symbol. Uses `documentSymbol` to locate the target by name, `prepareCallHierarchy` to get a call hierarchy item, then BFS over `incomingCalls` up to `maxDepth` (default 3, hard cap `MAX_IMPACT_DEPTH` = 5). A `visited` set prevents cycles. Returns an `ImpactResult` tree with `totalNodes`, `highFanOut` flag (triggered when any node exceeds `HIGH_FAN_OUT_THRESHOLD` = 10 callers), and the caller tree rooted at the target symbol.
+
+**References:** `references(path, symbolName, includeDeclaration?)` finds all usages of a symbol across the workspace via LSP `textDocument/references`. Returns `ReferencesResult` with file paths, line/character positions, and total count.
+
+**Rename:** `rename(path, symbolName, newName)` performs reference-aware rename via LSP `textDocument/rename`. Applies the returned `WorkspaceEdit` (text edits per file, applied bottom-up to preserve offsets), validates workspace boundaries for each affected file, and notifies the LSP of changes. Returns `RenameResult` with list of modified files and total edit count.
 
 ### CochangeDb (`src/Cochange.ts`)
 
@@ -201,12 +208,12 @@ kart_replace({ file: "src/auth.ts", symbol: "validate", content: "function valid
 Zod schemas at the MCP boundary (tool inputs). Each tool definition in `Tools.ts` is a self-contained object with `name`, `description`, `inputSchema` (Zod), `annotations`, and `handler`.
 
 Two handler patterns:
-- **Effect-based** (zoom, impact, deps, cochange): handlers return `Effect.gen` generators, run via `ManagedRuntime.runPromise`
-- **Stateless** (find, search, list, edit): handlers use `Effect.promise()` or `Effect.sync()` wrapping plain async/sync functions
+- **Effect-based** (zoom, impact, deps, references, rename, cochange): handlers return `Effect.gen` generators, run via `ManagedRuntime.runPromise`
+- **Stateless** (find, search, list, diagnostics, edit): handlers use `Effect.promise()` or `Effect.sync()` wrapping plain async/sync functions
 
 `Mcp.ts` registers tools individually. All responses include `structuredContent` for direct JSON access by callers. Effect errors are unwrapped via `errorMessage()` and become `{ isError: true, content: [{ text: "Error: ..." }] }`.
 
-Tool annotations: `READ_ONLY` for navigation tools, `READ_WRITE` for edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`).
+Tool annotations: `READ_ONLY` for navigation tools, `READ_WRITE` for edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`, `kart_rename`).
 
 ## error model
 
@@ -223,7 +230,7 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-153 tests across 14 files, split into pure (coverage-gated) and integration:
+168 tests across 16 files, split into pure (coverage-gated) and integration:
 
 **Pure tests** (`src/pure/`, 52 tests, `test:pure` with `--coverage`):
 
@@ -234,19 +241,20 @@ All error types defined in `src/pure/Errors.ts`.
 | `pure/OxcSymbols.test.ts` | 14 | parseSymbols for all declaration kinds, exports, line numbers |
 | `pure/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations |
 
-**Integration tests** (`src/*.test.ts`, 101 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 116 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
 | `Lsp.test.ts` | 8 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, shutdown |
 | `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
-| `Symbols.test.ts` | 17 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS |
+| `Symbols.test.ts` | 22 | zoom levels, directory zoom, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS, references, rename |
 | `Find.test.ts` | 9 | symbol search by name, kind, export status, truncation |
-| `Search.test.ts` | 6 | pattern search, glob filtering, path restriction |
+| `Search.test.ts` | 7 | pattern search, glob filtering, path restriction, workspace boundary |
 | `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |
-| `Editor.test.ts` | 8 | replace, insert after/before, syntax validation, symbol not found, workspace boundary |
-| `Mcp.test.ts` | 26 | MCP integration via InMemoryTransport (all 10 tools) |
+| `Diagnostics.test.ts` | 5 | oxlint integration, unavailable fallback, workspace boundary |
+| `Editor.test.ts` | 10 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths |
+| `Mcp.test.ts` | 30 | MCP integration via InMemoryTransport (all 13 tools) |
 | `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.
