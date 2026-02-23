@@ -27,15 +27,29 @@ Or install via the vevx marketplace:
 
 | Entry | Build output | Purpose |
 |---|---|---|
-| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 3 read-only tools) |
+| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 10 tools) |
 
 ## MCP Tools
+
+### Read-only tools
 
 | Tool | Purpose |
 |---|---|
 | `kart_zoom` | Progressive disclosure of a file or directory's structure |
 | `kart_cochange` | Files that frequently change alongside a given file (from git history) |
 | `kart_impact` | Blast radius of changing a symbol — transitive callers via LSP call hierarchy |
+| `kart_deps` | Dependencies of a symbol — transitive callees via LSP call hierarchy |
+| `kart_find` | Search for symbols across the workspace by name, kind, or export status |
+| `kart_search` | Text pattern search via ripgrep (gitignore-aware) |
+| `kart_list` | List files and directories with recursive and glob support |
+
+### Write tools
+
+| Tool | Purpose |
+|---|---|
+| `kart_replace` | Replace a symbol's full definition with syntax validation + oxlint diagnostics |
+| `kart_insert_after` | Insert content after a symbol's definition |
+| `kart_insert_before` | Insert content before a symbol's definition |
 
 ### kart_zoom
 
@@ -69,6 +83,38 @@ Computes the blast radius of changing a symbol. BFS over LSP `incomingCalls` to 
 
 Returns a tree of callers with metadata: `totalNodes`, `highFanOut` (warns when any node exceeds 10 callers), `depth`, `maxDepth`. Uses `zoomRuntime` (shares LSP with `kart_zoom`).
 
+### kart_deps
+
+```
+kart_deps(path, symbol, depth?)
+```
+
+Lists transitive dependencies (callees) of a symbol. BFS over LSP `outgoingCalls`. Same parameters and defaults as `kart_impact`.
+
+### kart_find
+
+```
+kart_find(name, kind?, exported?, path?)
+```
+
+Searches `.ts`/`.tsx` files for symbols matching a name substring. Uses `oxc-parser` for fast, LSP-free scanning. Optional filters for symbol kind (`function`, `class`, `interface`, `type`, `enum`, `const`, `let`, `var`) and export status. Caps at 2000 files scanned.
+
+### kart_search
+
+```
+kart_search(pattern, glob?, paths?)
+```
+
+Searches file contents via ripgrep. Gitignore-aware by default. Caps at 100 matches. Supports glob filtering and path restriction.
+
+### kart_list
+
+```
+kart_list(path, recursive?, glob?)
+```
+
+Lists files and directories. Excludes `node_modules`, `.git`, `dist`, `build`, `.varp`. Supports recursive mode and glob filtering. Caps at 5000 entries.
+
 ### kart_cochange
 
 ```
@@ -76,6 +122,23 @@ kart_cochange(path)
 ```
 
 Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. Database connections are cached for reuse across requests. If the database is absent, returns a structured message telling the agent how to generate it.
+
+### kart_replace
+
+```
+kart_replace(file, symbol, content)
+```
+
+Replaces a symbol's full definition. Pipeline: read → locate (oxc-parser) → validate new content syntax → splice → validate full file → write → oxlint (best effort). Returns `EditResult` with inline diagnostics.
+
+### kart_insert_after / kart_insert_before
+
+```
+kart_insert_after(file, symbol, content)
+kart_insert_before(file, symbol, content)
+```
+
+Insert content after or before a symbol's definition. Same pipeline as `kart_replace` (skip content-level syntax check since inserts may be partial).
 
 ## Plugin Assets
 
@@ -89,23 +152,29 @@ Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. D
 
 | Module | File | Purpose |
 |---|---|---|
-| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult |
+| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult |
 | Errors | `src/pure/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
 | ExportDetection | `src/pure/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
 | Signatures | `src/pure/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
+| OxcSymbols | `src/pure/OxcSymbols.ts` | Fast symbol extraction via oxc-parser (LSP-free) |
+| AstEdit | `src/pure/AstEdit.ts` | Symbol location, syntax validation, byte-range splicing |
 | LspClient | `src/Lsp.ts` | TypeScript language server over stdio (JSON-RPC, Effect Layer, file watcher) |
-| SymbolIndex | `src/Symbols.ts` | Zoom + impact services — workspace-scoped, combines LSP + pure functions |
+| SymbolIndex | `src/Symbols.ts` | Zoom + impact + deps services — workspace-scoped, combines LSP + pure functions |
 | CochangeDb | `src/Cochange.ts` | SQLite reader for co-change data (cached connections) |
+| Find | `src/Find.ts` | Workspace-wide symbol search via oxc-parser |
+| Search | `src/Search.ts` | Text pattern search via ripgrep subprocess |
+| List | `src/List.ts` | Directory listing with glob filtering |
+| Editor | `src/Editor.ts` | AST-aware edit pipeline (locate → validate → splice → write → lint) |
 | Tools | `src/Tools.ts` | MCP tool definitions (Zod schemas + Effect handlers) |
 | Mcp | `src/Mcp.ts` | Server entrypoint, per-tool ManagedRuntime |
 
-`src/pure/` contains deterministic modules with no IO — 100% test coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates.
+`src/pure/` contains deterministic modules with no IO — 100% test coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates. Stateless modules (`Find.ts`, `Search.ts`, `List.ts`, `Editor.ts`) are tested without Effect runtime.
 
 ## Relationship to Other Tools
 
-**serena** — symbol search, references, type hierarchies, editing. Use when you know what you're looking for.
+**serena** — symbol search, references, type hierarchies. Heavyweight LSP integration with cross-language support.
 
-**kart** — context management and architectural impact. Use when you're orienting.
+**kart** — context management, navigation, and editing for TypeScript projects. Fast oxc-parser scanning for navigation + oxlint for edit diagnostics. Lighter weight than serena, TypeScript-focused.
 
 **varp** — architectural manifest, dependency graph, agent orchestration. Independent of kart.
 
@@ -115,8 +184,9 @@ Returns co-change neighbors ranked by coupling score from `.varp/cochange.db`. D
 
 - **Runtime**: Bun
 - **Core**: Effect TS (`effect`, `@effect/platform`)
-- **LSP**: `typescript-language-server` (managed subprocess)
+- **LSP**: `typescript-language-server` (managed subprocess, for zoom/impact/deps)
+- **Parser**: `oxc-parser` (for find/edit — fast, LSP-free)
 - **MCP**: `@modelcontextprotocol/sdk`
 - **Validation**: Zod
 
-See `design.md` for architecture, algorithms, and design decisions. See `architecture.md` for service graph and data flow.
+See `architecture.md` for service graph and data flow.

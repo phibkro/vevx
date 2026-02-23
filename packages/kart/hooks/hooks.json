@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "You have kart MCP tools for progressive code disclosure. Prefer kart_zoom level 0 (exported symbols + signatures) over reading full files when exploring unfamiliar code. Escalate to level 1 (all symbols) or level 2 (full content) only when needed. Before modifying a file, check kart_cochange to find files that frequently change alongside it."
+            "prompt": "You have kart MCP tools for code navigation and editing. Navigation: kart_zoom (progressive file disclosure), kart_find (symbol search), kart_search (text search), kart_list (directory listing), kart_cochange (behavioral coupling), kart_impact (blast radius), kart_deps (dependencies). Editing: kart_replace, kart_insert_after, kart_insert_before (AST-aware with syntax validation). Prefer kart_zoom level 0 over reading full files when exploring. Use kart_find to locate symbols by name across the workspace."
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "kart MCP tools are available. Use kart_zoom level 0 to see a module's exported API before reading full files. Use kart_cochange to check behavioral coupling before modifying files."
+            "prompt": "kart MCP tools are available. Navigation: kart_zoom (progressive disclosure), kart_find (symbol search), kart_search (text search), kart_list (directory listing), kart_cochange (coupling), kart_impact (callers), kart_deps (callees). Editing: kart_replace, kart_insert_after, kart_insert_before (AST-aware, syntax-validated). Prefer kart_zoom level 0 before reading full files."
           }
         ]
       }
