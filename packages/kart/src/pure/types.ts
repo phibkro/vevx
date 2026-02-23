@@ -294,6 +294,22 @@ export type InlayHintsResult = {
   readonly totalHints: number;
 };
 
+// ── Workspace symbol types ──
+
+export type WorkspaceSymbolItem = {
+  readonly name: string;
+  readonly kind: number;
+  readonly uri: string;
+  readonly range: LspRange;
+  readonly containerName?: string;
+};
+
+export type WorkspaceSymbolResult = {
+  readonly query: string;
+  readonly symbols: WorkspaceSymbolItem[];
+  readonly totalSymbols: number;
+};
+
 export type UnusedExport = {
   readonly path: string;
   readonly name: string;

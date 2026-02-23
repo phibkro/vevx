@@ -212,6 +212,7 @@ describe("MCP integration — tool listing", () => {
       "kart_search",
       "kart_type_definition",
       "kart_unused_exports",
+      "kart_workspace_symbol",
       "kart_zoom",
     ]);
   });

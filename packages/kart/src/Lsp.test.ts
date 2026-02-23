@@ -362,6 +362,36 @@ describe.skipIf(!hasLsp)("LspClient", () => {
     expect(Array.isArray(actions)).toBe(true);
   }, 30_000);
 
+  test("inlayHints returns type hints for a file", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.inlayHints(fixtureUri);
+      }),
+    );
+
+    expect(Array.isArray(result)).toBe(true);
+    // fixture.ts has typed code — LSP may or may not return inlay hints
+    // depending on config, but the call should succeed
+    for (const hint of result) {
+      expect(hint.position).toBeDefined();
+      expect(typeof hint.label).toBe("string");
+    }
+  }, 30_000);
+
+  test("workspaceSymbol returns results for a query", async () => {
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const lsp = yield* LspClient;
+        return yield* lsp.workspaceSymbol("greet");
+      }),
+    );
+
+    expect(result.length).toBeGreaterThan(0);
+    const names = result.map((s) => s.name);
+    expect(names).toContain("greet");
+  }, 30_000);
+
   test("shutdown() terminates the language server cleanly", async () => {
     // Separate runtime — shutdown kills the process, can't reuse the shared one
     const shutdownRuntime = ManagedRuntime.make(LspClientLive({ rootDir: tempDir }));

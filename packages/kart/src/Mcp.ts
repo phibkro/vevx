@@ -1,3 +1,6 @@
+import { watch, type FSWatcher } from "node:fs";
+import { resolve } from "node:path";
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Effect, Layer, ManagedRuntime } from "effect";
@@ -37,7 +40,7 @@ function errorMessage(e: unknown): string {
 import { CochangeDbLive } from "./Cochange.js";
 import { runDiagnostics, type DiagnosticsArgs } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
-import { clearSymbolCache, findSymbols, type FindArgs } from "./Find.js";
+import { clearSymbolCache, findSymbols, invalidateCacheEntry, type FindArgs } from "./Find.js";
 import {
   getImporters,
   getImports,
@@ -73,6 +76,7 @@ import {
   kart_restart,
   kart_type_definition,
   kart_unused_exports,
+  kart_workspace_symbol,
   kart_zoom,
 } from "./Tools.js";
 
@@ -125,6 +129,20 @@ function createServer(config: ServerConfig = {}): McpServer {
     // tree-sitter init failed — .rs files won't work in kart_find
     // but TS tools still function normally
   });
+
+  // File watcher for incremental symbol cache invalidation
+  const SOURCE_EXTS = new Set([".ts", ".tsx", ".rs"]);
+  const startWatcher = (): FSWatcher => {
+    const w = watch(rootDir, { recursive: true }, (_eventType, filename) => {
+      if (!filename) return;
+      const dot = filename.lastIndexOf(".");
+      if (dot === -1 || !SOURCE_EXTS.has(filename.slice(dot))) return;
+      invalidateCacheEntry(resolve(rootDir, filename));
+    });
+    w.on("error", () => {});
+    return w;
+  };
+  let symbolWatcher = startWatcher();
 
   const server = new McpServer({ name: "kart", version: "0.1.0" });
 
@@ -739,6 +757,33 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
   );
 
+  // Register kart_workspace_symbol (LSP-backed, uses TS runtime)
+  server.registerTool(
+    kart_workspace_symbol.name,
+    {
+      description: kart_workspace_symbol.description,
+      inputSchema: kart_workspace_symbol.inputSchema,
+      annotations: kart_workspace_symbol.annotations,
+    },
+    async (args) => {
+      try {
+        const typedArgs = args as { query: string };
+        const result = await zoomRuntime.runPromise(
+          kart_workspace_symbol.handler(typedArgs) as Effect.Effect<unknown>,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   // Register kart_restart (server-level — disposes and re-creates zoomRuntime)
   server.registerTool(
     kart_restart.name,
@@ -763,6 +808,8 @@ function createServer(config: ServerConfig = {}): McpServer {
       }
       zoomRuntime = makeZoomRuntime();
       clearSymbolCache();
+      symbolWatcher.close();
+      symbolWatcher = startWatcher();
       return {
         content: [
           { type: "text" as const, text: JSON.stringify({ restarted: true, rootDir }, null, 2) },

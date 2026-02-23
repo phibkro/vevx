@@ -5,7 +5,7 @@
  * Stateless async functions — no Effect or LSP dependency.
  */
 
-import { readFileSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import {
@@ -15,6 +15,12 @@ import {
   transitiveImporters,
 } from "./pure/ImportGraph.js";
 import { bunResolve, loadTsconfigPaths, resolveSpecifier } from "./pure/Resolve.js";
+import {
+  ensureRustImportParser,
+  extractRustFileImportsAsync,
+  extractRustFileImportsSync,
+  rustResolve,
+} from "./pure/RustImports.js";
 import type { ImportersResult, ImportsResult, UnusedExportsResult } from "./pure/types.js";
 
 /** Resolve symlinks, returning the input unchanged if the path doesn't exist. */
@@ -29,12 +35,12 @@ function safeRealpath(p: string): string {
 // ── Constants ──
 
 const FILE_CAP = 2000;
-const EXCLUDED_DIRS = new Set(["node_modules", ".git", "dist", "build", ".varp"]);
-const TS_EXTENSIONS = new Set([".ts", ".tsx"]);
+const EXCLUDED_DIRS = new Set(["node_modules", ".git", "dist", "build", ".varp", "target"]);
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".rs"]);
 
 // ── File collection ──
 
-function collectTsFiles(dir: string): string[] {
+function collectSourceFiles(dir: string): string[] {
   const results: string[] = [];
 
   let entries;
@@ -47,10 +53,10 @@ function collectTsFiles(dir: string): string[] {
   for (const entry of entries) {
     if (entry.isDirectory()) {
       if (EXCLUDED_DIRS.has(entry.name)) continue;
-      results.push(...collectTsFiles(join(dir, entry.name)));
+      results.push(...collectSourceFiles(join(dir, entry.name)));
     } else if (entry.isFile()) {
       const dot = entry.name.lastIndexOf(".");
-      if (dot !== -1 && TS_EXTENSIONS.has(entry.name.slice(dot))) {
+      if (dot !== -1 && SOURCE_EXTENSIONS.has(entry.name.slice(dot))) {
         results.push(join(dir, entry.name));
       }
     }
@@ -60,7 +66,7 @@ function collectTsFiles(dir: string): string[] {
 }
 
 function loadSources(rootDir: string): Map<string, string> {
-  const files = collectTsFiles(safeRealpath(rootDir));
+  const files = collectSourceFiles(safeRealpath(rootDir));
   const capped = files.length > FILE_CAP ? files.slice(0, FILE_CAP) : files;
   const sources = new Map<string, string>();
 
@@ -77,8 +83,39 @@ function loadSources(rootDir: string): Map<string, string> {
 
 function makeResolver(rootDir: string): (specifier: string, fromDir: string) => string | null {
   const aliases = loadTsconfigPaths(rootDir);
-  return (specifier: string, fromDir: string) =>
-    resolveSpecifier(specifier, fromDir, bunResolve, aliases ?? undefined);
+  const crateRoot = findCrateRoot(rootDir);
+  return (specifier: string, fromDir: string) => {
+    // If specifier looks like a Rust path (contains ::), use Rust resolver
+    if (specifier.includes("::")) {
+      return rustResolve(specifier, fromDir, crateRoot);
+    }
+    return resolveSpecifier(specifier, fromDir, bunResolve, aliases ?? undefined);
+  };
+}
+
+/** Dispatch extraction to the correct parser based on file extension. */
+function makeExtractor(): (
+  source: string,
+  filename: string,
+) => Omit<import("./pure/types.js").FileImports, "path"> {
+  return (source: string, filename: string) => {
+    if (filename.endsWith(".rs")) {
+      return extractRustFileImportsSync(source, filename);
+    }
+    return extractFileImports(source, filename);
+  };
+}
+
+/** Walk up from rootDir to find the nearest Cargo.toml for crate root detection. */
+function findCrateRoot(rootDir: string): string | undefined {
+  let dir = rootDir;
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(join(dir, "Cargo.toml"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
 }
 
 function isWithinWorkspace(filePath: string, rootDir: string): boolean {
@@ -115,12 +152,21 @@ export async function getImports(filePath: string, rootDir?: string): Promise<Im
     return { path: absPath, imports: [], totalImports: 0 };
   }
 
-  const aliases = loadTsconfigPaths(root);
-  const resolveFn = (specifier: string, fromDir: string) =>
-    resolveSpecifier(specifier, fromDir, bunResolve, aliases ?? undefined);
-
-  const extracted = extractFileImports(source, absPath);
   const fromDir = dirname(absPath);
+  const isRust = absPath.endsWith(".rs");
+
+  const extracted = isRust
+    ? await extractRustFileImportsAsync(source, absPath)
+    : extractFileImports(source, absPath);
+
+  const crateRoot = isRust ? findCrateRoot(root) : undefined;
+  const resolveFn = isRust
+    ? (specifier: string, dir: string) => rustResolve(specifier, dir, crateRoot)
+    : (() => {
+        const aliases = loadTsconfigPaths(root);
+        return (specifier: string, dir: string) =>
+          resolveSpecifier(specifier, dir, bunResolve, aliases ?? undefined);
+      })();
 
   const imports = extracted.imports.map((imp) => ({
     specifier: imp.specifier,
@@ -142,7 +188,12 @@ export async function getUnusedExports(rootDir?: string): Promise<UnusedExportsR
   const root = safeRealpath(rootDir ?? process.cwd());
   const sources = loadSources(root);
   const resolveFn = makeResolver(root);
-  const graph = buildImportGraph(sources, resolveFn);
+
+  // Init Rust parser if we have .rs files
+  const hasRust = [...sources.keys()].some((p) => p.endsWith(".rs"));
+  if (hasRust) await ensureRustImportParser();
+
+  const graph = buildImportGraph(sources, resolveFn, makeExtractor());
   const unused = findUnusedExports(graph);
 
   // Count total exports across non-barrel files
@@ -171,7 +222,12 @@ export async function getImporters(filePath: string, rootDir?: string): Promise<
 
   const sources = loadSources(root);
   const resolveFn = makeResolver(root);
-  const graph = buildImportGraph(sources, resolveFn);
+
+  // Init Rust parser if we have .rs files
+  const hasRust = [...sources.keys()].some((p) => p.endsWith(".rs"));
+  if (hasRust) await ensureRustImportParser();
+
+  const graph = buildImportGraph(sources, resolveFn, makeExtractor());
   const result = transitiveImporters(absPath, graph);
 
   return { path: absPath, ...result };

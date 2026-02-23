@@ -2,13 +2,13 @@
 
 ## overview
 
-kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Twenty-three tools across five categories:
+kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Twenty-four tools across five categories:
 
-- **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps`, `kart_references`, `kart_rename`, `kart_definition`, `kart_type_definition`, `kart_implementation`, `kart_code_actions`, `kart_expand_macro`, `kart_inlay_hints` — require `typescript-language-server` (TS) or `rust-analyzer` (Rust), routed by file extension
+- **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps`, `kart_references`, `kart_rename`, `kart_definition`, `kart_type_definition`, `kart_implementation`, `kart_code_actions`, `kart_expand_macro`, `kart_inlay_hints`, `kart_workspace_symbol` — require `typescript-language-server` (TS) or `rust-analyzer` (Rust), routed by file extension
 - **Cached navigation**: `kart_find` (oxc-parser for TS, tree-sitter for Rust, mtime-cached symbols) — first call scans full workspace, subsequent calls near-instant
-- **Stateless navigation**: `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint for TS, cargo clippy for Rust), `kart_imports` (oxc-parser), `kart_importers` (oxc-parser), `kart_unused_exports` (oxc-parser)
+- **Stateless navigation**: `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint for TS, cargo clippy for Rust), `kart_imports` (oxc-parser for TS, tree-sitter for Rust), `kart_importers` (oxc-parser for TS, tree-sitter for Rust), `kart_unused_exports` (oxc-parser for TS, tree-sitter for Rust)
 - **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser (TS) / tree-sitter (Rust) for symbol location + syntax validation, optional post-edit formatting (oxfmt/rustfmt), oxlint for diagnostics
-- **Server lifecycle**: `kart_restart` — disposes all LSP runtimes (TS + Rust) + clears symbol cache
+- **Server lifecycle**: `kart_restart` — disposes all LSP runtimes (TS + Rust) + clears symbol cache + restarts file watcher
 
 ```
 MCP client ──stdio──▷ Mcp.ts (McpServer + ManagedRuntime)

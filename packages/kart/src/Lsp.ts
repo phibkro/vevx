@@ -17,6 +17,7 @@ export type {
   SemanticToken,
   SemanticTokensResult,
   WorkspaceEdit,
+  WorkspaceSymbolItem,
 } from "./pure/types.js";
 import type {
   CallHierarchyItem,
@@ -29,6 +30,7 @@ import type {
   SemanticToken,
   SemanticTokensResult,
   WorkspaceEdit,
+  WorkspaceSymbolItem,
 } from "./pure/types.js";
 
 // ── Service ──
@@ -104,6 +106,9 @@ export class LspClient extends Context.Tag("kart/LspClient")<
         end: { line: number; character: number };
       },
     ) => Effect.Effect<InlayHint[], LspError | LspTimeoutError>;
+    readonly workspaceSymbol: (
+      query: string,
+    ) => Effect.Effect<WorkspaceSymbolItem[], LspError | LspTimeoutError>;
     readonly updateOpenDocument: (uri: string) => Effect.Effect<void, LspError>;
     readonly shutdown: () => Effect.Effect<void, LspError>;
   }
@@ -507,6 +512,9 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
                 },
                 workspace: {
                   didChangeWatchedFiles: {
+                    dynamicRegistration: false,
+                  },
+                  symbol: {
                     dynamicRegistration: false,
                   },
                 },
@@ -1001,6 +1009,33 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
                 paddingLeft: h.paddingLeft as boolean | undefined,
                 paddingRight: h.paddingRight as boolean | undefined,
               })) as InlayHint[];
+            }),
+
+          workspaceSymbol: (query) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.tryPromise({
+                try: () => transport.request("workspace/symbol", { query }),
+                catch: (e) =>
+                  e instanceof LspTimeoutError
+                    ? e
+                    : new LspError({
+                        message: `workspaceSymbol request failed: ${String(e)}`,
+                        cause: e,
+                      }),
+              });
+
+              if (!Array.isArray(result)) return [];
+              return (result as Record<string, unknown>[]).map((sym) => ({
+                name: sym.name as string,
+                kind: sym.kind as number,
+                uri: ((sym.location as Record<string, unknown>)?.uri as string) ?? "",
+                range: ((sym.location as Record<string, unknown>)
+                  ?.range as WorkspaceSymbolItem["range"]) ?? {
+                  start: { line: 0, character: 0 },
+                  end: { line: 0, character: 0 },
+                },
+                containerName: sym.containerName as string | undefined,
+              }));
             }),
 
           updateOpenDocument: (uri) =>

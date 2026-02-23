@@ -23,6 +23,7 @@ import type {
   RenameResult,
   TextEdit,
   TypeDefinitionResult,
+  WorkspaceSymbolResult,
 } from "./pure/types.js";
 import type { ZoomResult, ZoomSymbol } from "./pure/types.js";
 
@@ -37,6 +38,7 @@ export type {
   ReferencesResult,
   RenameResult,
   TypeDefinitionResult,
+  WorkspaceSymbolResult,
   ZoomResult,
   ZoomSymbol,
 } from "./pure/types.js";
@@ -178,6 +180,9 @@ export class SymbolIndex extends Context.Tag("kart/SymbolIndex")<
         end: { line: number; character: number };
       },
     ) => Effect.Effect<InlayHintsResult, LspError | LspTimeoutError | FileNotFoundError>;
+    readonly workspaceSymbol: (
+      query: string,
+    ) => Effect.Effect<WorkspaceSymbolResult, LspError | LspTimeoutError>;
   }
 >() {}
 
@@ -832,6 +837,12 @@ export const SymbolIndexLive = (config?: {
 
             const hints = yield* lsp.inlayHints(uri, effectiveRange);
             return { path: absPath, hints, totalHints: hints.length };
+          }),
+
+        workspaceSymbol: (query) =>
+          Effect.gen(function* () {
+            const symbols = yield* lsp.workspaceSymbol(query);
+            return { query, symbols, totalSymbols: symbols.length };
           }),
       });
     }),

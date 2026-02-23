@@ -122,22 +122,28 @@ function extractDeclName(decl: any): string | null {
 
 // ── Graph construction ──
 
+/** Extraction function signature matching extractFileImports. */
+export type ExtractFn = (source: string, filename: string) => Omit<FileImports, "path">;
+
 /**
  * Build an import graph from pre-loaded sources.
  *
  * @param sources - Map from absolute file path to source content
  * @param resolveFn - Resolves (specifier, fromDir) → absolute path or null
+ * @param extractFn - Optional custom extractor (default: oxc-based extractFileImports)
  */
 export function buildImportGraph(
   sources: ReadonlyMap<string, string>,
   resolveFn: ResolveFn,
+  extractFn?: ExtractFn | ((source: string, filename: string) => Omit<FileImports, "path">),
 ): ImportGraph {
   const start = performance.now();
   const files = new Map<string, FileImports>();
   let importCount = 0;
+  const extract = extractFn ?? extractFileImports;
 
   for (const [filePath, source] of sources) {
-    const extracted = extractFileImports(source, filePath);
+    const extracted = extract(source, filePath);
     const fromDir = dirname(filePath);
 
     // Resolve all import specifiers

@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { getImporters, getImports } from "./Imports.js";
+import { initRustParser } from "./pure/RustSymbols.js";
 
 mkdirSync("/tmp/claude", { recursive: true });
 
@@ -95,5 +96,69 @@ describe("getImporters", () => {
   test("workspace boundary: rejects paths outside rootDir", async () => {
     const result = await getImporters("/etc/passwd", tempDir);
     expect(result.totalImporters).toBe(0);
+  });
+});
+
+// ── Rust import tests ──
+
+describe("Rust imports", () => {
+  let rustDir: string;
+
+  beforeAll(async () => {
+    await initRustParser();
+  });
+
+  beforeEach(() => {
+    rustDir = realpathSync(mkdtempSync(join("/tmp/claude/", "kart-rust-imports-")));
+    writeFileSync(join(rustDir, "Cargo.toml"), '[package]\nname = "test"\n');
+    mkdirSync(join(rustDir, "src"), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(rustDir, { recursive: true, force: true });
+  });
+
+  test("getImports extracts use statements from .rs file", async () => {
+    writeFileSync(
+      join(rustDir, "src", "main.rs"),
+      "use std::collections::HashMap;\nuse crate::models::User;\n\nfn main() {}\n",
+    );
+
+    const result = await getImports(join(rustDir, "src", "main.rs"), rustDir);
+    expect(result.totalImports).toBe(2);
+    const specifiers = result.imports.map((i) => i.specifier).sort();
+    expect(specifiers).toEqual(["crate::models::User", "std::collections::HashMap"]);
+  });
+
+  test("getImports resolves crate-relative paths", async () => {
+    mkdirSync(join(rustDir, "src", "models"), { recursive: true });
+    writeFileSync(join(rustDir, "src", "models", "user.rs"), "pub struct User {}\n");
+    writeFileSync(
+      join(rustDir, "src", "main.rs"),
+      "use crate::models::user::User;\n\nfn main() {}\n",
+    );
+
+    const result = await getImports(join(rustDir, "src", "main.rs"), rustDir);
+    expect(result.imports[0].resolvedPath).toBe(join(rustDir, "src", "models", "user.rs"));
+  });
+
+  test("getImports returns null for external crate references", async () => {
+    writeFileSync(join(rustDir, "src", "main.rs"), "use serde::Serialize;\n\nfn main() {}\n");
+
+    const result = await getImports(join(rustDir, "src", "main.rs"), rustDir);
+    expect(result.imports[0].resolvedPath).toBeNull();
+  });
+
+  test("getImporters finds Rust file importers", async () => {
+    mkdirSync(join(rustDir, "src", "models"), { recursive: true });
+    writeFileSync(join(rustDir, "src", "models", "user.rs"), "pub struct User {}\n");
+    writeFileSync(
+      join(rustDir, "src", "main.rs"),
+      "use crate::models::user::User;\n\nfn main() {}\n",
+    );
+
+    const result = await getImporters(join(rustDir, "src", "models", "user.rs"), rustDir);
+    expect(result.totalImporters).toBeGreaterThanOrEqual(1);
+    expect(result.directImporters.some((p) => p.endsWith("main.rs"))).toBe(true);
   });
 });

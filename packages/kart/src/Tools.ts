@@ -408,6 +408,21 @@ export const kart_unused_exports = {
   handler: () => Effect.promise(() => getUnusedExports()),
 } as const;
 
+export const kart_workspace_symbol = {
+  name: "kart_workspace_symbol",
+  description:
+    "Search for symbols across the workspace by name using LSP workspace/symbol. Returns symbol name, kind, location, and container. More accurate than kart_find for cross-file symbol resolution.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    query: z.string().describe("Symbol name or partial name to search for"),
+  },
+  handler: (args: { query: string }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.workspaceSymbol(args.query);
+    }),
+} as const;
+
 export const kart_restart = {
   name: "kart_restart",
   description:
@@ -444,5 +459,6 @@ export const tools = [
   kart_imports,
   kart_importers,
   kart_unused_exports,
+  kart_workspace_symbol,
   kart_restart,
 ] as const;

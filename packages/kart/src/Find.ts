@@ -60,6 +60,11 @@ export function clearSymbolCache(): void {
   symbolCache.clear();
 }
 
+/** Evict a single file from the symbol cache. Used by the file watcher. */
+export function invalidateCacheEntry(absPath: string): void {
+  symbolCache.delete(absPath);
+}
+
 // ── Implementation ──
 
 export async function findSymbols(args: FindArgs): Promise<FindResult> {

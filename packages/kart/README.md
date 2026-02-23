@@ -27,7 +27,7 @@ Or install via the vevx marketplace:
 
 | Entry | Build output | Purpose |
 |---|---|---|
-| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 23 tools) |
+| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 24 tools) |
 
 ## MCP Tools
 
@@ -50,8 +50,10 @@ Or install via the vevx marketplace:
 | `kart_code_actions` | Available code actions at a symbol's position via LSP |
 | `kart_expand_macro` | Expand a Rust macro via rust-analyzer |
 | `kart_inlay_hints` | Inferred types and parameter names for a file or range via LSP |
-| `kart_imports` | File import list with resolved paths and symbol names |
-| `kart_importers` | Reverse import lookup with barrel file expansion |
+| `kart_imports` | File import list with resolved paths and symbol names (TS + Rust) |
+| `kart_importers` | Reverse import lookup with barrel file expansion (TS + Rust) |
+| `kart_unused_exports` | Find exported symbols not imported by any other file |
+| `kart_workspace_symbol` | Search workspace symbols by name via LSP `workspace/symbol` |
 
 ### Write tools
 
@@ -61,6 +63,7 @@ Or install via the vevx marketplace:
 | `kart_insert_after` | Insert content after a symbol's definition (TS + Rust). Optional `format` param. |
 | `kart_insert_before` | Insert content before a symbol's definition (TS + Rust). Optional `format` param. |
 | `kart_rename` | Reference-aware rename across workspace via LSP |
+| `kart_restart` | Restart the TypeScript language server (clears caches) |
 
 ### kart_zoom
 
@@ -241,7 +244,23 @@ Returns what a file imports: raw specifiers, resolved absolute paths, imported s
 kart_importers(path)
 ```
 
-Returns all files that import the given file. Barrel files (index.ts that only re-export) are expanded transparently — if `auth/index.ts` re-exports from `auth/session.ts`, then `kart_importers("auth/session.ts")` includes files that import via the barrel. No LSP required.
+Returns all files that import the given file. Barrel files (index.ts that only re-export) are expanded transparently — if `auth/index.ts` re-exports from `auth/session.ts`, then `kart_importers("auth/session.ts")` includes files that import via the barrel. Supports both TypeScript and Rust files. No LSP required.
+
+### kart_unused_exports
+
+```
+kart_unused_exports()
+```
+
+Scans all `.ts`/`.tsx`/`.rs` files in the workspace. Reports exported symbols that no other file imports. Barrel files (index.ts with only re-exports) are excluded. Namespace imports are treated conservatively as using all exports.
+
+### kart_workspace_symbol
+
+```
+kart_workspace_symbol(query)
+```
+
+LSP `workspace/symbol` search — returns symbols matching the query across the entire workspace. More accurate than `kart_find` for cross-file symbol resolution since it uses the language server's full understanding of the project. Returns name, kind, URI, range, and optional container name.
 
 ## Plugin Assets
 

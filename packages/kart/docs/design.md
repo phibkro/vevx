@@ -169,16 +169,17 @@ If the database is absent, returns a structured `CochangeUnavailable` response (
 | `kart_diagnostics` | lint violations + type errors | oxlint (TS) / cargo clippy (Rust) |
 | `kart_references` | cross-file references | LSP `textDocument/references` |
 | `kart_rename` | reference-aware rename | LSP `textDocument/rename` |
-| `kart_imports` | file import list with resolved paths | oxc-parser + Bun.resolveSync |
-| `kart_importers` | reverse import lookup with barrel expansion | oxc-parser + Bun.resolveSync |
+| `kart_imports` | file import list with resolved paths | oxc-parser (TS) / tree-sitter (Rust) |
+| `kart_importers` | reverse import lookup with barrel expansion | oxc-parser (TS) / tree-sitter (Rust) |
 
 | `kart_definition` | go to definition of a symbol | LSP `textDocument/definition` |
 | `kart_type_definition` | go to type definition | LSP `textDocument/typeDefinition` |
 | `kart_implementation` | find implementations of interface/trait | LSP `textDocument/implementation` |
 | `kart_code_actions` | available code actions at symbol position | LSP `textDocument/codeAction` |
 | `kart_expand_macro` | expand Rust macro | `rust-analyzer/expandMacro` |
-| `kart_unused_exports` | find exported symbols with no importers | oxc-parser + Bun.resolveSync |
+| `kart_unused_exports` | find exported symbols with no importers | oxc-parser (TS) / tree-sitter (Rust) |
 | `kart_inlay_hints` | inferred types and parameter names | LSP `textDocument/inlayHint` |
+| `kart_workspace_symbol` | search workspace symbols by name | LSP `workspace/symbol` |
 | `kart_restart` | restart all language servers + clear caches | — |
 
 ---
@@ -262,6 +263,7 @@ Oxlint type-aware linting (phase 4) requires `oxlint-tsgolint` in the workspace.
 | 11 | Rust support — tree-sitter + rust-analyzer (ADR-006 Phase 1) | shipped |
 | 12 | `kart_definition`, `kart_type_definition`, `kart_implementation`, `kart_code_actions`, `kart_expand_macro` | shipped |
 | 13 | `kart_inlay_hints`, post-edit formatting (`format` param on edit tools) | shipped |
+| 14 | Rust imports (`kart_imports`/`kart_importers` for `.rs`), `kart_workspace_symbol`, file watcher cache invalidation | shipped |
 
 ---
 
