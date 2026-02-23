@@ -195,6 +195,8 @@ describe("MCP integration — tool listing", () => {
       "kart_diagnostics",
       "kart_find",
       "kart_impact",
+      "kart_importers",
+      "kart_imports",
       "kart_insert_after",
       "kart_insert_before",
       "kart_list",
@@ -302,6 +304,65 @@ describe("MCP integration — kart_find", () => {
     expect(data.truncated).toBe(false);
     expect(data.fileCount).toBeGreaterThanOrEqual(2);
     expect(typeof data.durationMs).toBe("number");
+  });
+});
+
+// ── kart_imports / kart_importers tests (no LSP needed) ──
+
+describe("MCP integration — kart_imports / kart_importers", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-imports-"));
+
+    await writeFile(
+      join(tempDir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { target: "ES2022", module: "ESNext", moduleResolution: "bundler" },
+      }),
+    );
+    await writeFile(join(tempDir, "a.ts"), 'import { greet } from "./b.js";\nconst x = 1;\n');
+    await writeFile(join(tempDir, "b.ts"), "export function greet() {}\n");
+
+    const server = createServer({ dbPath: join(tempDir, "no.db"), rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-imports", version: "0.1.0" });
+
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("kart_imports returns imports for a file", async () => {
+    const result = await client.callTool({
+      name: "kart_imports",
+      arguments: { path: join(tempDir, "a.ts") },
+    });
+    const data = parseResult(result) as { imports: { specifier: string }[]; totalImports: number };
+    expect(data.totalImports).toBeGreaterThanOrEqual(1);
+    expect(data.imports.some((i) => i.specifier === "./b.js")).toBe(true);
+  });
+
+  test("kart_importers returns importers of a file", async () => {
+    const result = await client.callTool({
+      name: "kart_importers",
+      arguments: { path: join(tempDir, "b.ts") },
+    });
+    const data = parseResult(result) as {
+      directImporters: string[];
+      totalImporters: number;
+    };
+    expect(data.totalImporters).toBeGreaterThanOrEqual(1);
+    expect(data.directImporters.some((p) => p.endsWith("a.ts"))).toBe(true);
   });
 });
 

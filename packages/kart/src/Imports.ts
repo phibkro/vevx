@@ -5,7 +5,7 @@
  * Stateless async functions — no Effect or LSP dependency.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { buildImportGraph, extractFileImports, transitiveImporters } from "./pure/ImportGraph.js";
@@ -16,6 +16,15 @@ import {
   type PathAliases,
 } from "./pure/Resolve.js";
 import type { ImportersResult, ImportsResult } from "./pure/types.js";
+
+/** Resolve symlinks, returning the input unchanged if the path doesn't exist. */
+function safeRealpath(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+}
 
 // ── Constants ──
 
@@ -51,7 +60,7 @@ function collectTsFiles(dir: string): string[] {
 }
 
 function loadSources(rootDir: string): Map<string, string> {
-  const files = collectTsFiles(rootDir);
+  const files = collectTsFiles(safeRealpath(rootDir));
   const capped = files.length > FILE_CAP ? files.slice(0, FILE_CAP) : files;
   const sources = new Map<string, string>();
 
@@ -94,8 +103,8 @@ export type ImportersArgs = {
 
 /** Get imports for a single file. */
 export async function getImports(filePath: string, rootDir?: string): Promise<ImportsResult> {
-  const root = rootDir ?? process.cwd();
-  const absPath = resolve(filePath);
+  const root = safeRealpath(rootDir ?? process.cwd());
+  const absPath = safeRealpath(resolve(filePath));
 
   if (!isWithinWorkspace(absPath, root)) {
     return { path: absPath, imports: [], totalImports: 0 };
@@ -130,8 +139,8 @@ export async function getImporters(
   filePath: string,
   rootDir?: string,
 ): Promise<ImportersResult> {
-  const root = rootDir ?? process.cwd();
-  const absPath = resolve(filePath);
+  const root = safeRealpath(rootDir ?? process.cwd());
+  const absPath = safeRealpath(resolve(filePath));
 
   if (!isWithinWorkspace(absPath, root)) {
     return { path: absPath, directImporters: [], barrelImporters: [], totalImporters: 0 };

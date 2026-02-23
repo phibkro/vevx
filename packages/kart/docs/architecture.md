@@ -2,10 +2,10 @@
 
 ## overview
 
-kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, and reference-aware rename. Thirteen tools across four categories:
+kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Fifteen tools across four categories:
 
 - **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps`, `kart_references`, `kart_rename` — require `typescript-language-server`
-- **Stateless navigation**: `kart_find` (oxc-parser), `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint)
+- **Stateless navigation**: `kart_find` (oxc-parser), `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint), `kart_imports` (oxc-parser), `kart_importers` (oxc-parser)
 - **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser for symbol location + syntax validation, oxlint for diagnostics
 
 ```
@@ -14,7 +14,7 @@ MCP client ──stdio──▷ Mcp.ts (McpServer + ManagedRuntime)
               ┌─────────┼──────────────────────┐
               ▼         ▼                      ▼
         cochangeRuntime  zoomRuntime       stateless tools
-              │              │           (find, search, list, edit, diagnostics)
+              │              │           (find, search, list, edit, diagnostics, imports)
         CochangeDb    SymbolIndex               │
         (bun:sqlite)      │              ┌──────┼──────┐
                       LspClient        oxc-parser  ripgrep  oxlint
@@ -30,12 +30,14 @@ Code is split into `src/pure/` (deterministic, no IO) and `src/` (effectful serv
 ```
 src/
   pure/
-    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult
+    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult
     Errors.ts            — 3 Data.TaggedError types
     ExportDetection.ts   — isExported() pure text scanner
     Signatures.ts        — extractSignature, extractDocComment, findBodyOpenBrace, symbolKindName
     OxcSymbols.ts        — parseSymbols() via oxc-parser — name, kind, exported, line, byte range
     AstEdit.ts           — locateSymbol, validateSyntax, spliceReplace, spliceInsertAfter, spliceInsertBefore
+    Resolve.ts           — loadTsconfigPaths, resolveAlias, resolveSpecifier, bunResolve (tsconfig path resolution)
+    ImportGraph.ts       — extractFileImports, buildImportGraph, transitiveImporters (oxc AST import graph)
   Lsp.ts                 — LspClient service, JsonRpcTransport, LspClientLive layer
   Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact, deps, references, rename
   Cochange.ts            — CochangeDb service, SQL query, graceful degradation
@@ -44,7 +46,8 @@ src/
   List.ts                — listDirectory: recursive directory listing with glob
   Editor.ts              — editReplace, editInsertAfter, editInsertBefore: AST-aware edit pipeline
   Diagnostics.ts         — runDiagnostics: oxlint --type-aware with graceful degradation
-  Tools.ts               — 13 tool definitions (Zod schemas + Effect/async handlers)
+  Imports.ts             — getImports, getImporters: import graph queries with barrel expansion
+  Tools.ts               — 15 tool definitions (Zod schemas + Effect/async handlers)
   Mcp.ts                 — MCP server entrypoint, per-tool ManagedRuntime
   __fixtures__/          — test fixtures (exports.ts, other.ts, tsconfig.json)
 ```
@@ -230,9 +233,9 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-168 tests across 16 files, split into pure (coverage-gated) and integration:
+202 tests across 19 files, split into pure (coverage-gated) and integration:
 
-**Pure tests** (`src/pure/`, 52 tests, `test:pure` with `--coverage`):
+**Pure tests** (`src/pure/`, 83 tests, `test:pure` with `--coverage`):
 
 | file | tests | what |
 |------|-------|------|
@@ -240,8 +243,10 @@ All error types defined in `src/pure/Errors.ts`.
 | `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
 | `pure/OxcSymbols.test.ts` | 14 | parseSymbols for all declaration kinds, exports, line numbers |
 | `pure/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations |
+| `pure/Resolve.test.ts` | 8 | loadTsconfigPaths, resolveAlias, extends chain, edge cases |
+| `pure/ImportGraph.test.ts` | 16 | extractFileImports, buildImportGraph, transitiveImporters, barrel expansion |
 
-**Integration tests** (`src/*.test.ts`, 116 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 127 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
@@ -254,7 +259,8 @@ All error types defined in `src/pure/Errors.ts`.
 | `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |
 | `Diagnostics.test.ts` | 5 | oxlint integration, unavailable fallback, workspace boundary |
 | `Editor.test.ts` | 10 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths |
-| `Mcp.test.ts` | 30 | MCP integration via InMemoryTransport (all 13 tools) |
+| `Imports.test.ts` | 8 | getImports, getImporters, barrel expansion, workspace boundary |
+| `Mcp.test.ts` | 32 | MCP integration via InMemoryTransport (all 15 tools) |
 | `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
 LSP-dependent tests use `describe.skipIf(!hasLsp)`. Fixture files in `src/__fixtures__/`.

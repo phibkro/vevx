@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { getImporters, getImports } from "./Imports.js";
@@ -9,7 +9,7 @@ mkdirSync("/tmp/claude", { recursive: true });
 let tempDir: string;
 
 beforeEach(() => {
-  tempDir = mkdtempSync(join("/tmp/claude/", "kart-imports-"));
+  tempDir = realpathSync(mkdtempSync(join("/tmp/claude/", "kart-imports-")));
   writeFileSync(
     join(tempDir, "tsconfig.json"),
     JSON.stringify({

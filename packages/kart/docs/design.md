@@ -134,7 +134,15 @@ Step 3 catches malformed edits before they hit disk. Step 5 gives the agent imme
 
 This crosses kart from read-only to read-write. See ADR-005 for the full decision record and consequences.
 
-### 3.9 behavioral coupling
+### 3.9 import graph
+
+`kart_imports(path)` returns what a file imports: raw specifiers, resolved absolute paths, imported symbol names, and type-only status. Uses oxc AST for extraction and `Bun.resolveSync` for tsconfig-aware resolution.
+
+`kart_importers(path)` returns all files that import the given file. Barrel files (index.ts that only re-export) are expanded transparently — if `auth/index.ts` re-exports from `auth/session.ts`, then `kart_importers("auth/session.ts")` includes files that import via the barrel.
+
+Both tools are stateless (no LSP, no Effect runtime). The workspace import graph is built on-demand per request — oxc parsing + Bun resolution is fast enough that caching isn't needed at typical codebase sizes.
+
+### 3.10 behavioral coupling
 
 `kart_cochange` queries kiste's co-change sqlite database at `.varp/cochange.db`. Returns files that most frequently change alongside the queried file, ranked by co-change weight.
 
@@ -163,6 +171,8 @@ If the database is absent, returns a structured `CochangeUnavailable` response (
 | `kart_diagnostics` | lint violations + type errors | oxlint `--type-aware` |
 | `kart_references` | cross-file references | LSP `textDocument/references` |
 | `kart_rename` | reference-aware rename | LSP `textDocument/rename` |
+| `kart_imports` | file import list with resolved paths | oxc-parser + Bun.resolveSync |
+| `kart_importers` | reverse import lookup with barrel expansion | oxc-parser + Bun.resolveSync |
 
 ### future
 
@@ -246,6 +256,7 @@ Oxlint type-aware linting (phase 4) requires `oxlint-tsgolint` in the workspace.
 | 6 | `kart_replace`, `kart_insert_after`, `kart_insert_before` (ADR-005) | shipped |
 | 7 | `kart_references` via LSP `textDocument/references` | shipped |
 | 8 | `kart_rename` via LSP `textDocument/rename` | shipped |
+| 9 | `kart_imports`, `kart_importers` via oxc + Bun.resolveSync | shipped |
 
 ---
 
