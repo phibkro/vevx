@@ -1,5 +1,11 @@
 # @vevx/kart
 
+## 0.4.0
+
+### Minor Changes
+
+- 97df88f: Add mtime-cached symbol index for kart_find. First call scans the full workspace in parallel; subsequent calls only re-parse changed files. Removes the 2000-file cap. kart_restart clears the cache.
+
 ## 0.3.0
 
 ### Minor Changes

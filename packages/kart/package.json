@@ -1,6 +1,6 @@
 {
   "name": "@vevx/kart",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Progressive code disclosure and behavioral coupling analysis",
   "type": "module",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "./mcp": "./dist/Mcp.js"
   },
   "scripts": {
-    "build": "bun build ./src/Mcp.ts --outdir ./dist --target bun",
+    "build": "bun build ./src/Mcp.ts --outdir ./dist --target bun --external oxc-parser",
     "test": "bun run test:pure && bun run test:integration",
     "test:pure": "bun test --concurrent --coverage src/pure/",
     "test:integration": "bun test --concurrent src/*.test.ts",
