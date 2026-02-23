@@ -1,6 +1,6 @@
 # Kiste Architecture
 
-Git-backed artifact index. Git is the event store, SQLite is the derived read model, MCP exposes read-only queries.
+Git-backed artifact index. Git is the event store, SQLite is the derived read model, MCP exposes read-only queries. For design rationale, problem statement, and roadmap, see [design.md](design.md).
 
 ## System Overview
 

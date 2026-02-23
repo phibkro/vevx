@@ -1,6 +1,6 @@
 # Varp Design Principles
 
-_From the Design Document — v0.1.0 — February 2026_
+_From the Design Document — v0.1.0 — February 2026. See also: [Architecture](design-architecture.md), [Notes](design-notes.md), [Core Internal](../../architecture.md)._
 
 ## 1. Problem
 

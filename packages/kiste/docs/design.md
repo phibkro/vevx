@@ -1,6 +1,8 @@
 # kiste
 ## design document — v0.4
 
+> For implementation details (service graph, error types, data model), see [architecture.md](architecture.md).
+
 ---
 
 ## 1. problem statement

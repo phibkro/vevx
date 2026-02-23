@@ -1,5 +1,7 @@
 # kart — design document v0.5
 
+> For implementation details (module map, service internals, data flow), see [architecture.md](architecture.md).
+
 ## 1. problem statement
 
 ### 1.1 the context budget problem

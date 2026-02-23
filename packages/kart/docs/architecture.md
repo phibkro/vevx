@@ -1,5 +1,7 @@
 # kart architecture
 
+> For design rationale, problem statement, and roadmap, see [design.md](design.md).
+
 ## overview
 
 kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Twenty-four tools across five categories:

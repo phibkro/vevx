@@ -1,6 +1,6 @@
 # Core Internal
 
-Implementation details for the Varp MCP server. For the public API surface, see [README.md](../README.md).
+Implementation details for the Varp MCP server. For the public API surface, see [README.md](../README.md). For design rationale, see [Design Principles](designs/001/design-principles.md), [Architecture](designs/001/design-architecture.md), and [Notes](designs/001/design-notes.md).
 
 ## Module Map
 

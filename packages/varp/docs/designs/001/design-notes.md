@@ -2,7 +2,7 @@
 
 _From the Design Document — v0.1.0 — February 2026_
 
-Feedback loops, documentation lifecycle, open questions, related work, and implementation history. See [Design Principles](design-principles.md) and [Architecture](design-architecture.md) for the core design.
+Feedback loops, documentation lifecycle, open questions, related work, and implementation history. See [Design Principles](design-principles.md) and [Architecture](design-architecture.md) for the core design. See [Core Internal](../../architecture.md) for implementation details.
 
 ## 5. Feedback Loops
 

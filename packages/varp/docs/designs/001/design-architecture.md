@@ -2,7 +2,7 @@
 
 _From the Design Document — v0.1.0 — February 2026_
 
-See [Design Principles](design-principles.md) for the foundational concepts (static/dynamic, 3D model, tiered knowledge, supervision tree).
+See [Design Principles](design-principles.md) for the foundational concepts (static/dynamic, 3D model, tiered knowledge, supervision tree). See [Core Internal](../../architecture.md) for implementation details (module map, algorithms, data flow).
 
 ## 3. Architecture
 
