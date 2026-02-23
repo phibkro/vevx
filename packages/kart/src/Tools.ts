@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 
 import { CochangeDb } from "./Cochange.js";
+import { findSymbols } from "./Find.js";
 import { SymbolIndex } from "./Symbols.js";
 
 // ── Annotations ──
@@ -76,4 +77,25 @@ export const kart_impact = {
     }),
 } as const;
 
-export const tools = [kart_cochange, kart_zoom, kart_impact] as const;
+export const kart_find = {
+  name: "kart_find",
+  description:
+    "Search for symbols across the workspace by name, kind, or export status. Uses oxc-parser for fast, LSP-free scanning of .ts/.tsx files.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    name: z.string().describe("Substring to match against symbol names. Empty string matches all."),
+    kind: z
+      .enum(["function", "class", "interface", "type", "enum", "const", "let", "var"])
+      .optional()
+      .describe("Filter by symbol kind"),
+    exported: z.boolean().optional().describe("Filter by export status"),
+    path: z
+      .string()
+      .optional()
+      .describe("Restrict search to this subdirectory (relative to rootDir)"),
+  },
+  handler: (args: { name: string; kind?: string; exported?: boolean; path?: string }) =>
+    Effect.promise(() => findSymbols(args)),
+} as const;
+
+export const tools = [kart_cochange, kart_zoom, kart_impact, kart_find] as const;

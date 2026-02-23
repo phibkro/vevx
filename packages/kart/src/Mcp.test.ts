@@ -189,7 +189,7 @@ describe("MCP integration — tool listing", () => {
   test("lists all kart tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
-    expect(names).toEqual(["kart_cochange", "kart_impact", "kart_zoom"]);
+    expect(names).toEqual(["kart_cochange", "kart_find", "kart_impact", "kart_zoom"]);
   });
 
   test("all tools have read-only annotations", async () => {
@@ -199,6 +199,82 @@ describe("MCP integration — tool listing", () => {
       expect(tool.annotations!.readOnlyHint).toBe(true);
       expect(tool.annotations!.destructiveHint).toBe(false);
     }
+  });
+});
+
+// ── kart_find tests (no LSP needed) ──
+
+describe("MCP integration — kart_find", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-find-"));
+
+    // Write fixture files
+    await writeFile(
+      join(tempDir, "greeting.ts"),
+      `export function greet(name: string): string {\n  return \`Hello \${name}\`;\n}\n\nexport const MAX = 100;\n\nfunction internal() {}\n`,
+    );
+    await mkdir(join(tempDir, "models"), { recursive: true });
+    await writeFile(
+      join(tempDir, "models", "user.ts"),
+      `export interface User {\n  id: string;\n  name: string;\n}\n\nexport interface Admin extends User {\n  role: string;\n}\n`,
+    );
+
+    const server = createServer({ dbPath: join(tempDir, "no.db"), rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-find", version: "0.1.0" });
+
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("returns symbols from workspace by name", async () => {
+    const result = await client.callTool({
+      name: "kart_find",
+      arguments: { name: "greet" },
+    });
+    const data = parseResult(result) as { symbols: { name: string; file: string }[] };
+    expect(data.symbols).toHaveLength(1);
+    expect(data.symbols[0].name).toBe("greet");
+    expect(data.symbols[0].file).toBe("greeting.ts");
+  });
+
+  test("filters by kind", async () => {
+    const result = await client.callTool({
+      name: "kart_find",
+      arguments: { name: "", kind: "interface" },
+    });
+    const data = parseResult(result) as { symbols: { name: string; kind: string }[] };
+    expect(data.symbols.length).toBeGreaterThanOrEqual(2);
+    for (const sym of data.symbols) {
+      expect(sym.kind).toBe("interface");
+    }
+  });
+
+  test("returns metadata fields", async () => {
+    const result = await client.callTool({
+      name: "kart_find",
+      arguments: { name: "" },
+    });
+    const data = parseResult(result) as {
+      truncated: boolean;
+      fileCount: number;
+      durationMs: number;
+    };
+    expect(data.truncated).toBe(false);
+    expect(data.fileCount).toBeGreaterThanOrEqual(2);
+    expect(typeof data.durationMs).toBe("number");
   });
 });
 

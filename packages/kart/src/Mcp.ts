@@ -30,9 +30,10 @@ function errorMessage(e: unknown): string {
 }
 
 import { CochangeDbLive } from "./Cochange.js";
+import { findSymbols, type FindArgs } from "./Find.js";
 import { LspClientLive } from "./Lsp.js";
 import { SymbolIndexLive } from "./Symbols.js";
-import { kart_cochange, kart_impact, kart_zoom } from "./Tools.js";
+import { kart_cochange, kart_find, kart_impact, kart_zoom } from "./Tools.js";
 
 // ── Config ──
 
@@ -128,6 +129,30 @@ function createServer(config: ServerConfig = {}): McpServer {
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as Record<string, unknown>,
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Register kart_find (stateless — no Effect runtime needed)
+  server.registerTool(
+    kart_find.name,
+    {
+      description: kart_find.description,
+      inputSchema: kart_find.inputSchema,
+      annotations: kart_find.annotations,
+    },
+    async (args) => {
+      try {
+        const result = await findSymbols({ ...(args as FindArgs), rootDir });
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
         return {
