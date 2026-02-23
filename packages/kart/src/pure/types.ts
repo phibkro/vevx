@@ -165,3 +165,59 @@ export type ZoomResult = {
   readonly truncated: boolean;
   readonly files?: ZoomResult[];
 };
+
+// ── Import graph types ──
+
+export type ImportEntry = {
+  /** The raw import specifier as written in source. */
+  readonly specifier: string;
+  /** Resolved absolute path (null if unresolvable — external package). */
+  readonly resolvedPath: string | null;
+  /** Imported symbol names. Empty for namespace/default imports. */
+  readonly importedNames: readonly string[];
+  /** True for `import type` or `export type`. */
+  readonly isTypeOnly: boolean;
+  /** True for `export { ... } from` or `export * from`. */
+  readonly isReExport: boolean;
+};
+
+export type FileImports = {
+  readonly path: string;
+  readonly imports: readonly ImportEntry[];
+  /** Exported symbol names from this file (for unused export detection). */
+  readonly exportedNames: readonly string[];
+  /** True if this file only contains re-exports (no local declarations). */
+  readonly isBarrel: boolean;
+};
+
+export type ImportGraph = {
+  /** Map from absolute file path to its imports. */
+  readonly files: ReadonlyMap<string, FileImports>;
+  /** Total files in the graph. */
+  readonly fileCount: number;
+  /** Total import statements processed. */
+  readonly importCount: number;
+  /** Milliseconds to build. */
+  readonly durationMs: number;
+};
+
+export type ImportsResult = {
+  readonly path: string;
+  readonly imports: readonly {
+    readonly specifier: string;
+    readonly resolvedPath: string | null;
+    readonly importedNames: readonly string[];
+    readonly isTypeOnly: boolean;
+  }[];
+  readonly totalImports: number;
+};
+
+export type ImportersResult = {
+  readonly path: string;
+  /** Files that directly import this file. */
+  readonly directImporters: readonly string[];
+  /** Files that import this file through barrel re-exports. */
+  readonly barrelImporters: readonly string[];
+  /** All unique importers (direct + barrel). */
+  readonly totalImporters: number;
+};
