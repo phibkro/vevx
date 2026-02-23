@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import { CochangeDb } from "./Cochange.js";
 import { findSymbols } from "./Find.js";
+import { listDirectory } from "./List.js";
+import { searchPattern } from "./Search.js";
 import { SymbolIndex } from "./Symbols.js";
 
 // ── Annotations ──
@@ -77,6 +79,23 @@ export const kart_impact = {
     }),
 } as const;
 
+export const kart_deps = {
+  name: "kart_deps",
+  description:
+    "List the dependencies of a symbol. Returns transitive callees via BFS over the call hierarchy. Use to understand what a function, method, or class relies on.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("File path containing the symbol"),
+    symbol: z.string().describe("Name of the symbol to analyze"),
+    depth: z.number().min(1).max(5).optional().describe("BFS depth limit (default: 3, max: 5)."),
+  },
+  handler: (args: { path: string; symbol: string; depth?: number }) =>
+    Effect.gen(function* () {
+      const idx = yield* SymbolIndex;
+      return yield* idx.deps(args.path, args.symbol, args.depth);
+    }),
+} as const;
+
 export const kart_find = {
   name: "kart_find",
   description:
@@ -98,4 +117,43 @@ export const kart_find = {
     Effect.promise(() => findSymbols(args)),
 } as const;
 
-export const tools = [kart_cochange, kart_zoom, kart_impact, kart_find] as const;
+export const kart_search = {
+  name: "kart_search",
+  description:
+    "Search for text patterns across the workspace using ripgrep. Gitignore-aware by default. Returns matching lines with file paths and line numbers.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    pattern: z.string().describe("Regex pattern to search for"),
+    glob: z.string().optional().describe('File filter glob, e.g. "*.ts"'),
+    paths: z
+      .array(z.string())
+      .optional()
+      .describe("Restrict search to specific paths (relative to rootDir)"),
+  },
+  handler: (args: { pattern: string; glob?: string; paths?: string[] }) =>
+    Effect.promise(() => searchPattern(args)),
+} as const;
+
+export const kart_list = {
+  name: "kart_list",
+  description:
+    "List files and directories. Excludes node_modules, .git, dist, build, .varp. Supports recursive listing and glob filtering.",
+  annotations: READ_ONLY,
+  inputSchema: {
+    path: z.string().describe("Directory path to list (relative to workspace root)"),
+    recursive: z.boolean().optional().describe("List files recursively (default: false)"),
+    glob: z.string().optional().describe('Glob pattern to filter entries, e.g. "*.ts"'),
+  },
+  handler: (args: { path: string; recursive?: boolean; glob?: string }) =>
+    Effect.sync(() => listDirectory(args)),
+} as const;
+
+export const tools = [
+  kart_cochange,
+  kart_zoom,
+  kart_impact,
+  kart_deps,
+  kart_find,
+  kart_search,
+  kart_list,
+] as const;

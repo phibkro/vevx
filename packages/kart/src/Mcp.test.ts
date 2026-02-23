@@ -189,7 +189,15 @@ describe("MCP integration — tool listing", () => {
   test("lists all kart tools", async () => {
     const result = await client.listTools();
     const names = result.tools.map((t) => t.name).sort();
-    expect(names).toEqual(["kart_cochange", "kart_find", "kart_impact", "kart_zoom"]);
+    expect(names).toEqual([
+      "kart_cochange",
+      "kart_deps",
+      "kart_find",
+      "kart_impact",
+      "kart_list",
+      "kart_search",
+      "kart_zoom",
+    ]);
   });
 
   test("all tools have read-only annotations", async () => {
@@ -275,6 +283,100 @@ describe("MCP integration — kart_find", () => {
     expect(data.truncated).toBe(false);
     expect(data.fileCount).toBeGreaterThanOrEqual(2);
     expect(typeof data.durationMs).toBe("number");
+  });
+});
+
+// ── kart_search tests (no LSP needed) ──
+
+describe("MCP integration — kart_search", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-search-"));
+
+    // git init so rg respects gitignore
+    Bun.spawnSync(["git", "init"], { cwd: tempDir });
+
+    await writeFile(
+      join(tempDir, "greeting.ts"),
+      `export function greet(name: string): string {\n  return \`Hello \${name}\`;\n}\n\nexport const MAX = 100;\n\nfunction internal() {}\n`,
+    );
+    await mkdir(join(tempDir, "models"), { recursive: true });
+    await writeFile(
+      join(tempDir, "models", "user.ts"),
+      `export interface User {\n  id: string;\n  name: string;\n}\n`,
+    );
+
+    const server = createServer({ dbPath: join(tempDir, "no.db"), rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-search", version: "0.1.0" });
+
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("finds pattern in workspace", async () => {
+    const result = await client.callTool({
+      name: "kart_search",
+      arguments: { pattern: "greet" },
+    });
+    const data = parseResult(result) as {
+      matches: { path: string; line: number; text: string }[];
+      truncated: boolean;
+    };
+    expect(data.matches.length).toBeGreaterThanOrEqual(1);
+    expect(data.matches.some((m) => m.path === "greeting.ts")).toBe(true);
+    expect(data.truncated).toBe(false);
+  });
+});
+
+// ── kart_list tests (no LSP needed) ──
+
+describe("MCP integration — kart_list", () => {
+  let client: Client;
+  let tempDir: string;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join("/tmp/claude/", "kart-mcp-list-"));
+    await mkdir(join(tempDir, "src"), { recursive: true });
+    await writeFile(join(tempDir, "src", "app.ts"), "export function app() {}");
+    await writeFile(join(tempDir, "src", "util.ts"), "export const x = 1;");
+
+    const server = createServer({ rootDir: tempDir });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test-list", version: "0.1.0" });
+    await Promise.all([server.connect(st), client.connect(ct)]);
+    cleanup = async () => {
+      await Promise.all([server.close(), client.close()]);
+      await rm(tempDir, { recursive: true, force: true });
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test("lists directory contents", async () => {
+    const result = await client.callTool({
+      name: "kart_list",
+      arguments: { path: "src" },
+    });
+    const data = parseResult(result) as { entries: { name: string }[]; truncated: boolean };
+    const names = data.entries.map((e) => e.name);
+    expect(names).toContain("app.ts");
+    expect(names).toContain("util.ts");
+    expect(data.truncated).toBe(false);
   });
 });
 
