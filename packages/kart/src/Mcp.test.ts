@@ -318,12 +318,11 @@ describe("MCP integration — kart_find", () => {
     });
     const data = parseResult(result) as {
       fileCount: number;
-      cachedFiles: number;
-      durationMs: number;
     };
     expect(data.fileCount).toBeGreaterThanOrEqual(2);
-    expect(typeof data.cachedFiles).toBe("number");
-    expect(typeof data.durationMs).toBe("number");
+    // durationMs and cachedFiles are stripped for context efficiency
+    expect((data as Record<string, unknown>).durationMs).toBeUndefined();
+    expect((data as Record<string, unknown>).cachedFiles).toBeUndefined();
   });
 });
 

@@ -199,8 +199,10 @@ kart_find({ name: "validate", kind: "function", exported: true })
   │    └─ .rs → tree-sitter (lazy init on first .rs file)
   ├─ evict cache entries for deleted files
   ├─ filter by name substring, kind, exported status
-  └─ return FindResult { symbols[], fileCount, cachedFiles, durationMs }
+  └─ return FindResult { symbols[], fileCount }
 ```
+
+Note: `cachedFiles` and `durationMs` are computed internally but stripped by the MCP compaction layer before returning to agents.
 
 ### kart_search request
 
@@ -242,6 +244,8 @@ Three handler patterns:
 - **Cached** (find): `Effect.promise()` wrapping mtime-cached async function
 
 `Mcp.ts` registers tools individually. All responses include `structuredContent` for direct JSON access by callers. Effect errors are unwrapped via `errorMessage()` and become `{ isError: true, content: [{ text: "Error: ..." }] }`.
+
+**Response compaction:** MCP responses pass through presentation-layer compact helpers in `Mcp.ts` before returning to agents, reducing context window cost. `compactFind` strips `durationMs`/`cachedFiles` debug metadata. `compactImpact`/`compactDeps` strip `range` from tree nodes and convert absolute `uri` to workspace-relative `path`. Domain functions remain unchanged — compaction happens at the MCP boundary.
 
 Tool annotations: `READ_ONLY` for navigation tools, `READ_WRITE` for edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`, `kart_rename`).
 

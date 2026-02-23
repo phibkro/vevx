@@ -143,7 +143,10 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
 
             // Apply the actual limit after filtering
             const result = filtered.slice(0, lim);
-            return { artifacts: result, count: result.length };
+            return {
+              artifacts: result.map((r) => ({ path: r.path, alive: r.alive, tags: r.tags })),
+              count: result.length,
+            };
           }),
         );
       },
@@ -179,14 +182,21 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             )) as unknown as { tag: string }[];
             const tags = tagRows.map((r) => r.tag);
 
-            const commitRows = yield* sql.unsafe(
+            const commitRows = (yield* sql.unsafe(
               `SELECT c.sha, c.message, c.author, c.timestamp
                FROM commits c
                JOIN artifact_commits ac ON ac.commit_sha = c.sha
                WHERE ac.artifact_id = ?
-               ORDER BY c.timestamp DESC`,
+               ORDER BY c.timestamp DESC
+               LIMIT 5`,
               [artifact.id],
-            );
+            )) as unknown as { sha: string; message: string; author: string; timestamp: number }[];
+
+            const totalCommitRows = (yield* sql.unsafe(
+              `SELECT COUNT(*) as count FROM artifact_commits WHERE artifact_id = ?`,
+              [artifact.id],
+            )) as unknown as { count: number }[];
+            const totalCommits = totalCommitRows[0].count;
 
             const gitRef = ref ?? "HEAD";
             const content = yield* git
@@ -198,6 +208,8 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
               alive: artifact.alive === 1,
               tags,
               commits: commitRows,
+              total_commits: totalCommits,
+              ...(totalCommits > 5 ? { commits_truncated: true } : {}),
               content,
             };
           }),
@@ -234,8 +246,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             if (tags && tags.length > 0) {
               const placeholders = tags.map(() => "?").join(", ");
               const rows = yield* sql.unsafe(
-                `SELECT DISTINCT c.sha, c.message, c.author, c.timestamp,
-                        c.conv_type, c.conv_scope
+                `SELECT DISTINCT c.sha, c.message, c.author, c.timestamp
                  FROM commits_fts fts
                  JOIN commits c ON c.rowid = fts.rowid
                  JOIN artifact_commits ac ON ac.commit_sha = c.sha
@@ -249,8 +260,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             }
 
             const rows = yield* sql.unsafe(
-              `SELECT c.sha, c.message, c.author, c.timestamp,
-                      c.conv_type, c.conv_scope
+              `SELECT c.sha, c.message, c.author, c.timestamp
                FROM commits_fts fts
                JOIN commits c ON c.rowid = fts.rowid
                WHERE commits_fts MATCH ?
@@ -279,8 +289,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             yield* initSchema;
 
             const rows = yield* sql.unsafe(
-              `SELECT c.sha, c.message, c.author, c.timestamp,
-                      c.conv_type, c.conv_scope
+              `SELECT c.sha, c.message, c.author, c.timestamp
                FROM commits c
                JOIN artifact_commits ac ON ac.commit_sha = c.sha
                JOIN artifacts a ON a.id = ac.artifact_id
@@ -288,7 +297,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
                ORDER BY c.timestamp ASC`,
               [path],
             );
-            return { path, commits: rows, count: rows.length };
+            return { commits: rows };
           }),
         );
       },

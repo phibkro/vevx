@@ -152,7 +152,6 @@ describe("MCP Tools", () => {
     });
 
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0].text);
-    expect(parsed.path).toBe("src/auth/login.ts");
     expect(parsed.commits.length).toBeGreaterThanOrEqual(1);
     expect(parsed.commits[0].message).toContain("login");
   });

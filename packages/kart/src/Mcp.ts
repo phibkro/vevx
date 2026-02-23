@@ -51,6 +51,7 @@ import {
 import { listDirectory, type ListArgs } from "./List.js";
 import { LspClientLive, rustLanguageServer } from "./Lsp.js";
 import { initRustParser } from "./pure/RustSymbols.js";
+import type { DepsResult, ImpactResult } from "./pure/types.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
 import { SymbolIndexLive } from "./Symbols.js";
 import {
@@ -79,6 +80,96 @@ import {
   kart_workspace_symbol,
   kart_zoom,
 } from "./Tools.js";
+
+// ── Response compaction ──
+
+/** Strip debug metadata from find results — agents don't need timing/cache stats. */
+function compactFind(result: {
+  symbols: unknown[];
+  fileCount: number;
+  cachedFiles: number;
+  durationMs: number;
+}) {
+  return { symbols: result.symbols, fileCount: result.fileCount };
+}
+
+/** Strip range and absolutize uri→path in impact/deps tree nodes for smaller responses. */
+function compactImpactNode(
+  node: {
+    name: string;
+    kind: number;
+    uri: string;
+    range: unknown;
+    fanOut: number;
+    callers?: unknown[];
+  },
+  rootDir: string,
+): Record<string, unknown> {
+  const path = node.uri.startsWith("file://")
+    ? node.uri.slice(7).replace(rootDir + "/", "")
+    : node.uri;
+  return {
+    name: node.name,
+    kind: node.kind,
+    path,
+    fanOut: node.fanOut,
+    ...(node.callers
+      ? { callers: (node.callers as (typeof node)[]).map((c) => compactImpactNode(c, rootDir)) }
+      : {}),
+  };
+}
+
+function compactDepsNode(
+  node: {
+    name: string;
+    kind: number;
+    uri: string;
+    range: unknown;
+    fanOut: number;
+    callees?: unknown[];
+  },
+  rootDir: string,
+): Record<string, unknown> {
+  const path = node.uri.startsWith("file://")
+    ? node.uri.slice(7).replace(rootDir + "/", "")
+    : node.uri;
+  return {
+    name: node.name,
+    kind: node.kind,
+    path,
+    fanOut: node.fanOut,
+    ...(node.callees
+      ? { callees: (node.callees as (typeof node)[]).map((c) => compactDepsNode(c, rootDir)) }
+      : {}),
+  };
+}
+
+function compactImpact(result: ImpactResult, rootDir: string) {
+  return {
+    symbol: result.symbol,
+    path: result.path,
+    depth: result.depth,
+    maxDepth: result.maxDepth,
+    totalNodes: result.totalNodes,
+    highFanOut: result.highFanOut,
+    root: compactImpactNode(
+      result.root as unknown as Parameters<typeof compactImpactNode>[0],
+      rootDir,
+    ),
+  };
+}
+
+function compactDeps(result: DepsResult, rootDir: string) {
+  return {
+    symbol: result.symbol,
+    path: result.path,
+    depth: result.depth,
+    maxDepth: result.maxDepth,
+    totalNodes: result.totalNodes,
+    highFanOut: result.highFanOut,
+    root: compactDepsNode(result.root as unknown as Parameters<typeof compactDepsNode>[0], rootDir),
+  };
+}
 
 // ── Config ──
 
@@ -210,9 +301,10 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string; depth?: number };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const raw = await runtimeFor(typedArgs.path).runPromise(
           kart_impact.handler(typedArgs) as Effect.Effect<unknown>,
         );
+        const result = compactImpact(raw as ImpactResult, rootDir);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as Record<string, unknown>,
@@ -464,7 +556,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
-        const result = await findSymbols({ ...(args as FindArgs), rootDir });
+        const raw = await findSymbols({ ...(args as FindArgs), rootDir });
+        const result = compactFind(raw);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as unknown as Record<string, unknown>,
@@ -513,9 +606,10 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string; depth?: number };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const raw = await runtimeFor(typedArgs.path).runPromise(
           kart_deps.handler(typedArgs) as Effect.Effect<unknown>,
         );
+        const result = compactDeps(raw as DepsResult, rootDir);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as Record<string, unknown>,
