@@ -53,6 +53,75 @@ import {
 } from "../lib.js";
 import { registerTools, type ToolDef } from "./tool-registry.js";
 
+// ── Helpers ──
+
+type FreshnessReport = ReturnType<typeof checkFreshness>;
+
+/** Compact manifest: component names + graph validity, not full definitions. */
+function compactManifest(manifest: ReturnType<typeof parseManifest>) {
+  const graphResult = validateDependencyGraph(manifest);
+  const components = Object.entries(manifest.components).map(([name, comp]) => ({
+    name,
+    deps: comp.deps ?? [],
+    ...(comp.stability ? { stability: comp.stability } : {}),
+    ...(comp.tags ? { tags: comp.tags } : {}),
+  }));
+  return {
+    version: manifest.varp,
+    components,
+    total_components: components.length,
+    dependency_graph_valid: graphResult.valid,
+    ...(!graphResult.valid ? { cycles: graphResult.cycles } : {}),
+  };
+}
+
+/** Compact import scan: strip evidence arrays, keep from→to pairs + counts. */
+function compactImports(result: ReturnType<typeof scanImports>) {
+  const stripEvidence = (deps: typeof result.import_deps) =>
+    deps.map(({ from, to }) => ({ from, to }));
+  return {
+    import_deps: stripEvidence(result.import_deps),
+    missing_deps: stripEvidence(result.missing_deps),
+    extra_deps: result.extra_deps,
+    total_files_scanned: result.total_files_scanned,
+    total_imports_scanned: result.total_imports_scanned,
+    components_with_source: result.components_with_source,
+  };
+}
+
+/** Compact env check: only missing vars when all present, or full report when issues exist. */
+function compactEnv(result: ReturnType<typeof checkEnv>) {
+  if (result.missing.length === 0) {
+    return { all_set: true, total_required: result.required.length };
+  }
+  return { all_set: false, missing: result.missing, total_required: result.required.length };
+}
+
+/** Compact co-change graph: summary stats instead of raw edges. */
+function compactCoChanges(graph: ReturnType<typeof scanCoChangesWithCache>) {
+  return {
+    total_edges: graph.edges.length,
+    total_commits_analyzed: graph.total_commits_analyzed,
+    total_commits_filtered: graph.total_commits_filtered,
+    total_files_tracked: graph.file_frequencies ? Object.keys(graph.file_frequencies).length : 0,
+    ...(graph.last_sha ? { last_sha: graph.last_sha } : {}),
+  };
+}
+
+/** Compact freshness report: only stale docs, or a summary when all fresh. */
+function compactFreshness(report: FreshnessReport) {
+  const stale: { component: string; doc: string; path: string }[] = [];
+  let totalDocs = 0;
+  for (const [name, comp] of Object.entries(report.components)) {
+    for (const [docKey, doc] of Object.entries(comp.docs)) {
+      totalDocs++;
+      if (doc.stale) stale.push({ component: name, doc: docKey, path: doc.path });
+    }
+  }
+  if (stale.length === 0) return { all_fresh: true, total_docs: totalDocs };
+  return { all_fresh: false, total_docs: totalDocs, stale };
+}
+
 // ── Shared Schemas ──
 
 const DEFAULT_MANIFEST_PATH = "./varp.yaml";
@@ -100,30 +169,18 @@ const tools: ToolDef[] = [
       const m = mode ?? "all";
 
       if (m === "manifest") {
-        const graphResult = validateDependencyGraph(manifest);
-        return {
-          manifest: {
-            manifest,
-            dependency_graph_valid: graphResult.valid,
-            ...(graphResult.valid ? {} : { cycles: graphResult.cycles }),
-          },
-        };
+        return { manifest: compactManifest(manifest) };
       }
       if (m === "freshness") {
-        return { freshness: checkFreshness(manifest, dirname(resolve(mp))) };
+        return { freshness: compactFreshness(checkFreshness(manifest, dirname(resolve(mp)))) };
       }
       if (m === "lint") {
         return { lint: await runLint(manifest, mp) };
       }
       // all
-      const graphResult = validateDependencyGraph(manifest);
       return {
-        manifest: {
-          manifest,
-          dependency_graph_valid: graphResult.valid,
-          ...(graphResult.valid ? {} : { cycles: graphResult.cycles }),
-        },
-        freshness: checkFreshness(manifest, dirname(resolve(mp))),
+        manifest: compactManifest(manifest),
+        freshness: compactFreshness(checkFreshness(manifest, dirname(resolve(mp)))),
         lint: await runLint(manifest, mp),
       };
     },
@@ -278,7 +335,7 @@ const tools: ToolDef[] = [
     handler: async ({ manifest_path }) => {
       const mp = manifest_path ?? DEFAULT_MANIFEST_PATH;
       const manifest = parseManifest(mp);
-      return scanImports(manifest, dirname(resolve(mp)));
+      return compactImports(scanImports(manifest, dirname(resolve(mp))));
     },
   },
 
@@ -460,18 +517,15 @@ const tools: ToolDef[] = [
     description:
       "Check environment variables required by components. Returns which are set and which are missing.",
     annotations: READ_ONLY,
-    outputSchema: {
-      required: z.array(z.string()).describe("All required environment variable names"),
-      set: z.array(z.string()).describe("Required env vars that are currently set"),
-      missing: z.array(z.string()).describe("Required env vars that are missing"),
-    },
     inputSchema: {
       manifest_path: manifestPath,
       components: z.array(z.string()).describe("Component names or tags to check env vars for"),
     },
     handler: async ({ manifest_path, components }) => {
       const manifest = parseManifest(manifest_path ?? DEFAULT_MANIFEST_PATH);
-      return checkEnv(manifest, resolveComponentRefs(manifest, components), process.env);
+      return compactEnv(
+        checkEnv(manifest, resolveComponentRefs(manifest, components), process.env),
+      );
     },
   },
 
@@ -635,7 +689,7 @@ const tools: ToolDef[] = [
           ...(skip_message_patterns !== undefined && { skip_message_patterns }),
           ...(exclude_paths !== undefined && { exclude_paths }),
         };
-        return { co_changes: scanCoChangesWithCache(manifestDir, config) };
+        return { co_changes: compactCoChanges(scanCoChangesWithCache(manifestDir, config)) };
       }
 
       if (m === "neighborhood") {
@@ -709,7 +763,7 @@ const tools: ToolDef[] = [
         ? { ...matrix, entries: componentCouplingProfile(matrix, component) }
         : matrix;
       return {
-        co_changes: coChange,
+        co_changes: compactCoChanges(coChange),
         matrix: matrixResult,
         hotspots: hotspots.slice(0, limit ?? 20),
         total_hotspots: hotspots.length,

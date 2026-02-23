@@ -122,7 +122,6 @@ describe("MCP server integration", () => {
     const names = withOutput.map((t) => t.name).sort();
     expect(names).toEqual([
       "varp_ack_freshness",
-      "varp_check_env",
       "varp_invalidation_cascade",
       "varp_list_files",
       "varp_verify_capabilities",
@@ -156,12 +155,10 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data.manifest.dependency_graph_valid).toBe(true);
-    expect(Object.keys(data.manifest.manifest.components)).toEqual(["auth", "api", "web"]);
-    expect(Object.keys(data.freshness.components).sort()).toEqual(["api", "auth", "web"]);
-    for (const comp of Object.values(data.freshness.components) as any[]) {
-      expect(comp).toHaveProperty("docs");
-      expect(comp).toHaveProperty("source_last_modified");
-    }
+    expect(data.manifest.total_components).toBe(3);
+    expect(data.manifest.components.map((c: any) => c.name)).toEqual(["auth", "api", "web"]);
+    expect(data.freshness).toHaveProperty("total_docs");
+    expect(typeof data.freshness.all_fresh).toBe("boolean");
     expect(data.lint).toHaveProperty("total_issues");
     expect(data.lint).toHaveProperty("issues");
     expect(typeof data.lint.total_issues).toBe("number");
@@ -186,7 +183,8 @@ describe("MCP server integration", () => {
     });
     const data = parseResult(result);
     expect(data.freshness).toBeDefined();
-    expect(Object.keys(data.freshness.components).sort()).toEqual(["api", "auth", "web"]);
+    expect(data.freshness).toHaveProperty("total_docs");
+    expect(typeof data.freshness.all_fresh).toBe("boolean");
     expect(data.manifest).toBeUndefined();
     expect(data.lint).toBeUndefined();
   });
@@ -621,30 +619,28 @@ describe("MCP server integration", () => {
 
   // ── Env Check ──
 
-  test("varp_check_env returns set and missing env vars", async () => {
+  test("varp_check_env returns compact result for component with env", async () => {
     const result = await client.callTool({
       name: "varp_check_env",
       arguments: { manifest_path: MANIFEST_PATH, components: ["api"] },
     });
     const data = parseResult(result);
-    expect(data.required).toEqual(["DATABASE_URL"]);
-    // DATABASE_URL may or may not be set in test env, just check structure
-    expect(Array.isArray(data.set)).toBe(true);
-    expect(Array.isArray(data.missing)).toBe(true);
-    expect([...data.set, ...data.missing].sort((a, b) => a.localeCompare(b))).toEqual([
-      "DATABASE_URL",
-    ]);
+    expect(data.total_required).toBe(1);
+    expect(typeof data.all_set).toBe("boolean");
+    // DATABASE_URL may or may not be set — if missing, it appears in missing array
+    if (!data.all_set) {
+      expect(data.missing).toContain("DATABASE_URL");
+    }
   });
 
-  test("varp_check_env returns empty for components without env", async () => {
+  test("varp_check_env returns compact result for components without env", async () => {
     const result = await client.callTool({
       name: "varp_check_env",
       arguments: { manifest_path: MANIFEST_PATH, components: ["auth"] },
     });
     const data = parseResult(result);
-    expect(data.required).toEqual([]);
-    expect(data.set).toEqual([]);
-    expect(data.missing).toEqual([]);
+    expect(data.all_set).toBe(true);
+    expect(data.total_required).toBe(0);
   });
 
   test("varp_scan_links with mode=deps returns dependency analysis", async () => {
@@ -663,19 +659,15 @@ describe("MCP server integration", () => {
 
   // ── Multi-Path Manifest ──
 
-  test("varp_health with multi-path component returns array of resolved paths", async () => {
+  test("varp_health with multi-path component returns compact manifest", async () => {
     const result = await client.callTool({
       name: "varp_health",
       arguments: { manifest_path: MULTI_PATH_MANIFEST, mode: "manifest" },
     });
     const data = parseResult(result);
-    const auth = data.manifest.manifest.components.auth;
-    expect(Array.isArray(auth.path)).toBe(true);
-    expect(auth.path).toHaveLength(3);
-    // All paths should be absolute
-    for (const p of auth.path) {
-      expect(p).toMatch(/^\//);
-    }
+    expect(data.manifest.dependency_graph_valid).toBe(true);
+    const auth = data.manifest.components.find((c: any) => c.name === "auth");
+    expect(auth).toBeDefined();
   });
 
   test("varp_suggest_touches with files from different paths of same multi-path component", async () => {
@@ -824,15 +816,15 @@ describe("MCP server integration", () => {
 
   // ── Coupling Analysis ──
 
-  test("varp_coupling mode=co_changes returns co-change graph structure", async () => {
+  test("varp_coupling mode=co_changes returns compact co-change summary", async () => {
     const result = await client.callTool({
       name: "varp_coupling",
       arguments: { manifest_path: MANIFEST_PATH, mode: "co_changes" },
     });
     const data = parseResult(result);
-    expect(data.co_changes).toHaveProperty("edges");
+    expect(data.co_changes).toHaveProperty("total_edges");
     expect(data.co_changes).toHaveProperty("total_commits_analyzed");
-    expect(Array.isArray(data.co_changes.edges)).toBe(true);
+    expect(typeof data.co_changes.total_edges).toBe("number");
   });
 
   test("varp_coupling mode=neighborhood returns neighbors for a file", async () => {

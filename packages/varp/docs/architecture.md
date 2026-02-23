@@ -223,6 +223,16 @@ Uses `McpServer.registerTool()` (the non-deprecated API). Shared schemas (`manif
 
 `varp_schedule` accepts inline task objects rather than loading from a plan file. This lets the orchestrator compute waves on modified task sets without writing intermediate files.
 
+**Response compaction.** MCP responses are consumed by agents with limited context windows, so handlers apply presentation-layer compaction before returning. Pure domain functions return full data; compact helpers in `index.ts` strip noise at the boundary:
+
+- `compactManifest` — component names + deps + graph validity (not full paths/docs)
+- `compactFreshness` — only stale docs listed; "all fresh" summary when none stale
+- `compactImports` — strips per-import evidence arrays (from/to pairs only)
+- `compactEnv` — only missing vars listed; summary when all set
+- `compactCoChanges` — edge count + commit stats (not raw edge list)
+
+This keeps domain code reusable while minimizing token cost for agent consumers.
+
 ## Doc Discovery (`discovery.ts`)
 
 Shared helper used by both resolver and freshness. Given a component, returns all doc paths: explicit (`docs:` field) + auto-discovered. For each component path, builds a set of discovery roots and scans each for docs:
