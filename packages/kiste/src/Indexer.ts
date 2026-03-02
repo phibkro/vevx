@@ -136,10 +136,9 @@ export const restoreSnapshot = (
     }
     const files = readdirSync(snapshotsDir)
       .filter((f) => f.endsWith(".sqlite"))
-      .sort(
-        (a, b) =>
-          statSync(resolve(snapshotsDir, b)).mtimeMs - statSync(resolve(snapshotsDir, a)).mtimeMs,
-      );
+      .map((f) => ({ f, mtimeMs: statSync(resolve(snapshotsDir, f)).mtimeMs }))
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+      .map((e) => e.f);
     if (files.length === 0) {
       return yield* Effect.fail(new IndexError({ message: "No snapshots found" }));
     }
