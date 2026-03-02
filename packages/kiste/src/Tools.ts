@@ -174,40 +174,36 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const git = yield* Git;
             yield* initSchema;
 
-            const artifactRows = yield* sql.unsafe<{ id: number; path: string; alive: number }>(
-              `SELECT id, path, alive FROM artifacts WHERE path = ?`,
-              [path],
-            );
+            const artifactRows = yield* sql<{
+              id: number;
+              path: string;
+              alive: number;
+            }>`SELECT id, path, alive FROM artifacts WHERE path = ${path}`;
             if (artifactRows.length === 0) {
               return { error: `Artifact not found: ${path}` };
             }
             const artifact = artifactRows[0];
 
-            const tagRows = yield* sql.unsafe<{ tag: string }>(
-              `SELECT tag FROM artifact_tags WHERE artifact_id = ?`,
-              [artifact.id],
-            );
+            const tagRows = yield* sql<{
+              tag: string;
+            }>`SELECT tag FROM artifact_tags WHERE artifact_id = ${artifact.id}`;
             const tags = tagRows.map((r) => r.tag);
 
-            const commitRows = yield* sql.unsafe<{
+            const commitRows = yield* sql<{
               sha: string;
               message: string;
               author: string;
               timestamp: number;
-            }>(
-              `SELECT c.sha, c.message, c.author, c.timestamp
+            }>`SELECT c.sha, c.message, c.author, c.timestamp
                FROM commits c
                JOIN artifact_commits ac ON ac.commit_sha = c.sha
-               WHERE ac.artifact_id = ?
+               WHERE ac.artifact_id = ${artifact.id}
                ORDER BY c.timestamp DESC
-               LIMIT 5`,
-              [artifact.id],
-            );
+               LIMIT 5`;
 
-            const totalCommitRows = yield* sql.unsafe<{ count: number }>(
-              `SELECT COUNT(*) as count FROM artifact_commits WHERE artifact_id = ?`,
-              [artifact.id],
-            );
+            const totalCommitRows = yield* sql<{
+              count: number;
+            }>`SELECT COUNT(*) as count FROM artifact_commits WHERE artifact_id = ${artifact.id}`;
             const totalCommits = totalCommitRows[0].count;
 
             const gitRef = ref ?? "HEAD";
@@ -271,15 +267,12 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
               return { results: rows, count: rows.length };
             }
 
-            const rows = yield* sql.unsafe(
-              `SELECT c.sha, c.message, c.author, c.timestamp
+            const rows = yield* sql`SELECT c.sha, c.message, c.author, c.timestamp
                FROM commits_fts fts
                JOIN commits c ON c.rowid = fts.rowid
-               WHERE commits_fts MATCH ?
+               WHERE commits_fts MATCH ${safeQuery}
                ORDER BY c.timestamp DESC
-               LIMIT ?`,
-              [safeQuery, lim],
-            );
+               LIMIT ${lim}`;
             return { results: rows, count: rows.length };
           }),
         );
@@ -300,15 +293,12 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const sql = yield* SqlClient.SqlClient;
             yield* initSchema;
 
-            const rows = yield* sql.unsafe(
-              `SELECT c.sha, c.message, c.author, c.timestamp
+            const rows = yield* sql`SELECT c.sha, c.message, c.author, c.timestamp
                FROM commits c
                JOIN artifact_commits ac ON ac.commit_sha = c.sha
                JOIN artifacts a ON a.id = ac.artifact_id
-               WHERE a.path = ?
-               ORDER BY c.timestamp ASC`,
-              [path],
-            );
+               WHERE a.path = ${path}
+               ORDER BY c.timestamp ASC`;
             return { commits: rows };
           }),
         );
@@ -333,25 +323,26 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const lim = limit ?? 20;
 
             // Check artifact exists
-            const artifactRows = yield* sql.unsafe<{ id: number }>(
-              `SELECT id FROM artifacts WHERE path = ?`,
-              [path],
-            );
+            const artifactRows = yield* sql<{
+              id: number;
+            }>`SELECT id FROM artifacts WHERE path = ${path}`;
             if (artifactRows.length === 0) {
               return { error: `Artifact not found: ${path}` };
             }
 
             // Count total commits for this artifact
-            const totalRows = yield* sql.unsafe<{ count: number }>(
-              `SELECT COUNT(*) as count FROM artifact_commits WHERE artifact_id = ?`,
-              [artifactRows[0].id],
-            );
+            const totalRows = yield* sql<{
+              count: number;
+            }>`SELECT COUNT(*) as count FROM artifact_commits WHERE artifact_id = ${artifactRows[0].id}`;
             const total_commits = totalRows[0].count;
 
             // Find co-changing files via self-join on artifact_commits
-            const rows = yield* sql.unsafe<{ path: string; shared_count: number; jaccard: number }>(
-              `WITH target AS (
-                SELECT id FROM artifacts WHERE path = ?
+            const rows = yield* sql<{
+              path: string;
+              shared_count: number;
+              jaccard: number;
+            }>`WITH target AS (
+                SELECT id FROM artifacts WHERE path = ${path}
               ),
               target_commits AS (
                 SELECT commit_sha FROM artifact_commits WHERE artifact_id = (SELECT id FROM target)
@@ -373,9 +364,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
               JOIN artifacts a ON a.id = c.artifact_id
               WHERE a.alive = 1
               ORDER BY c.shared_count DESC
-              LIMIT ?`,
-              [path, lim],
-            );
+              LIMIT ${lim}`;
 
             return {
               path,
@@ -409,10 +398,9 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
 
             const operation = op ?? "add";
 
-            const artifactRows = yield* sql.unsafe<{ id: number }>(
-              `SELECT id FROM artifacts WHERE path = ?`,
-              [path],
-            );
+            const artifactRows = yield* sql<{
+              id: number;
+            }>`SELECT id FROM artifacts WHERE path = ${path}`;
             if (artifactRows.length === 0) {
               return { error: `Artifact not found: ${path}` };
             }
@@ -420,24 +408,17 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
 
             if (operation === "add") {
               for (const tag of tags) {
-                yield* sql.unsafe(
-                  `INSERT OR IGNORE INTO artifact_tags (artifact_id, tag) VALUES (?, ?)`,
-                  [artifactId, tag],
-                );
+                yield* sql`INSERT OR IGNORE INTO artifact_tags (artifact_id, tag) VALUES (${artifactId}, ${tag})`;
               }
             } else {
               for (const tag of tags) {
-                yield* sql.unsafe(`DELETE FROM artifact_tags WHERE artifact_id = ? AND tag = ?`, [
-                  artifactId,
-                  tag,
-                ]);
+                yield* sql`DELETE FROM artifact_tags WHERE artifact_id = ${artifactId} AND tag = ${tag}`;
               }
             }
 
-            const currentTags = yield* sql.unsafe<{ tag: string }>(
-              `SELECT tag FROM artifact_tags WHERE artifact_id = ? ORDER BY tag`,
-              [artifactId],
-            );
+            const currentTags = yield* sql<{
+              tag: string;
+            }>`SELECT tag FROM artifact_tags WHERE artifact_id = ${artifactId} ORDER BY tag`;
 
             return { path, tags: currentTags.map((r) => r.tag) };
           }),
@@ -456,14 +437,12 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const sql = yield* SqlClient.SqlClient;
             yield* initSchema;
 
-            const rows = yield* sql.unsafe(
-              `SELECT at2.tag, COUNT(*) as count
+            const rows = yield* sql`SELECT at2.tag, COUNT(*) as count
                FROM artifact_tags at2
                JOIN artifacts a ON a.id = at2.artifact_id
                WHERE a.alive = 1
                GROUP BY at2.tag
-               ORDER BY count DESC, at2.tag ASC`,
-            );
+               ORDER BY count DESC, at2.tag ASC`;
             return { tags: rows };
           }),
         );
