@@ -72,7 +72,11 @@ export function makeLspRuntimes(
       }),
 
     allRuntimes: () =>
-      Effect.sync(() => getRegistry().allLspPlugins().map((plugin) => getOrCreate(plugin))),
+      Effect.sync(() =>
+        getRegistry()
+          .allLspPlugins()
+          .map((plugin) => getOrCreate(plugin)),
+      ),
 
     disposeAll: async () => {
       for (const rt of runtimes.values()) {

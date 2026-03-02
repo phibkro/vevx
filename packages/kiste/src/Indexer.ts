@@ -138,8 +138,7 @@ export const restoreSnapshot = (
       .filter((f) => f.endsWith(".sqlite"))
       .sort(
         (a, b) =>
-          statSync(resolve(snapshotsDir, b)).mtimeMs -
-          statSync(resolve(snapshotsDir, a)).mtimeMs,
+          statSync(resolve(snapshotsDir, b)).mtimeMs - statSync(resolve(snapshotsDir, a)).mtimeMs,
       );
     if (files.length === 0) {
       return yield* Effect.fail(new IndexError({ message: "No snapshots found" }));
@@ -192,9 +191,7 @@ const maybeAutoSnapshot = (
     // Count commits since last snapshot
     let commitsSinceSnapshot: number;
     if (!lastSnapshotSha) {
-      const rows = yield* sql.unsafe<{ count: number }>(
-        `SELECT COUNT(*) as count FROM commits`,
-      );
+      const rows = yield* sql.unsafe<{ count: number }>(`SELECT COUNT(*) as count FROM commits`);
       commitsSinceSnapshot = rows[0].count;
     } else {
       // Count commits after the snapshot sha by timestamp

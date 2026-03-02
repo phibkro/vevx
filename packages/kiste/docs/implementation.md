@@ -15,7 +15,7 @@ src/
 ├── Db.ts               SQLite DDL, meta helpers, DbLive layer factory
 ├── Git.ts              Git service: log parsing, rev-parse, show
 ├── Indexer.ts          Orchestrator: git→sqlite pipeline
-├── Tools.ts            6 MCP tool definitions (factory: makeTools(run, repoDir))
+├── Tools.ts            7 MCP tool definitions (factory: makeTools(run, repoDir))
 ├── tool-registry.ts    Generic ToolDef→McpServer registration
 ├── Mcp.ts              MCP server entry point (createServer + stdio)
 ├── Cli.ts              CLI entry point (5 subcommands)
@@ -185,16 +185,17 @@ This runs on every commit that touches the artifact, ensuring tags stay current.
 
 ## MCP Tools (`Tools.ts`)
 
-6 read-only tools, all annotated with `readOnlyHint: true, destructiveHint: false`.
+6 read-only tools annotated with `readOnlyHint: true, destructiveHint: false`, plus 1 write tool.
 
 | Tool | Input params | Query Pattern |
 |---|---|---|
-| `kiste_list_artifacts` | `tags?`, `include_deleted?`, `limit?`, `offset?` | Tag filter (AND logic) + alive filter + pagination |
+| `kiste_list_artifacts` | `tags?`, `include_deleted?`, `include_ignored?`, `source_only?`, `limit?`, `offset?` | Tag filter (AND logic) + alive filter + gitignore filter + pagination |
 | `kiste_get_artifact` | `path`, `ref?` | Metadata from SQLite + content from `git show` |
 | `kiste_search` | `query`, `tags?`, `limit?` | FTS5 MATCH on commit messages, optional tag filter |
 | `kiste_get_provenance` | `path` | All commits for an artifact, chronological order |
 | `kiste_list_tags` | *(none)* | Distinct tags with counts, alive artifacts only |
 | `kiste_get_cochange` | `path`, `limit?` | Self-join on `artifact_commits`, jaccard similarity |
+| `kiste_tag` | `path`, `tags`, `op?` | Add or remove tags on an artifact (write, `readOnlyHint: false`) |
 
 Tools only accept semantic parameters — no infrastructure paths like `db_path` or `repo_dir`. These are resolved once at server startup.
 
@@ -225,14 +226,14 @@ Layers are provided per-command handler (not at root level) to avoid opening SQL
 
 ## Testing
 
-49 tests across 5 files, all concurrent-safe.
+51 tests across 5 files, all concurrent-safe.
 
 | File | Tests | Strategy |
 |---|---|---|
 | `Config.test.ts` | 3 | Schema decode + layer with missing file |
 | `Tags.test.ts` | 18 | Pure function unit tests (no IO) |
 | `Indexer.test.ts` | 11 | Temp git repos with real commits, verify SQLite state + snapshots |
-| `Tools.test.ts` | 14 | `InMemoryTransport` + MCP `Client`, pre-seeded DB + co-change |
+| `Tools.test.ts` | 16 | `InMemoryTransport` + MCP `Client`, pre-seeded DB + co-change + tag write |
 | `Git.test.ts` | 3 | Git service integration tests |
 
 Integration tests use `mkdtempSync` for isolation and `rmSync` for cleanup. Git repos are initialized with `Bun.spawnSync`.

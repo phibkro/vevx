@@ -79,7 +79,7 @@ artifacts ──< artifact_commits >── commits
 | Entry | File | Build output | Purpose |
 |---|---|---|---|
 | CLI | `src/Cli.ts` | `dist/Cli.js` | `kiste init\|index\|status\|query\|snapshot` |
-| MCP | `src/Mcp.ts` | `dist/Mcp.js` | 6 read-only MCP tools over stdio |
+| MCP | `src/Mcp.ts` | `dist/Mcp.js` | 7 MCP tools over stdio (6 read-only + 1 write) |
 
 Both built with `bun build --target bun`. CLI uses `@effect/cli` with `BunRuntime.runMain`. MCP uses `@modelcontextprotocol/sdk` with `StdioServerTransport`.
 

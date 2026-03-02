@@ -2,14 +2,12 @@
 
 Lifecycle hooks for varp-managed sessions. Hooks inject graph-derived structural awareness into the session lifecycle.
 
-| Hook                  | Event                     | Purpose                                                                      |
-| --------------------- | ------------------------- | ---------------------------------------------------------------------------- |
-| `session-start.sh`    | SessionStart              | Inject graph context, active plans, and cost tracking status                 |
-| `tag-commits.sh`      | PreToolUse (Bash)         | Add `tags:` line to git commit messages from varp.yaml component mapping     |
-| `freshness-track.sh`  | PostToolUse (Write\|Edit) | Report owning component + coupling neighborhood for modified files           |
-| `subagent-context.sh` | SubagentStart             | Inject project conventions into subagent context                             |
-| `session-stop.sh`     | Stop                      | Summarize session impact: modified components, coupling warnings, file count |
-| _(prompt hook)_       | Stop                      | Run `varp_lint` to check for stale docs, broken links, missing deps          |
+| Hook                 | Event                     | Purpose                                                                      |
+| -------------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `session-start.sh`   | SessionStart              | Inject graph context, active plans, and cost tracking status                 |
+| `tag-commits.sh`     | PreToolUse (Bash)         | Add `tags:` line to git commit messages from varp.yaml component mapping     |
+| `freshness-track.sh` | PostToolUse (Write\|Edit) | Report owning component + coupling neighborhood for modified files           |
+| `session-stop.sh`    | Stop                      | Summarize session impact: modified components, coupling warnings, file count |
 
 ## session-start.sh
 

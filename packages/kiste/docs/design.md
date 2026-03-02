@@ -208,6 +208,9 @@ all tags in the index with artifact counts. useful for exploration.
 `get_cochange(path, limit?)` → `{path, cochanges: [{path, count, jaccard}], total_commits}`
 given an artifact, find other artifacts that frequently change in the same commits. returns co-change pairs ranked by frequency with jaccard similarity scores. this is behavioral coupling — the most valuable cross-component signal for agents.
 
+`tag(path, tags, op?)` → `{path, tags}`
+add or remove tags on an artifact manually. lets agents supplement auto-derived tags without committing. only write-capable tool.
+
 two-tier retrieval: structured tag queries for known intent, full-text search as fallback for exploration. agents use tags most of the time; full-text search handles "i know what i'm looking for but not what it's called."
 
 ---

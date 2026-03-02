@@ -8,7 +8,7 @@ Current state of Varp relative to the design documents. Updated February 2026.
 | --------- | ---------------------------------------------------------------------------------------- |
 | MCP tools | Manifest, Scheduler, Plan, Enforcement, Analysis                                         |
 | Skills    | init, plan, execute, review, status                                                      |
-| Hooks     | SessionStart, SubagentStart, PostToolUse (freshness + auto-format), Stop (lint advisory) |
+| Hooks     | SessionStart, PreToolUse (tag-commits), PostToolUse (freshness-track), Stop              |
 | Tests     | Co-located `*.test.ts` files, run with `bun test`                                        |
 
 ### MCP Tools by Category
@@ -35,12 +35,12 @@ Current state of Varp relative to the design documents. Updated February 2026.
 
 ### Hooks
 
-| Hook                     | Trigger              | Type    | Purpose                                                             |
-| ------------------------ | -------------------- | ------- | ------------------------------------------------------------------- |
-| SessionStart             | Session start        | command | Load manifest, display project state and cost tracking status       |
-| PostToolUse (Write/Edit) | File modification    | command | Flag component docs for freshness review                            |
-| PostToolUse (Write/Edit) | File modification    | command | Auto-format modified files with oxfmt                               |
-| Stop                     | Claude finishes turn | prompt  | Run `varp_lint` to check for stale docs, broken links, missing deps |
+| Hook                     | Trigger              | Type    | Purpose                                                         |
+| ------------------------ | -------------------- | ------- | --------------------------------------------------------------- |
+| SessionStart             | Session start        | command | Load manifest, display project state and cost tracking status   |
+| PreToolUse (Bash)        | Before Bash calls    | command | Tag commits with varp metadata                                  |
+| PostToolUse (Write/Edit) | File modification    | command | Flag component docs for freshness review                        |
+| Stop                     | Session end          | command | Run session-stop cleanup                                        |
 
 ## Changes from Design Doc
 

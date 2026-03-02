@@ -13,19 +13,21 @@ kart is an MCP server providing progressive code disclosure, behavioral coupling
 - **Server lifecycle**: `kart_restart` — disposes all LSP runtimes (TS + Rust) + clears symbol cache + restarts file watcher
 
 ```
-MCP client ──stdio──▷ Mcp.ts (McpServer + ManagedRuntime)
+MCP client ──stdio──▷ Mcp.ts (McpServer)
                         │
               ┌─────────┼──────────────────────────┐
-              ▼         ▼                ▼         ▼
-        cochangeRuntime  zoomRuntime  rustRuntime  stateless tools
-              │              │            │      (find, search, list, edit, diagnostics, imports)
-        CochangeDb    SymbolIndex   SymbolIndex          │
-        (bun:sqlite)      │            │          ┌──────┼──────┐
-                      LspClient    LspClient    oxc-parser  ripgrep  oxlint
-                  (typescript-ls)  (rust-analyzer)  tree-sitter
+              ▼         ▼                           ▼
+        cochangeRuntime  lspRuntimes              stateless tools
+              │         (LspRuntimes)          (find, search, list, edit, diagnostics, imports)
+        CochangeDb       │                              │
+        (bun:sqlite)     ├─ .ts/.tsx → ManagedRuntime ─┤
+                         │    SymbolIndex + LspClient   │     ┌──────┼──────┐
+                         └─ .rs → ManagedRuntime (lazy) │  oxc-parser ripgrep oxlint
+                              SymbolIndex + LspClient        tree-sitter
+                          (typescript-ls / rust-analyzer)
 ```
 
-LSP-backed tools route by file extension: `.ts`/`.tsx` → `zoomRuntime` (typescript-language-server), `.rs` → `rustRuntime` (rust-analyzer, lazy — created on first `.rs` tool call). Cochange has its own `cochangeRuntime`. Stateless tools run without Effect runtime — direct async handlers.
+LSP-backed tools route by file extension via `PluginRegistry`. `lspRuntimes.runtimeFor(path)` returns a `ManagedRuntime` keyed by plugin binary — all extensions sharing a language server share one runtime. The Rust runtime is created lazily on first `.rs` tool call. Cochange has its own `cochangeRuntime`. Stateless tools run without Effect runtime — direct async handlers.
 
 ## module structure
 

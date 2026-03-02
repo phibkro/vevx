@@ -133,6 +133,10 @@ Dependencies serve three purposes:
 
 The dependency graph must be acyclic. `varp_read_manifest` runs cycle detection at parse time and reports any cycles found.
 
+## Caching
+
+`parseManifest` caches parsed manifests by file path and mtime. Re-reading the same file returns the cached result without re-parsing unless the file has been modified. Cached manifests are frozen via `deepFreeze()` — mutations to the returned object throw in strict mode, preventing cache poisoning across calls.
+
 ## Validation
 
 The manifest is validated at parse time by Zod schemas. Validation errors include:

@@ -55,7 +55,7 @@ The split is clean: if a tool needs to cross file boundaries for type informatio
 
 ### 3.2 runtime architecture
 
-Kart uses **per-language runtimes** managed by `LspRuntimes`. Each file extension maps to one `LspPlugin`, one `ManagedRuntime`:
+Kart uses **per-language runtimes** managed by `LspRuntimes`. Each file extension maps to one `LspPlugin`; runtimes are keyed by plugin binary, so extensions sharing a language server share one `ManagedRuntime`:
 
 ```text
 McpServer
@@ -286,9 +286,9 @@ See `docs/decisions/adr-005-kart-edit-tools` for the full decision record.
 
 The edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`) use oxc's AST for TypeScript and tree-sitter for Rust. Both parsers produce the same `OxcSymbol` shape with byte-offset ranges, so the splice functions are language-agnostic. Rust syntax validation uses tree-sitter's `rootNode.hasError` (best-effort).
 
-### per-tool runtimes (ADR-004)
+### per-language runtimes (ADR-004)
 
-Each tool gets its own `ManagedRuntime`. LSP failure doesn't block cochange queries. See `docs/decisions/adr-004-per-tool-runtime`.
+LSP tools share a `ManagedRuntime` per language server binary (managed by `LspRuntimes`). Cochange has a separate runtime. LSP failure doesn't block cochange queries, and TS failure doesn't block Rust tools. See `docs/decisions/adr-004-per-tool-runtime`.
 
 ### lazy symbol index over incremental
 

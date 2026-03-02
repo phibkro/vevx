@@ -20,7 +20,7 @@ kiste snapshot --restore  # Restore latest snapshot
 | Entry | Build output | Purpose |
 |---|---|---|
 | `src/Cli.ts` | `dist/Cli.js` | CLI binary (`kiste init|index|status|query|snapshot`) |
-| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 6 read-only tools) |
+| `src/Mcp.ts` | `dist/Mcp.js` | MCP server (stdio transport, 7 tools) |
 
 ## MCP Tools
 
@@ -32,8 +32,9 @@ kiste snapshot --restore  # Restore latest snapshot
 | `kiste_search` | Full-text search over commit messages (FTS5) |
 | `kiste_get_provenance` | Full commit history for a file path |
 | `kiste_get_cochange` | Co-changing files ranked by frequency (behavioral coupling) |
+| `kiste_tag` | Add or remove tags on an artifact (write) |
 
-All tools are read-only. Content is read from git on demand — SQLite stores only metadata, tags, and relationships.
+6 tools are read-only. `kiste_tag` is a write tool for manual tag management. Content is read from git on demand — SQLite stores only metadata, tags, and relationships.
 
 ## Plugin Assets
 
