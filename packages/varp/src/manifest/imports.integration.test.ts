@@ -30,7 +30,7 @@ describe("bunResolve", () => {
 });
 
 describe("loadTsconfigPaths", () => {
-  const tmpDir = join(import.meta.dir, "__test_tsconfig__");
+  const tmpDir = join("/tmp/claude", "__test_tsconfig__");
 
   beforeAll(() => {
     mkdirSync(tmpDir, { recursive: true });

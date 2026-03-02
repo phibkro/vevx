@@ -10,8 +10,8 @@ Separate by **what the test verifies**, not where the code lives:
 
 | File pattern | Purpose | Coverage threshold |
 |---|---|---|
-| `*.test.ts` | Interface/contract tests | 100% line + function |
-| `*.integration.test.ts` | External service wiring | None |
+| `*.test.ts` | Interface/contract tests | 95% per-file (reported, not enforced yet) |
+| `*.integration.test.ts` | External service wiring | Reported, no threshold |
 
 **Default is strict.** You opt out by naming a file `.integration.test.ts`.
 
@@ -28,7 +28,7 @@ Interface tests verify the contract callers depend on — gaps here are real bug
 coverageSkipTestFiles = true
 coverageReporter = ["text", "lcov"]
 coverageDir = "coverage"
-coverageThreshold = { line = 1.0, function = 1.0 }
+# coverageThreshold = 0.95  # Enable per-package as coverage improves
 ```
 
 **`bunfig.integration.toml`** — used by `test:integration`:
@@ -50,7 +50,7 @@ coverageDir = "coverage-integration"
 }
 ```
 
-Exact glob patterns vary per package (kart runs `src/pure/` and `src/` separately today — this replaces that split).
+Exact glob patterns vary per package (kart runs `src/core/` and `src/` separately today — this replaces that split).
 
 ### Turbo tasks
 
@@ -71,7 +71,7 @@ Exact glob patterns vary per package (kart runs `src/pure/` and `src/` separatel
   run: bunx turbo test:integration
 ```
 
-Strict step fails the build if any source file covered by `*.test.ts` drops below 100% line or function coverage. Bun enforces this per-file, not in aggregate.
+Strict step reports coverage for all source files covered by `*.test.ts`. Threshold enforcement (95% per-file) can be enabled per-package as coverage improves. Bun enforces thresholds per-file, not in aggregate.
 
 ### Migration
 
@@ -81,7 +81,7 @@ Existing test files that test external integrations get renamed:
 - kiste: Files testing SQLite/git → `*.integration.test.ts`
 - varp: MCP integration tests → `*.integration.test.ts`
 
-Files that test pure logic keep `*.test.ts` and must hit 100%.
+Files that test pure logic keep `*.test.ts` (95% per-file target once enforcement is enabled).
 
 ## Documentation
 

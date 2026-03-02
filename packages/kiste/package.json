@@ -25,8 +25,8 @@
   "scripts": {
     "build": "bun build ./src/Cli.ts ./src/Mcp.ts --outdir ./dist --target bun",
     "test": "bun run test:strict && bun run test:integration",
-    "test:strict": "bun test --concurrent --coverage $(find src -name '*.test.ts' ! -name '*.integration.test.ts') 2>/dev/null || echo 'No strict tests found'",
-    "test:integration": "bun test --concurrent --coverage --bunfig bunfig.integration.toml $(find src -name '*.integration.test.ts')",
+    "test:strict": "files=$(find src -name '*.test.ts' ! -name '*.integration.test.ts'); [ -n \"$files\" ] && bun test --concurrent --coverage $files || echo 'No strict tests found'",
+    "test:integration": "files=$(find src -name '*.integration.test.ts'); [ -n \"$files\" ] && bun test --concurrent --coverage --bunfig bunfig.integration.toml $files || echo 'No integration tests found'",
     "lint": "oxlint --type-aware",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",

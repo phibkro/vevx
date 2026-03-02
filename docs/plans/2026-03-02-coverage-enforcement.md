@@ -69,7 +69,7 @@ chore: replace test:pure/test:coverage with test:strict/test:integration in turb
 - Modify: `packages/kart/package.json`
 - Rename 17 integration test files (see list below)
 
-kart has 9 pure test files in `src/pure/` and ~17 integration tests in `src/`. Currently the split is directory-based — this task switches to naming-based.
+kart has 9 pure test files in `src/core/` and ~17 integration tests in `src/`. Currently the split is directory-based — this task switches to naming-based.
 
 **Step 1: Update `packages/kart/bunfig.toml` (strict)**
 

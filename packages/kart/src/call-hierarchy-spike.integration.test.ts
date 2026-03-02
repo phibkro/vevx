@@ -31,13 +31,13 @@ describe.skipIf(!hasLsp)("call hierarchy latency spike", () => {
   // Line numbers are 0-indexed (LSP convention), char = start of function name
   const targets: Array<{ file: string; line: number; char: number; name: string }> = [
     // Pure utility — called from Symbols.ts toZoomSymbol
-    { file: "sr./core/Signatures.ts", line: 44, char: 16, name: "extractSignature" },
+    { file: "src/core/Signatures.ts", line: 44, char: 16, name: "extractSignature" },
     // Pure utility — called from Symbols.ts toZoomSymbol
-    { file: "sr./core/ExportDetection.ts", line: 37, char: 16, name: "isExported" },
+    { file: "src/core/ExportDetection.ts", line: 37, char: 16, name: "isExported" },
     // Pure utility — called from Symbols.ts toZoomSymbol
-    { file: "sr./core/Signatures.ts", line: 115, char: 16, name: "extractDocComment" },
+    { file: "src/core/Signatures.ts", line: 115, char: 16, name: "extractDocComment" },
     // Pure utility — called from Symbols.ts toZoomSymbol
-    { file: "sr./core/Signatures.ts", line: 33, char: 16, name: "symbolKindName" },
+    { file: "src/core/Signatures.ts", line: 33, char: 16, name: "symbolKindName" },
   ];
 
   /** BFS over incomingCalls up to maxDepth */

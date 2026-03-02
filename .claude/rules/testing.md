@@ -16,7 +16,7 @@ paths:
 | `*.integration.test.ts` | External service wiring (LSP, SQLite, subprocess, MCP) | Coverage reported (no threshold) |
 | `*.e2e.test.ts` | End-to-end tests | Coverage reported (no threshold) |
 
-**Default is strict.** Name a file `.integration.test.ts` to opt out of coverage reporting.
+**Default is strict.** Name a file `.integration.test.ts` to opt out of coverage threshold enforcement. Both tiers report coverage; only strict tests will enforce thresholds.
 
 ## When to use which
 
@@ -28,7 +28,7 @@ paths:
 **Integration test** (`*.integration.test.ts`) when:
 - Tests spawn an LSP server, SQLite database, subprocess, or MCP transport
 - Failure depends on environment (tool availability, OS, CI sandbox)
-- Use `skipIf(process.env.TURBO_HASH)` for tests requiring tools unavailable in CI
+- Use `test.skipIf(process.env.TURBO_HASH)` or `describe.skipIf(process.env.TURBO_HASH)` for tests requiring tools unavailable in CI
 
 ## Coverage reporting
 
