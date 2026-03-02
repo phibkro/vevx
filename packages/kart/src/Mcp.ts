@@ -178,9 +178,9 @@ function compactDeps(result: DepsResult, rootDir: string) {
 const isPluginUnavailable = (e: unknown): e is PluginUnavailableError => {
   if (!(e instanceof Error)) return false;
   // Direct check (Effect.runPromise with Effect.either, or unwrapped errors)
-  if ((e as Record<string, unknown>)._tag === "PluginUnavailableError") return true;
+  if ((e as unknown as Record<string, unknown>)._tag === "PluginUnavailableError") return true;
   // FiberFailure: Effect runtime wraps errors in a FiberFailure with the cause at a symbol key
-  const cause = (e as Record<symbol, unknown>)[FiberFailureCauseSymbol] as
+  const cause = (e as unknown as Record<symbol, unknown>)[FiberFailureCauseSymbol] as
     | { _tag?: string; error?: Record<string, unknown> }
     | undefined;
   return cause?._tag === "Fail" && cause.error?.["_tag"] === "PluginUnavailableError";
@@ -265,24 +265,31 @@ function createServer(config: ServerConfig = {}): McpServer {
   // ── LSP tool helper ──
   // Encapsulates the repeated pattern: runtimeFor lookup → Effect run → response/error shaping.
   // Tools with custom result formatting pass an optional transform function.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP SDK registerTool overloads are too narrow for generic wrappers
   function registerLspTool<TArgs extends { path: string }>(
     tool: {
       name: string;
       description: string;
-      inputSchema: Record<string, unknown>;
+      inputSchema: any;
       annotations: Record<string, unknown>;
-      handler: (args: TArgs) => Effect.Effect<unknown>;
+      handler: (args: TArgs) => Effect.Effect<unknown, unknown, unknown>;
     },
     options?: { transform?: (result: unknown, rootDir: string) => unknown },
   ): void {
     server.registerTool(
       tool.name,
-      { description: tool.description, inputSchema: tool.inputSchema, annotations: tool.annotations },
-      async (args) => {
+      {
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        annotations: tool.annotations,
+      },
+      async (args: Record<string, unknown>) => {
         try {
           const typedArgs = args as TArgs;
           const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
-          const raw = await runtime.runPromise(tool.handler(typedArgs) as Effect.Effect<unknown>);
+          const raw = await runtime.runPromise(
+            tool.handler(typedArgs) as Effect.Effect<unknown, never, never>,
+          );
           const result = options?.transform ? options.transform(raw, rootDir) : raw;
           return {
             content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -290,7 +297,10 @@ function createServer(config: ServerConfig = {}): McpServer {
           };
         } catch (e) {
           if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
-          return { isError: true, content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }] };
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+          };
         }
       },
     );
@@ -693,7 +703,7 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
   );
 
-  // Register kart_workspace_symbol (LSP-backed, queries all available runtimes)
+  // Register kart_workspace_symbol (LSP-backed, uses TS runtime)
   server.registerTool(
     kart_workspace_symbol.name,
     {
@@ -704,28 +714,10 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { query: string };
-        const runtimeList = await Effect.runPromise(lspRuntimes.allRuntimes());
-        if (runtimeList.length === 0) {
-          const result = { available: false, reason: "No LSP runtimes available" };
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-            structuredContent: result,
-          };
-        }
-        // Query all runtimes in parallel and merge symbols
-        const results = await Promise.allSettled(
-          runtimeList.map((rt) =>
-            rt.runPromise(kart_workspace_symbol.handler(typedArgs) as Effect.Effect<unknown>),
-          ),
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor("workspace.ts"));
+        const result = await runtime.runPromise(
+          kart_workspace_symbol.handler(typedArgs) as Effect.Effect<unknown>,
         );
-        const allSymbols: unknown[] = [];
-        for (const r of results) {
-          if (r.status === "fulfilled") {
-            const value = r.value as { symbols?: unknown[] };
-            if (Array.isArray(value?.symbols)) allSymbols.push(...value.symbols);
-          }
-        }
-        const result = { query: typedArgs.query, symbols: allSymbols, totalSymbols: allSymbols.length };
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as Record<string, unknown>,
