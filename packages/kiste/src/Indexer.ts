@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 import * as SqlClient from "@effect/sql/SqlClient";
@@ -136,8 +136,11 @@ export const restoreSnapshot = (
     }
     const files = readdirSync(snapshotsDir)
       .filter((f) => f.endsWith(".sqlite"))
-      .sort()
-      .reverse();
+      .sort(
+        (a, b) =>
+          statSync(resolve(snapshotsDir, b)).mtimeMs -
+          statSync(resolve(snapshotsDir, a)).mtimeMs,
+      );
     if (files.length === 0) {
       return yield* Effect.fail(new IndexError({ message: "No snapshots found" }));
     }
@@ -223,22 +226,30 @@ const processCommits = (
 
     // Wrap all commits in a single transaction for performance.
     // Without this, each INSERT/UPDATE is an implicit transaction (extremely slow for large repos).
-    yield* sql
-      .unsafe("BEGIN")
-      .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
-    try {
+    const body = Effect.gen(function* () {
       for (const commit of commits) {
         const counts = yield* indexCommit(commit);
         artifacts_indexed += counts.indexed;
         artifacts_deleted += counts.deleted;
       }
-      yield* sql
-        .unsafe("COMMIT")
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
-    } catch (e) {
-      yield* sql.unsafe("ROLLBACK").pipe(Effect.catchAll(() => Effect.void));
-      throw e;
-    }
+    });
+
+    yield* sql
+      .unsafe("BEGIN")
+      .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+    yield* body.pipe(
+      Effect.tap(() =>
+        sql
+          .unsafe("COMMIT")
+          .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e })))),
+      ),
+      Effect.catchAll((e) =>
+        sql.unsafe("ROLLBACK").pipe(
+          Effect.catchAll(() => Effect.void),
+          Effect.andThen(Effect.fail(e)),
+        ),
+      ),
+    );
 
     return {
       commits_indexed: commits.length,
