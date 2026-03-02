@@ -26,7 +26,7 @@
     "build": "bun build src/index.ts src/cli.ts --outdir dist --target bun --sourcemap=external --external @vevx/varp && tsc --emitDeclarationOnly",
     "test": "bun run test:strict && bun run test:integration",
     "test:strict": "bun test --concurrent --coverage $(find src -name '*.test.ts' ! -name '*.integration.test.ts')",
-    "test:integration": "bun test --concurrent --bunfig bunfig.integration.toml $(find src -name '*.integration.test.ts')",
+    "test:integration": "bun test --concurrent --coverage --bunfig bunfig.integration.toml $(find src -name '*.integration.test.ts')",
     "lint": "oxlint --type-aware --tsconfig tsconfig.check.json --ignore-pattern 'src/cli/github/'",
     "format": "oxfmt --write 'src/**/*.ts'",
     "format:check": "oxfmt --check 'src/**/*.ts'",
