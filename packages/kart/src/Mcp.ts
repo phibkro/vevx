@@ -1,9 +1,9 @@
 import { watch, type FSWatcher } from "node:fs";
-import { resolve } from "node:path";
+import { extname, resolve } from "node:path";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, ManagedRuntime, Option } from "effect";
 
 /** Symbol used by Effect to store the Cause inside FiberFailure. */
 const FiberFailureCauseSymbol = Symbol.for("effect/Runtime/FiberFailure/Cause");
@@ -49,12 +49,13 @@ import {
   type ImportsArgs,
 } from "./Imports.js";
 import { listDirectory, type ListArgs } from "./List.js";
-import { LspClientLive } from "./Lsp.js";
+import { PluginUnavailableError } from "./Plugin.js";
+import { makeRegistryFromPlugins, makeLspRuntimes } from "./PluginLayers.js";
 import { RustLspPluginImpl } from "./RustPlugin.js";
 import { initRustParser } from "./pure/RustSymbols.js";
 import type { DepsResult, ImpactResult } from "./pure/types.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
-import { SymbolIndexLive } from "./Symbols.js";
+import { TsAstPluginImpl, TsLspPluginImpl } from "./TsPlugin.js";
 import {
   kart_code_actions,
   kart_cochange,
@@ -172,6 +173,25 @@ function compactDeps(result: DepsResult, rootDir: string) {
   };
 }
 
+// ── Plugin error helpers ──
+
+const isPluginUnavailable = (e: unknown): e is PluginUnavailableError =>
+  e instanceof Error && (e as Record<string, unknown>)._tag === "PluginUnavailableError";
+
+function pluginUnavailableResponse(err: PluginUnavailableError) {
+  const ext = extname(err.path);
+  const result = {
+    available: false,
+    capability: err.capability,
+    extension: ext,
+    suggestion: "kart_search (ripgrep) is available for pattern search across all file types",
+  };
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+    structuredContent: result as Record<string, unknown>,
+  };
+}
+
 // ── Config ──
 
 export type ServerConfig = {
@@ -188,33 +208,16 @@ function createServer(config: ServerConfig = {}): McpServer {
   const rootDir = config.rootDir ?? process.cwd();
 
   // Separate runtimes: each tool only initializes what it needs.
-  // This avoids LSP startup failure blocking the cochange tool.
   const cochangeRuntime = ManagedRuntime.make(CochangeDbLive(dbPath));
 
-  // TS zoom runtime (always created)
-  const makeZoomRuntime = () =>
-    ManagedRuntime.make(
-      SymbolIndexLive({ rootDir }).pipe(Layer.provide(LspClientLive({ rootDir }))),
-    );
-  let zoomRuntime = makeZoomRuntime();
+  // Plugin registry — routes file extensions to the right plugin
+  const registry = makeRegistryFromPlugins({
+    ast: [TsAstPluginImpl],
+    lsp: [TsLspPluginImpl, RustLspPluginImpl],
+  });
 
-  // Rust zoom runtime (lazy — only created on first .rs LSP tool call)
-  const makeRustRuntime = () =>
-    ManagedRuntime.make(
-      SymbolIndexLive({ rootDir }).pipe(
-        Layer.provide(LspClientLive({ rootDir, plugin: RustLspPluginImpl })),
-      ),
-    );
-  let rustRuntime: ReturnType<typeof makeRustRuntime> | null = null;
-
-  /** Pick the right LSP runtime based on file extension. */
-  const runtimeFor = (path: string) => {
-    if (path.endsWith(".rs")) {
-      rustRuntime ??= makeRustRuntime();
-      return rustRuntime;
-    }
-    return zoomRuntime;
-  };
+  // LSP runtimes — lazily spawns per-language ManagedRuntimes
+  const lspRuntimes = makeLspRuntimes(registry, rootDir);
 
   // Initialize Rust parser eagerly for kart_find (tree-sitter, not LSP)
   initRustParser().catch(() => {
@@ -275,7 +278,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; level?: number; resolveTypes?: boolean };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_zoom.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -283,6 +287,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -302,7 +307,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string; depth?: number };
-        const raw = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const raw = await runtime.runPromise(
           kart_impact.handler(typedArgs) as Effect.Effect<unknown>,
         );
         const result = compactImpact(raw as ImpactResult, rootDir);
@@ -311,6 +317,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -330,7 +337,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string; includeDeclaration?: boolean };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_references.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -338,6 +346,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -357,7 +366,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_definition.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -365,6 +375,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -384,7 +395,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_type_definition.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -392,6 +404,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -411,7 +424,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_implementation.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -419,6 +433,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -438,7 +453,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_code_actions.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -446,6 +462,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -476,8 +493,8 @@ function createServer(config: ServerConfig = {}): McpServer {
         };
       }
       try {
-        rustRuntime ??= makeRustRuntime();
-        const result = await rustRuntime.runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_expand_macro.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -504,7 +521,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; startLine?: number; endLine?: number };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_inlay_hints.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -512,6 +530,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -531,7 +550,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string; newName: string };
-        const result = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = await runtime.runPromise(
           kart_rename.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -539,6 +559,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -557,7 +578,7 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args) => {
       try {
-        const raw = await findSymbols({ ...(args as FindArgs), rootDir });
+        const raw = await findSymbols({ ...(args as FindArgs), rootDir }, registry);
         const result = compactFind(raw);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -607,7 +628,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { path: string; symbol: string; depth?: number };
-        const raw = await runtimeFor(typedArgs.path).runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const raw = await runtime.runPromise(
           kart_deps.handler(typedArgs) as Effect.Effect<unknown>,
         );
         const result = compactDeps(raw as DepsResult, rootDir);
@@ -616,6 +638,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -688,12 +711,14 @@ function createServer(config: ServerConfig = {}): McpServer {
           content: string;
           format?: boolean;
         };
+        const astPlugin = Option.getOrUndefined(registry.astFor(typedArgs.file));
         const result = await editReplace(
           typedArgs.file,
           typedArgs.symbol,
           typedArgs.content,
           rootDir,
           typedArgs.format,
+          astPlugin,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -724,12 +749,14 @@ function createServer(config: ServerConfig = {}): McpServer {
           content: string;
           format?: boolean;
         };
+        const astPlugin = Option.getOrUndefined(registry.astFor(typedArgs.file));
         const result = await editInsertAfter(
           typedArgs.file,
           typedArgs.symbol,
           typedArgs.content,
           rootDir,
           typedArgs.format,
+          astPlugin,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -760,12 +787,14 @@ function createServer(config: ServerConfig = {}): McpServer {
           content: string;
           format?: boolean;
         };
+        const astPlugin = Option.getOrUndefined(registry.astFor(typedArgs.file));
         const result = await editInsertBefore(
           typedArgs.file,
           typedArgs.symbol,
           typedArgs.content,
           rootDir,
           typedArgs.format,
+          astPlugin,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -863,7 +892,8 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { query: string };
-        const result = await zoomRuntime.runPromise(
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor("workspace.ts"));
+        const result = await runtime.runPromise(
           kart_workspace_symbol.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
@@ -871,6 +901,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
+        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,
@@ -879,7 +910,7 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
   );
 
-  // Register kart_restart (server-level — disposes and re-creates zoomRuntime)
+  // Register kart_restart (server-level — disposes and re-creates all LSP runtimes)
   server.registerTool(
     kart_restart.name,
     {
@@ -888,20 +919,7 @@ function createServer(config: ServerConfig = {}): McpServer {
       annotations: kart_restart.annotations,
     },
     async () => {
-      try {
-        await zoomRuntime.dispose();
-      } catch {
-        // Ignore dispose errors — the LSP may already be dead
-      }
-      if (rustRuntime) {
-        try {
-          await rustRuntime.dispose();
-        } catch {
-          // Ignore dispose errors
-        }
-        rustRuntime = null;
-      }
-      zoomRuntime = makeZoomRuntime();
+      lspRuntimes.recreate();
       clearSymbolCache();
       symbolWatcher.close();
       symbolWatcher = startWatcher();
