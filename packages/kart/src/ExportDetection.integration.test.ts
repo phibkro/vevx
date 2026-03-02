@@ -7,9 +7,9 @@ mkdirSync("/tmp/claude", { recursive: true });
 
 import { Effect, ManagedRuntime } from "effect";
 
+import { isExported } from "./core/ExportDetection.js";
+import type { SemanticToken } from "./core/types.js";
 import { LspClient, LspClientLive } from "./Lsp.js";
-import { isExported } from "./pure/ExportDetection.js";
-import type { SemanticToken } from "./pure/types.js";
 
 // ── Fixtures ──
 

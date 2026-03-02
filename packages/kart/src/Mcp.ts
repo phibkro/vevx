@@ -38,6 +38,7 @@ function errorMessage(e: unknown): string {
 }
 
 import { CochangeDbLive } from "./Cochange.js";
+import type { DepsResult, ImpactResult, ZoomResult } from "./core/types.js";
 import { runDiagnostics, type DiagnosticsArgs } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { clearSymbolCache, findSymbols, invalidateCacheEntry, type FindArgs } from "./Find.js";
@@ -52,7 +53,6 @@ import { listDirectory, type ListArgs } from "./List.js";
 import { makePhpAstPlugin, PhpLspPluginImpl } from "./PhpPlugin.js";
 import { type AstPlugin, PluginUnavailableError } from "./Plugin.js";
 import { makeRegistryFromPlugins, makeLspRuntimes } from "./PluginLayers.js";
-import type { DepsResult, ImpactResult, ZoomResult } from "./pure/types.js";
 import { makeRustAstPlugin, RustLspPluginImpl } from "./RustPlugin.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
 import { formatZoomPlaintext } from "./Symbols.js";

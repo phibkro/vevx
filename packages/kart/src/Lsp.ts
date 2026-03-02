@@ -3,8 +3,8 @@ import { basename, resolve } from "node:path";
 
 import { Context, Effect, Layer, Scope } from "effect";
 
+import { LspError, LspTimeoutError } from "./core/Errors.js";
 import type { LspPlugin } from "./Plugin.js";
-import { LspError, LspTimeoutError } from "./pure/Errors.js";
 import { TsLspPluginImpl } from "./TsPlugin.js";
 
 export type {
@@ -20,7 +20,7 @@ export type {
   SemanticTokensResult,
   WorkspaceEdit,
   WorkspaceSymbolItem,
-} from "./pure/types.js";
+} from "./core/types.js";
 import type {
   CallHierarchyItem,
   DocumentSymbol,
@@ -33,7 +33,7 @@ import type {
   SemanticTokensResult,
   WorkspaceEdit,
   WorkspaceSymbolItem,
-} from "./pure/types.js";
+} from "./core/types.js";
 
 // ── Service ──
 

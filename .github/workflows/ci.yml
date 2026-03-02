@@ -29,18 +29,20 @@ jobs:
       - name: Format + Lint + Build
         run: bunx turbo check
 
-      - name: Test
-        run: bunx turbo test
+      - name: Test (strict — interface tests with coverage reporting)
+        run: bunx turbo test:strict
 
-      - name: Test with coverage
-        run: bunx turbo test:coverage
+      - name: Test (integration)
+        run: bunx turbo test:integration
 
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: packages/*/coverage/
+          path: |
+            packages/*/coverage/
+            packages/*/coverage-integration/
 
   changeset:
     if: github.event_name == 'pull_request'

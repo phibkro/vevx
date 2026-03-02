@@ -11,15 +11,15 @@ import { resolve } from "node:path";
 
 import { Option } from "effect";
 
-import type { AstPlugin } from "./Plugin.js";
 import {
   locateSymbol,
   spliceInsertAfter,
   spliceInsertBefore,
   spliceReplace,
   validateSyntax,
-} from "./pure/AstEdit.js";
-import type { Diagnostic } from "./pure/types.js";
+} from "./core/AstEdit.js";
+import type { Diagnostic } from "./core/types.js";
+import type { AstPlugin } from "./Plugin.js";
 
 // ── Types ──
 

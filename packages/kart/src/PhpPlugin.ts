@@ -1,5 +1,5 @@
+import { makeTreeSitterPlugin, type TreeSitterGrammar } from "./core/TreeSitterPlugin.js";
 import type { LspPlugin } from "./Plugin.js";
-import { makeTreeSitterPlugin, type TreeSitterGrammar } from "./pure/TreeSitterPlugin.js";
 
 // ── PHP grammar ──
 

@@ -8,7 +8,7 @@
 
 import { resolve } from "node:path";
 
-import type { Diagnostic } from "./pure/types.js";
+import type { Diagnostic } from "./core/types.js";
 
 // ── Types ──
 

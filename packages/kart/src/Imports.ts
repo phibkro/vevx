@@ -13,15 +13,15 @@ import {
   extractFileImports,
   findUnusedExports,
   transitiveImporters,
-} from "./pure/ImportGraph.js";
-import { bunResolve, loadTsconfigPaths, resolveSpecifier } from "./pure/Resolve.js";
+} from "./core/ImportGraph.js";
+import { bunResolve, loadTsconfigPaths, resolveSpecifier } from "./core/Resolve.js";
 import {
   ensureRustImportParser,
   extractRustFileImportsAsync,
   extractRustFileImportsSync,
   rustResolve,
-} from "./pure/RustImports.js";
-import type { ImportersResult, ImportsResult, UnusedExportsResult } from "./pure/types.js";
+} from "./core/RustImports.js";
+import type { ImportersResult, ImportsResult, UnusedExportsResult } from "./core/types.js";
 
 /** Resolve symlinks, returning the input unchanged if the path doesn't exist. */
 function safeRealpath(p: string): string {
@@ -99,7 +99,7 @@ function makeResolver(rootDir: string): (specifier: string, fromDir: string) => 
 function makeExtractor(): (
   source: string,
   filename: string,
-) => Omit<import("./pure/types.js").FileImports, "path"> {
+) => Omit<import("./core/types.js").FileImports, "path"> {
   return (source: string, filename: string) => {
     if (filename.endsWith(".rs")) {
       return extractRustFileImportsSync(source, filename);

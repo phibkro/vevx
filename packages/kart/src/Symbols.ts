@@ -3,11 +3,10 @@ import { resolve } from "node:path";
 
 import { Context, Effect, Layer } from "effect";
 
-import { LspClient } from "./Lsp.js";
-import { FileNotFoundError, LspError, LspTimeoutError } from "./pure/Errors.js";
-import { isExported } from "./pure/ExportDetection.js";
-import { parseSymbols } from "./pure/OxcSymbols.js";
-import { extractDocComment, extractSignature, symbolKindName } from "./pure/Signatures.js";
+import { FileNotFoundError, LspError, LspTimeoutError } from "./core/Errors.js";
+import { isExported } from "./core/ExportDetection.js";
+import { parseSymbols } from "./core/OxcSymbols.js";
+import { extractDocComment, extractSignature, symbolKindName } from "./core/Signatures.js";
 import type {
   CallHierarchyItem,
   CodeActionsResult,
@@ -25,8 +24,9 @@ import type {
   TextEdit,
   TypeDefinitionResult,
   WorkspaceSymbolResult,
-} from "./pure/types.js";
-import type { ZoomResult, ZoomSymbol } from "./pure/types.js";
+} from "./core/types.js";
+import type { ZoomResult, ZoomSymbol } from "./core/types.js";
+import { LspClient } from "./Lsp.js";
 
 export type {
   CodeActionsResult,
@@ -42,7 +42,7 @@ export type {
   WorkspaceSymbolResult,
   ZoomResult,
   ZoomSymbol,
-} from "./pure/types.js";
+} from "./core/types.js";
 
 // ── Constants ──
 

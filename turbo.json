@@ -8,10 +8,10 @@
     "test": {
       "dependsOn": ["build"]
     },
-    "test:pure": {
+    "test:strict": {
       "dependsOn": ["build"]
     },
-    "test:coverage": {
+    "test:integration": {
       "dependsOn": ["build"]
     },
     "check": {},

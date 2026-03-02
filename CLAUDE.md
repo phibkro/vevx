@@ -59,7 +59,7 @@ packages/
   kiste/                    Git-backed artifact index (@vevx/kiste, Effect TS)
     src/                    Indexer, MCP server, CLI
   kart/                     Progressive code disclosure (@vevx/kart, Effect TS)
-    src/pure/               Pure functions (export detection, signatures, types)
+    src/core/               Core library (export detection, signatures, types — clean import graphs)
     src/                    Effectful services (LSP, SQLite, MCP)
                             Plugin architecture: AstPlugin + LspPlugin + PluginRegistry (routes by extension)
 docs/                       Design docs, getting started, reference URLs
@@ -83,7 +83,7 @@ Import alias `#shared/*` maps to `packages/varp/src/shared/*`. One library entry
 - **MCP tools**: Accept `manifest_path` parameter (default `./varp.yaml`), parse internally, return JSON as text content.
 - **Skills**: Prompt-based SKILL.md files. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
-- **Tests**: Co-located with source (`*.test.ts`). Run concurrently (`--concurrent`). Use `bun-testing` skill for patterns. Integration tests use `InMemoryTransport` + `Client`.
+- **Tests**: Co-located with source. `*.test.ts` = interface tests (coverage reported, 95% per-file target), `*.integration.test.ts` = external service tests (no coverage). Run concurrently (`--concurrent`). See `.claude/rules/testing.md` for conventions.
 - **Subprocesses**: Use `Bun.spawn`/`Bun.spawnSync` instead of `child_process`. Never use `require("child_process")`.
 - **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). Use `bunx oxfmt` (not bare `oxfmt`) to match the lockfile version. oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (varp package). oxlint runs with `--type-aware` in all packages; varp also uses `--type-check` to replace `tsc --noEmit`.
 - **GitHub API**: Use `gh api` CLI for PR/issue operations — the MCP GitHub plugin may lack required token permissions.

@@ -1,11 +1,11 @@
 import type Parser from "web-tree-sitter";
 
-import type { LspPlugin } from "./Plugin.js";
 import {
   makeTreeSitterPlugin,
   type TreeSitterGrammar,
   type TreeSitterHooks,
-} from "./pure/TreeSitterPlugin.js";
+} from "./core/TreeSitterPlugin.js";
+import type { LspPlugin } from "./Plugin.js";
 
 // ── Rust grammar ──
 

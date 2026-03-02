@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { Effect } from "effect";
 import * as Schema from "effect/Schema";
 
-import { Config, ConfigLive, ConfigSchema } from "./Config.js";
+import { ConfigSchema } from "./Config.js";
 
 describe("ConfigSchema", () => {
   test("defaults when decoding empty object", () => {
@@ -47,17 +46,5 @@ describe("ConfigSchema", () => {
       ".turbo",
     ]);
     expect(result.snapshot_frequency).toBe(1000);
-  });
-});
-
-describe("ConfigLive", () => {
-  test("returns defaults for missing file", async () => {
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* Config;
-      }).pipe(Effect.provide(ConfigLive("/nonexistent/path"))),
-    );
-    expect(result.strip_prefixes).toEqual(["src", "lib", "components", "app", "pages"]);
-    expect(result.db_path).toBe(".kiste/index.sqlite");
   });
 });

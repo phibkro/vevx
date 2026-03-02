@@ -30,9 +30,9 @@
   "scripts": {
     "build": "bun build src/lib.ts --outdir build --target node --format esm --sourcemap=external --external fast-xml-parser --external zod && bun build src/mcp/index.ts --outdir build --target node --format esm --sourcemap=external --external @modelcontextprotocol/sdk --external zod && bun build src/cli/cli.ts --outdir dist --target bun",
     "typecheck": "oxlint --type-aware --type-check",
-    "test": "bun test --concurrent --reporter=junit --reporter-outfile=test-results.xml",
-    "test:pure": "bun test --concurrent src/scheduler/ src/plan/diff.test.ts src/plan/validator.test.ts src/plan/log-parser.test.ts src/enforcement/ src/analysis/co-change.test.ts src/analysis/hotspots.test.ts src/analysis/matrix.test.ts src/analysis/graph.test.ts src/manifest/render-graph.test.ts src/manifest/resolver.test.ts src/manifest/links.test.ts src/manifest/touches.test.ts src/shared/",
-    "test:coverage": "bun test --concurrent --coverage",
+    "test": "bun run test:strict && bun run test:integration",
+    "test:strict": "files=$(find src -name '*.test.ts' ! -name '*.integration.test.ts' ! -name '*.e2e.test.ts'); [ -n \"$files\" ] && bun test --concurrent --coverage $files || echo 'No strict tests found'",
+    "test:integration": "files=$(find src -name '*.integration.test.ts' -o -name '*.e2e.test.ts'); [ -n \"$files\" ] && bun test --concurrent --coverage --bunfig bunfig.integration.toml --reporter=junit --reporter-outfile=test-results.xml $files || echo 'No integration tests found'",
     "lint": "oxlint --type-aware",
     "lint:fix": "oxlint --type-aware --fix",
     "format": "oxfmt --write 'src/**/*.ts'",

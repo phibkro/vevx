@@ -2,8 +2,8 @@ import { extname } from "node:path";
 
 import { Context, Data, Option } from "effect";
 
-import type { SymbolRange } from "./pure/AstEdit.js";
-import type { OxcSymbol } from "./pure/OxcSymbols.js";
+import type { SymbolRange } from "./core/AstEdit.js";
+import type { OxcSymbol } from "./core/OxcSymbols.js";
 
 // ── Plugin interfaces ──
 

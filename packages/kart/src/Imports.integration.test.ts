@@ -2,8 +2,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:te
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { initTreeSitterParser } from "./core/TreeSitterPlugin.js";
 import { getImporters, getImports, getUnusedExports } from "./Imports.js";
-import { initTreeSitterParser } from "./pure/TreeSitterPlugin.js";
 import { RustGrammar } from "./RustPlugin.js";
 
 mkdirSync("/tmp/claude", { recursive: true });
