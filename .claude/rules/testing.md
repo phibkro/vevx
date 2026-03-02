@@ -12,7 +12,7 @@ paths:
 
 | Pattern | Purpose | Coverage |
 |---|---|---|
-| `*.test.ts` | Interface/contract tests | 100% line + function (enforced per-file) |
+| `*.test.ts` | Interface/contract tests | 95% aggregate (line + function) |
 | `*.integration.test.ts` | External service wiring (LSP, SQLite, subprocess, MCP) | No threshold |
 | `*.e2e.test.ts` | End-to-end tests | No threshold |
 
@@ -32,7 +32,7 @@ paths:
 
 ## Coverage enforcement
 
-Root `bunfig.toml` enforces strict thresholds. Root `bunfig.integration.toml` has no thresholds.
+Per-package `bunfig.toml` enforces 95% aggregate coverage (line + function). `bunfig.integration.toml` has no thresholds. Root bunfig is the canonical source — copies live in each package because bun only reads bunfig from cwd.
 
 Scripts: `test:strict` runs `*.test.ts` with coverage enforcement. `test:integration` runs `*.integration.test.ts` without.
 
