@@ -107,9 +107,9 @@ export const createSnapshot = (
 
     // Count artifacts
     const sql = yield* SqlClient.SqlClient;
-    const rows = yield* sql.unsafe<{ count: number }>(
-      `SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`,
-    );
+    const rows = yield* sql
+      .unsafe<{ count: number }>(`SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`)
+      .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
 
     return {
       sha: lastSha,
@@ -191,16 +191,20 @@ const maybeAutoSnapshot = (
     // Count commits since last snapshot
     let commitsSinceSnapshot: number;
     if (!lastSnapshotSha) {
-      const rows = yield* sql.unsafe<{ count: number }>(`SELECT COUNT(*) as count FROM commits`);
+      const rows = yield* sql
+        .unsafe<{ count: number }>(`SELECT COUNT(*) as count FROM commits`)
+        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
       commitsSinceSnapshot = rows[0].count;
     } else {
       // Count commits after the snapshot sha by timestamp
-      const rows = yield* sql.unsafe<{ count: number }>(
-        `SELECT COUNT(*) as count FROM commits WHERE timestamp > (
-          SELECT timestamp FROM commits WHERE sha = ?
-        )`,
-        [lastSnapshotSha],
-      );
+      const rows = yield* sql
+        .unsafe<{ count: number }>(
+          `SELECT COUNT(*) as count FROM commits WHERE timestamp > (
+            SELECT timestamp FROM commits WHERE sha = ?
+          )`,
+          [lastSnapshotSha],
+        )
+        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
       commitsSinceSnapshot = rows[0].count;
     }
 
