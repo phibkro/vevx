@@ -29,7 +29,7 @@ export function registerTools(server: McpServer, tools: ToolDef[]): void {
       async (args, _extra) => {
         try {
           const result = await tool.handler(args);
-          const text = JSON.stringify(result, null, 2);
+          const text = JSON.stringify(result);
           return {
             content: [{ type: "text" as const, text }],
             structuredContent: result as Record<string, unknown>,

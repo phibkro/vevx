@@ -107,9 +107,11 @@ export const createSnapshot = (
 
     // Count artifacts
     const sql = yield* SqlClient.SqlClient;
-    const rows = yield* sql
-      .unsafe<{ count: number }>(`SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`)
-      .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+    const rows = yield* sql<{
+      count: number;
+    }>`SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`.pipe(
+      Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+    );
 
     return {
       sha: lastSha,
@@ -190,20 +192,21 @@ const maybeAutoSnapshot = (
     // Count commits since last snapshot
     let commitsSinceSnapshot: number;
     if (!lastSnapshotSha) {
-      const rows = yield* sql
-        .unsafe<{ count: number }>(`SELECT COUNT(*) as count FROM commits`)
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+      const rows = yield* sql<{
+        count: number;
+      }>`SELECT COUNT(*) as count FROM commits`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      );
       commitsSinceSnapshot = rows[0].count;
     } else {
       // Count commits after the snapshot sha by timestamp
-      const rows = yield* sql
-        .unsafe<{ count: number }>(
-          `SELECT COUNT(*) as count FROM commits WHERE timestamp > (
-            SELECT timestamp FROM commits WHERE sha = ?
-          )`,
-          [lastSnapshotSha],
-        )
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+      const rows = yield* sql<{
+        count: number;
+      }>`SELECT COUNT(*) as count FROM commits WHERE timestamp > (
+            SELECT timestamp FROM commits WHERE sha = ${lastSnapshotSha}
+          )`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      );
       commitsSinceSnapshot = rows[0].count;
     }
 
@@ -226,29 +229,14 @@ const processCommits = (
 
     // Wrap all commits in a single transaction for performance.
     // Without this, each INSERT/UPDATE is an implicit transaction (extremely slow for large repos).
-    const body = Effect.gen(function* () {
-      for (const commit of commits) {
-        const counts = yield* indexCommit(commit);
-        artifacts_indexed += counts.indexed;
-        artifacts_deleted += counts.deleted;
-      }
-    });
-
-    yield* sql
-      .unsafe("BEGIN")
-      .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
-    yield* body.pipe(
-      Effect.tap(() =>
-        sql
-          .unsafe("COMMIT")
-          .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e })))),
-      ),
-      Effect.catchAll((e) =>
-        sql.unsafe("ROLLBACK").pipe(
-          Effect.catchAll(() => Effect.void),
-          Effect.andThen(Effect.fail(e)),
-        ),
-      ),
+    yield* sql.withTransaction(
+      Effect.gen(function* () {
+        for (const commit of commits) {
+          const counts = yield* indexCommit(commit);
+          artifacts_indexed += counts.indexed;
+          artifacts_deleted += counts.deleted;
+        }
+      }),
     );
 
     return {
@@ -289,19 +277,9 @@ const indexCommit = (
     const tagOps = parseTagLine(commit.body);
 
     // Insert commit
-    yield* sql
-      .unsafe(
-        `INSERT OR IGNORE INTO commits (sha, message, author, timestamp, conv_type, conv_scope) VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          commit.sha,
-          commit.subject,
-          commit.author,
-          commit.timestamp,
-          conv?.type ?? null,
-          conv?.scope ?? null,
-        ],
-      )
-      .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+    yield* sql`INSERT OR IGNORE INTO commits (sha, message, author, timestamp, conv_type, conv_scope) VALUES (${commit.sha}, ${commit.subject}, ${commit.author}, ${commit.timestamp}, ${conv?.type ?? null}, ${conv?.scope ?? null})`.pipe(
+      Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+    );
 
     // Track affected artifact IDs for tag materialization
     const affectedArtifactIds = new Set<number>();
@@ -312,12 +290,12 @@ const indexCommit = (
     for (const filePath of commit.files) {
       if (isExcluded(filePath, excludeGlobs)) continue;
       // Upsert artifact
-      yield* sql
-        .unsafe(`INSERT OR IGNORE INTO artifacts (path, alive) VALUES (?, 1)`, [filePath])
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
-      yield* sql
-        .unsafe(`UPDATE artifacts SET alive = 1 WHERE path = ?`, [filePath])
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+      yield* sql`INSERT OR IGNORE INTO artifacts (path, alive) VALUES (${filePath}, 1)`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      );
+      yield* sql`UPDATE artifacts SET alive = 1 WHERE path = ${filePath}`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      );
 
       const artifactRows = yield* sql<{
         id: number;
@@ -329,12 +307,9 @@ const indexCommit = (
       affectedArtifactIds.add(artifactId);
 
       // Insert artifact_commits link
-      yield* sql
-        .unsafe(`INSERT OR IGNORE INTO artifact_commits (artifact_id, commit_sha) VALUES (?, ?)`, [
-          artifactId,
-          commit.sha,
-        ])
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+      yield* sql`INSERT OR IGNORE INTO artifact_commits (artifact_id, commit_sha) VALUES (${artifactId}, ${commit.sha})`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      );
 
       // Insert tag operations if present
       if (tagOps) {
@@ -347,12 +322,12 @@ const indexCommit = (
     for (const filePath of commit.deletedFiles) {
       if (isExcluded(filePath, excludeGlobs)) continue;
       // Ensure artifact exists
-      yield* sql
-        .unsafe(`INSERT OR IGNORE INTO artifacts (path, alive) VALUES (?, 0)`, [filePath])
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
-      yield* sql
-        .unsafe(`UPDATE artifacts SET alive = 0 WHERE path = ?`, [filePath])
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+      yield* sql`INSERT OR IGNORE INTO artifacts (path, alive) VALUES (${filePath}, 0)`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      );
+      yield* sql`UPDATE artifacts SET alive = 0 WHERE path = ${filePath}`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      );
 
       const artifactRows = yield* sql<{
         id: number;
@@ -363,12 +338,9 @@ const indexCommit = (
       const artifactId = artifactRows[0].id;
       affectedArtifactIds.add(artifactId);
 
-      yield* sql
-        .unsafe(`INSERT OR IGNORE INTO artifact_commits (artifact_id, commit_sha) VALUES (?, ?)`, [
-          artifactId,
-          commit.sha,
-        ])
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+      yield* sql`INSERT OR IGNORE INTO artifact_commits (artifact_id, commit_sha) VALUES (${artifactId}, ${commit.sha})`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      );
       deleted++;
     }
 
@@ -393,12 +365,9 @@ const insertTagOps = (
   Effect.forEach(
     ops,
     (op) =>
-      sql
-        .unsafe(
-          `INSERT INTO tag_operations (artifact_id, commit_sha, tag, op) VALUES (?, ?, ?, ?)`,
-          [artifactId, commitSha, op.tag, op.op],
-        )
-        .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e })))),
+      sql`INSERT INTO tag_operations (artifact_id, commit_sha, tag, op) VALUES (${artifactId}, ${commitSha}, ${op.tag}, ${op.op})`.pipe(
+        Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+      ),
     { discard: true },
   );
 
@@ -439,16 +408,16 @@ const materializeTags = (
     );
 
     // 4. Rewrite artifact_tags
-    yield* sql
-      .unsafe(`DELETE FROM artifact_tags WHERE artifact_id = ?`, [artifactId])
-      .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))));
+    yield* sql`DELETE FROM artifact_tags WHERE artifact_id = ${artifactId}`.pipe(
+      Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+    );
 
     yield* Effect.forEach(
       [...finalTags],
       (tag) =>
-        sql
-          .unsafe(`INSERT INTO artifact_tags (artifact_id, tag) VALUES (?, ?)`, [artifactId, tag])
-          .pipe(Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e })))),
+        sql`INSERT INTO artifact_tags (artifact_id, tag) VALUES (${artifactId}, ${tag})`.pipe(
+          Effect.catchAll((e) => Effect.fail(new DbError({ message: e.message, cause: e }))),
+        ),
       { discard: true },
     );
   });

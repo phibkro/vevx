@@ -38,7 +38,7 @@ function errorMessage(e: unknown): string {
 }
 
 import { CochangeDbLive } from "./Cochange.js";
-import type { DepsResult, ImpactResult } from "./core/types.js";
+import type { DepsResult, ImpactResult, ZoomResult } from "./core/types.js";
 import { runDiagnostics, type DiagnosticsArgs } from "./Diagnostics.js";
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import { clearSymbolCache, findSymbols, invalidateCacheEntry, type FindArgs } from "./Find.js";
@@ -55,6 +55,7 @@ import { type AstPlugin, PluginUnavailableError } from "./Plugin.js";
 import { makeRegistryFromPlugins, makeLspRuntimes } from "./PluginLayers.js";
 import { makeRustAstPlugin, RustLspPluginImpl } from "./RustPlugin.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
+import { formatZoomPlaintext } from "./Symbols.js";
 import {
   kart_code_actions,
   kart_cochange,
@@ -146,6 +147,41 @@ function compactDepsNode(
   };
 }
 
+/** Strip range from location results (references, definition, type_definition, implementation). */
+function compactLocations(
+  result: Record<string, unknown>,
+  rootDir: string,
+): Record<string, unknown> {
+  if (Array.isArray(result)) {
+    return result.map((item) => compactLocationItem(item, rootDir)) as unknown as Record<
+      string,
+      unknown
+    >;
+  }
+  // Results with a locations array (definition, type_definition, implementation)
+  if ("locations" in result && Array.isArray(result.locations)) {
+    return {
+      ...result,
+      locations: result.locations.map((loc: Record<string, unknown>) =>
+        compactLocationItem(loc, rootDir),
+      ),
+    };
+  }
+  return result;
+}
+
+function compactLocationItem(
+  item: Record<string, unknown>,
+  rootDir: string,
+): Record<string, unknown> {
+  const { range: _range, ...rest } = item;
+  if (typeof rest.uri === "string" && rest.uri.startsWith("file://")) {
+    rest.path = rest.uri.slice(7).replace(rootDir + "/", "");
+    delete rest.uri;
+  }
+  return rest;
+}
+
 function compactImpact(result: ImpactResult, rootDir: string) {
   return {
     symbol: result.symbol,
@@ -202,7 +238,7 @@ function pluginUnavailableResponse(err: PluginUnavailableError) {
     suggestion: "kart_search (ripgrep) is available for pattern search across all file types",
   };
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+    content: [{ type: "text" as const, text: JSON.stringify(result) }],
     structuredContent: result as Record<string, unknown>,
   };
 }
@@ -296,7 +332,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           );
           const result = options?.transform ? options.transform(raw, rootDir) : raw;
           return {
-            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+            content: [{ type: "text" as const, text: JSON.stringify(result) }],
             structuredContent: result as Record<string, unknown>,
           };
         } catch (e) {
@@ -325,7 +361,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           kart_cochange.handler(args as { path: string }),
         );
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
@@ -337,25 +373,60 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
   );
 
-  // Register kart_zoom
-  registerLspTool<{ path: string; level?: number; resolveTypes?: boolean }>(kart_zoom);
+  // Register kart_zoom — plaintext output for levels 0/1, raw content for level 2
+  server.registerTool(
+    kart_zoom.name,
+    {
+      description: kart_zoom.description,
+      inputSchema: kart_zoom.inputSchema,
+      annotations: kart_zoom.annotations,
+    },
+    async (args: Record<string, unknown>) => {
+      try {
+        const typedArgs = args as { path: string; level?: number; resolveTypes?: boolean };
+        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
+        const result = (await runtime.runPromise(
+          kart_zoom.handler(typedArgs) as Effect.Effect<ZoomResult, never, never>,
+        )) as ZoomResult;
+        const text = formatZoomPlaintext(result, rootDir);
+        return {
+          content: [{ type: "text" as const, text }],
+        };
+      } catch (e) {
+        const unavailable = getPluginUnavailableError(e);
+        if (unavailable) return pluginUnavailableResponse(unavailable);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
+        };
+      }
+    },
+  );
 
   // Register kart_impact
   registerLspTool<{ path: string; symbol: string; depth?: number }>(kart_impact, {
     transform: (raw, dir) => compactImpact(raw as ImpactResult, dir),
   });
 
-  // Register kart_references (LSP-backed)
-  registerLspTool<{ path: string; symbol: string; includeDeclaration?: boolean }>(kart_references);
+  // Register kart_references (LSP-backed) — compact: strip range, relativize uri
+  registerLspTool<{ path: string; symbol: string; includeDeclaration?: boolean }>(kart_references, {
+    transform: (raw, dir) => compactLocations(raw as Record<string, unknown>, dir),
+  });
 
-  // Register kart_definition (LSP-backed)
-  registerLspTool<{ path: string; symbol: string }>(kart_definition);
+  // Register kart_definition (LSP-backed) — compact: strip range, relativize uri
+  registerLspTool<{ path: string; symbol: string }>(kart_definition, {
+    transform: (raw, dir) => compactLocations(raw as Record<string, unknown>, dir),
+  });
 
-  // Register kart_type_definition (LSP-backed)
-  registerLspTool<{ path: string; symbol: string }>(kart_type_definition);
+  // Register kart_type_definition (LSP-backed) — compact: strip range, relativize uri
+  registerLspTool<{ path: string; symbol: string }>(kart_type_definition, {
+    transform: (raw, dir) => compactLocations(raw as Record<string, unknown>, dir),
+  });
 
-  // Register kart_implementation (LSP-backed)
-  registerLspTool<{ path: string; symbol: string }>(kart_implementation);
+  // Register kart_implementation (LSP-backed) — compact: strip range, relativize uri
+  registerLspTool<{ path: string; symbol: string }>(kart_implementation, {
+    transform: (raw, dir) => compactLocations(raw as Record<string, unknown>, dir),
+  });
 
   // Register kart_code_actions (LSP-backed)
   registerLspTool<{ path: string; symbol: string }>(kart_code_actions);
@@ -387,7 +458,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           kart_expand_macro.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
@@ -418,7 +489,7 @@ function createServer(config: ServerConfig = {}): McpServer {
         const raw = await findSymbols({ ...(args as FindArgs), rootDir }, registry);
         const result = compactFind(raw);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -442,7 +513,7 @@ function createServer(config: ServerConfig = {}): McpServer {
       try {
         const result = await searchPattern({ ...(args as SearchArgs), rootDir });
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -471,7 +542,7 @@ function createServer(config: ServerConfig = {}): McpServer {
       try {
         const result = listDirectory({ ...(args as ListArgs), rootDir });
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -495,7 +566,7 @@ function createServer(config: ServerConfig = {}): McpServer {
       try {
         const result = await runDiagnostics({ ...(args as DiagnosticsArgs), rootDir });
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -538,7 +609,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           astOpt.value,
         );
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -581,7 +652,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           astOpt.value,
         );
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -624,7 +695,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           astOpt.value,
         );
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -648,7 +719,7 @@ function createServer(config: ServerConfig = {}): McpServer {
       try {
         const result = await getImports((args as ImportsArgs).path, rootDir);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -672,7 +743,7 @@ function createServer(config: ServerConfig = {}): McpServer {
       try {
         const result = await getImporters((args as ImportersArgs).path, rootDir);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -696,7 +767,7 @@ function createServer(config: ServerConfig = {}): McpServer {
       try {
         const result = await getUnusedExports(rootDir);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
         };
       } catch (e) {
@@ -724,7 +795,7 @@ function createServer(config: ServerConfig = {}): McpServer {
           kart_workspace_symbol.handler(typedArgs) as Effect.Effect<unknown>,
         );
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
@@ -752,9 +823,7 @@ function createServer(config: ServerConfig = {}): McpServer {
       symbolWatcher.close();
       symbolWatcher = startWatcher();
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ restarted: true, rootDir }, null, 2) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify({ restarted: true, rootDir }) }],
         structuredContent: { restarted: true, rootDir } as Record<string, unknown>,
       };
     },
