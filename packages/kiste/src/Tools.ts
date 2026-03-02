@@ -112,7 +112,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
 
             if (tags && tags.length > 0) {
               const placeholders = tags.map(() => "?").join(", ");
-              rows = (yield* sql.unsafe(
+              rows = yield* sql.unsafe<ArtifactRow>(
                 `SELECT a.id, a.path, a.alive,
                         GROUP_CONCAT(at2.tag) as tags
                  FROM artifacts a
@@ -123,9 +123,9 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
                  ORDER BY a.path
                  LIMIT ? OFFSET ?`,
                 [...tags, tags.length, fetchLimit, off],
-              )) as unknown as ArtifactRow[];
+              );
             } else {
-              rows = (yield* sql.unsafe(
+              rows = yield* sql.unsafe<ArtifactRow>(
                 `SELECT a.id, a.path, a.alive,
                         (SELECT GROUP_CONCAT(at2.tag) FROM artifact_tags at2 WHERE at2.artifact_id = a.id) as tags
                  FROM artifacts a
@@ -133,7 +133,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
                  ORDER BY a.path
                  LIMIT ? OFFSET ?`,
                 [fetchLimit, off],
-              )) as unknown as ArtifactRow[];
+              );
             }
 
             // Filter out gitignored paths unless opted in
@@ -174,22 +174,27 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const git = yield* Git;
             yield* initSchema;
 
-            const artifactRows = (yield* sql.unsafe(
+            const artifactRows = yield* sql.unsafe<{ id: number; path: string; alive: number }>(
               `SELECT id, path, alive FROM artifacts WHERE path = ?`,
               [path],
-            )) as unknown as { id: number; path: string; alive: number }[];
+            );
             if (artifactRows.length === 0) {
               return { error: `Artifact not found: ${path}` };
             }
             const artifact = artifactRows[0];
 
-            const tagRows = (yield* sql.unsafe(
+            const tagRows = yield* sql.unsafe<{ tag: string }>(
               `SELECT tag FROM artifact_tags WHERE artifact_id = ?`,
               [artifact.id],
-            )) as unknown as { tag: string }[];
+            );
             const tags = tagRows.map((r) => r.tag);
 
-            const commitRows = (yield* sql.unsafe(
+            const commitRows = yield* sql.unsafe<{
+              sha: string;
+              message: string;
+              author: string;
+              timestamp: number;
+            }>(
               `SELECT c.sha, c.message, c.author, c.timestamp
                FROM commits c
                JOIN artifact_commits ac ON ac.commit_sha = c.sha
@@ -197,12 +202,12 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
                ORDER BY c.timestamp DESC
                LIMIT 5`,
               [artifact.id],
-            )) as unknown as { sha: string; message: string; author: string; timestamp: number }[];
+            );
 
-            const totalCommitRows = (yield* sql.unsafe(
+            const totalCommitRows = yield* sql.unsafe<{ count: number }>(
               `SELECT COUNT(*) as count FROM artifact_commits WHERE artifact_id = ?`,
               [artifact.id],
-            )) as unknown as { count: number }[];
+            );
             const totalCommits = totalCommitRows[0].count;
 
             const gitRef = ref ?? "HEAD";
@@ -328,22 +333,23 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
             const lim = limit ?? 20;
 
             // Check artifact exists
-            const artifactRows = (yield* sql.unsafe(`SELECT id FROM artifacts WHERE path = ?`, [
-              path,
-            ])) as unknown as { id: number }[];
+            const artifactRows = yield* sql.unsafe<{ id: number }>(
+              `SELECT id FROM artifacts WHERE path = ?`,
+              [path],
+            );
             if (artifactRows.length === 0) {
               return { error: `Artifact not found: ${path}` };
             }
 
             // Count total commits for this artifact
-            const totalRows = (yield* sql.unsafe(
+            const totalRows = yield* sql.unsafe<{ count: number }>(
               `SELECT COUNT(*) as count FROM artifact_commits WHERE artifact_id = ?`,
               [artifactRows[0].id],
-            )) as unknown as { count: number }[];
+            );
             const total_commits = totalRows[0].count;
 
             // Find co-changing files via self-join on artifact_commits
-            const rows = (yield* sql.unsafe(
+            const rows = yield* sql.unsafe<{ path: string; shared_count: number; jaccard: number }>(
               `WITH target AS (
                 SELECT id FROM artifacts WHERE path = ?
               ),
@@ -369,7 +375,7 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
               ORDER BY c.shared_count DESC
               LIMIT ?`,
               [path, lim],
-            )) as unknown as { path: string; shared_count: number; jaccard: number }[];
+            );
 
             return {
               path,
@@ -403,9 +409,10 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
 
             const operation = op ?? "add";
 
-            const artifactRows = (yield* sql.unsafe(`SELECT id FROM artifacts WHERE path = ?`, [
-              path,
-            ])) as unknown as { id: number }[];
+            const artifactRows = yield* sql.unsafe<{ id: number }>(
+              `SELECT id FROM artifacts WHERE path = ?`,
+              [path],
+            );
             if (artifactRows.length === 0) {
               return { error: `Artifact not found: ${path}` };
             }
@@ -427,10 +434,10 @@ export function makeTools(run: RunEffect, repoDir: string): ToolDef[] {
               }
             }
 
-            const currentTags = (yield* sql.unsafe(
+            const currentTags = yield* sql.unsafe<{ tag: string }>(
               `SELECT tag FROM artifact_tags WHERE artifact_id = ? ORDER BY tag`,
               [artifactId],
-            )) as unknown as { tag: string }[];
+            );
 
             return { path, tags: currentTags.map((r) => r.tag) };
           }),

@@ -107,9 +107,9 @@ export const createSnapshot = (
 
     // Count artifacts
     const sql = yield* SqlClient.SqlClient;
-    const rows = (yield* sql.unsafe(
+    const rows = yield* sql.unsafe<{ count: number }>(
       `SELECT COUNT(*) as count FROM artifacts WHERE alive = 1`,
-    )) as unknown as { count: number }[];
+    );
 
     return {
       sha: lastSha,
@@ -192,18 +192,18 @@ const maybeAutoSnapshot = (
     // Count commits since last snapshot
     let commitsSinceSnapshot: number;
     if (!lastSnapshotSha) {
-      const rows = (yield* sql.unsafe(`SELECT COUNT(*) as count FROM commits`)) as unknown as {
-        count: number;
-      }[];
+      const rows = yield* sql.unsafe<{ count: number }>(
+        `SELECT COUNT(*) as count FROM commits`,
+      );
       commitsSinceSnapshot = rows[0].count;
     } else {
       // Count commits after the snapshot sha by timestamp
-      const rows = (yield* sql.unsafe(
+      const rows = yield* sql.unsafe<{ count: number }>(
         `SELECT COUNT(*) as count FROM commits WHERE timestamp > (
           SELECT timestamp FROM commits WHERE sha = ?
         )`,
         [lastSnapshotSha],
-      )) as unknown as { count: number }[];
+      );
       commitsSinceSnapshot = rows[0].count;
     }
 
