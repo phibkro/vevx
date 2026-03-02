@@ -87,5 +87,6 @@ Import alias `#shared/*` maps to `packages/varp/src/shared/*`. One library entry
 - **Subprocesses**: Use `Bun.spawn`/`Bun.spawnSync` instead of `child_process`. Never use `require("child_process")`.
 - **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). Use `bunx oxfmt` (not bare `oxfmt`) to match the lockfile version. oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (varp package). oxlint runs with `--type-aware` in all packages; varp also uses `--type-check` to replace `tsc --noEmit`.
 - **GitHub API**: Use `gh api` CLI for PR/issue operations — the MCP GitHub plugin may lack required token permissions.
+- **SQL (@effect/sql)**: Prefer tagged template literals (`sql<T>\`SELECT ...\``) over `sql.unsafe()`. Use `sql.withTransaction()` for transactions, not manual BEGIN/COMMIT/ROLLBACK. Reserve `sql.unsafe()` only for dynamic SQL (variable WHERE clauses, IN lists).
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).
 - **Component tracking**: If you modify component files, note which components were affected in your response.
