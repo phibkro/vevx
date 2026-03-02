@@ -53,7 +53,7 @@ import { PluginUnavailableError } from "./Plugin.js";
 import { makeRegistryFromPlugins, makeLspRuntimes } from "./PluginLayers.js";
 import { initRustParser } from "./pure/RustSymbols.js";
 import type { DepsResult, ImpactResult } from "./pure/types.js";
-import { RustLspPluginImpl } from "./RustPlugin.js";
+import { makeRustAstPlugin, RustLspPluginImpl } from "./RustPlugin.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
 import {
   kart_code_actions,
@@ -210,19 +210,31 @@ function createServer(config: ServerConfig = {}): McpServer {
   // Separate runtimes: each tool only initializes what it needs.
   const cochangeRuntime = ManagedRuntime.make(CochangeDbLive(dbPath));
 
-  // Plugin registry — routes file extensions to the right plugin
-  const registry = makeRegistryFromPlugins({
+  // Plugin registry — routes file extensions to the right plugin.
+  // Rust AST plugin is added lazily once tree-sitter initializes.
+  let registry = makeRegistryFromPlugins({
     ast: [TsAstPluginImpl],
     lsp: [TsLspPluginImpl, RustLspPluginImpl],
   });
 
+  makeRustAstPlugin()
+    .then((rustAst) => {
+      registry = makeRegistryFromPlugins({
+        ast: [TsAstPluginImpl, rustAst],
+        lsp: [TsLspPluginImpl, RustLspPluginImpl],
+      });
+    })
+    .catch(() => {
+      // tree-sitter init failed — .rs files won't have AST support
+    });
+
   // LSP runtimes — lazily spawns per-language ManagedRuntimes
   const lspRuntimes = makeLspRuntimes(registry, rootDir);
 
-  // Initialize Rust parser eagerly for kart_find (tree-sitter, not LSP)
+  // Note: Rust parser (tree-sitter) is initialized by makeRustAstPlugin() above.
+  // kart_find fallback path also calls initRustParser() lazily if needed.
   initRustParser().catch(() => {
     // tree-sitter init failed — .rs files won't work in kart_find
-    // but TS tools still function normally
   });
 
   // File watcher for incremental symbol cache invalidation

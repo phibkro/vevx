@@ -153,7 +153,7 @@ async function edit(
 
   // Locate
   const range = astPlugin
-    ? Option.getOrNull(astPlugin.locateSymbol(source, symbolName, filename))
+    ? Option.getOrNull(astPlugin.locateSymbol(source, symbolName, filePath))
     : locateSymbol(source, symbolName, filename);
   if (!range) {
     return {
@@ -169,7 +169,7 @@ async function edit(
   // For replace: validate the new content fragment syntax
   if (op === "replace") {
     const contentError = astPlugin
-      ? Option.getOrNull(astPlugin.validateSyntax(content, filename))
+      ? Option.getOrNull(astPlugin.validateSyntax(content, filePath))
       : validateSyntax(content, filename);
     if (contentError) {
       return {
@@ -194,7 +194,7 @@ async function edit(
 
   // Validate full file after edit
   const fullFileError = astPlugin
-    ? Option.getOrNull(astPlugin.validateSyntax(result, filename))
+    ? Option.getOrNull(astPlugin.validateSyntax(result, filePath))
     : validateSyntax(result, filename);
   if (fullFileError) {
     return {

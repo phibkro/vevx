@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, watch } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 import { Context, Effect, Layer, Scope } from "effect";
 
@@ -386,9 +386,10 @@ const SEMANTIC_TOKEN_MODIFIERS = [
 const FileChangeType = { Created: 1, Changed: 2, Deleted: 3 } as const;
 
 function shouldWatch(filename: string, plugin: LspPlugin["Type"]): boolean {
-  if (plugin.watchFilenames.has(filename)) return true;
+  const base = basename(filename);
+  if (plugin.watchFilenames.has(base)) return true;
   for (const ext of plugin.watchExtensions) {
-    if (filename.endsWith(ext)) return true;
+    if (base.endsWith(ext)) return true;
   }
   return false;
 }
@@ -492,6 +493,7 @@ export const LspClientLive = (config: LspConfig = {}): Layer.Layer<LspClient> =>
               },
               rootUri,
               workspaceFolders: [{ uri: rootUri, name: "workspace" }],
+              ...plugin.initializeParams(rootDir),
             }),
           catch: (e) =>
             e instanceof LspTimeoutError
