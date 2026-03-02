@@ -77,3 +77,10 @@ kart:
   stability: experimental
   doc: packages/kart/design.md
   tags: [code-intelligence]
+
+coderabbit-config:
+  path: .
+  paths: [.coderabbit.yaml]
+  deps: [mcp, cli, audit, kart]
+  tags: [config]
+  stability: stable

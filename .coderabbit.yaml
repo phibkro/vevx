@@ -13,22 +13,35 @@ reviews:
     - "!coverage/**"
 
   path_instructions:
-    - path: "packages/kart/**"
-      instructions: |
-        Effect TS codebase. Uses Context.Tag for services, Layer for DI, ManagedRuntime for lifecycle.
-        Plugin architecture: LspPlugin (LSP server config), AstPlugin (parser), PluginRegistry (routing by extension).
-        Pure functions in src/pure/ — no IO. Effectful services in src/.
     - path: "packages/varp/**"
       instructions: |
-        Manifest-driven project analysis. Zod schemas are source of truth for types (z.infer<>).
-        MCP tools accept manifest_path param. Functional core, imperative shell.
+        Graph-aware project analysis and manifest-driven agent orchestration. Zod schemas
+        are source of truth for types (z.infer<>). MCP tools accept manifest_path param.
+        Functional core, imperative shell. Hooks are shell-based (no jq/python, must pass
+        shellcheck). Skills are prompt-based SKILL.md files.
+    - path: "packages/kart/**"
+      instructions: |
+        Progressive code disclosure and behavioral coupling. Effect TS with Context.Tag for
+        services, Layer for DI, ManagedRuntime for lifecycle. Plugin architecture: LspPlugin
+        (LSP server config), AstPlugin (parser), PluginRegistry (routing by file extension).
+        Pure functions in src/pure/ — no IO. Effectful services in src/.
     - path: "packages/kiste/**"
       instructions: |
-        Git-backed artifact index using Effect TS. SQLite for storage.
+        Git-backed artifact index using Effect TS. SQLite for storage via bun:sqlite.
+        Indexes files, commits, tags, and co-change relationships. MCP server exposes
+        search, provenance, and co-change queries. Standalone — no varp dependency.
+    - path: "packages/audit/**"
+      instructions: |
+        Compliance audit engine. Orchestrator dispatches domain-specific agents to analyze
+        code against rulesets (OWASP, etc.). Experimental stability. Depends on varp shared types.
+    - path: "packages/havn/**"
+      instructions: |
+        New package — early stage. Check existing patterns and conventions before reviewing.
     - path: "**/*.test.ts"
       instructions: |
         bun:test runner. Tests should verify behavior, not implementation.
         Prefer fewer meaningful tests over high line counts. No type-checking tests.
+        Pure code gets coverage enforcement. Effectful code gets integration tests without coverage gates.
 
 chat:
   auto_reply: true
