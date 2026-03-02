@@ -29,11 +29,11 @@ jobs:
       - name: Format + Lint + Build
         run: bunx turbo check
 
-      - name: Test
-        run: bunx turbo test
+      - name: Test (strict — 100% coverage on interface tests)
+        run: bunx turbo test:strict
 
-      - name: Test with coverage
-        run: bunx turbo test:coverage
+      - name: Test (integration)
+        run: bunx turbo test:integration
 
       - name: Upload coverage
         if: always()
