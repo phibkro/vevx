@@ -43,9 +43,10 @@ class LspPlugin extends Context.Tag("LspPlugin")<
   LspPlugin,
   {
     readonly extensions: ReadonlySet<string>
-    readonly spawnServer: (root: string) => Effect.Effect<ChildProcess, LspSpawnError>
+    readonly binary: string
+    readonly args: readonly string[]
     readonly languageId: (path: string) => string
-    readonly initializeParams: (root: string) => Partial<InitializeParams>
+    readonly initializeParams: (root: string) => Record<string, unknown>
     readonly watchExtensions: ReadonlySet<string>
     readonly watchFilenames: ReadonlySet<string>
   }

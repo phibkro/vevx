@@ -57,7 +57,7 @@ The split is clean: if a tool needs to cross file boundaries for type informatio
 
 Kart uses **per-language runtimes** managed by `LspRuntimes`. Each file extension maps to one `LspPlugin`, one `ManagedRuntime`:
 
-```
+```text
 McpServer
   ├─ cochangeRuntime → CochangeDb (bun:sqlite, read-only)
   └─ lspRuntimes     → per-extension ManagedRuntime (lazy)

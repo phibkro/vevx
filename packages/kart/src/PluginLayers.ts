@@ -26,7 +26,7 @@ export class LspRuntimes extends Context.Tag("kart/LspRuntimes")<
       path: string,
     ) => Effect.Effect<ManagedRuntime.ManagedRuntime<SymbolIndex, never>, PluginUnavailableError>;
     readonly disposeAll: () => Promise<void>;
-    readonly recreate: (ext?: string) => void;
+    readonly recreate: (path?: string) => void;
   }
 >() {}
 
@@ -70,8 +70,11 @@ export function makeLspRuntimes(
       runtimes.clear();
     },
 
-    recreate: (key?: string) => {
-      if (key) {
+    recreate: (path?: string) => {
+      if (path) {
+        const plugin = registry.lspFor(path);
+        if (plugin._tag === "None") return;
+        const key = plugin.value.binary;
         const old = runtimes.get(key);
         if (old) {
           old.dispose().catch(() => {});
