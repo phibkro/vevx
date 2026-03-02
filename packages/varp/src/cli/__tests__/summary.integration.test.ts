@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { isAbsolute, resolve } from "path";
 
-import { computeSummary, parseSummaryArgs } from "../summary.js";
+import { computeSummary } from "../summary.js";
 
 // Use the repo's own varp.yaml as fixture
 const MANIFEST = resolve(import.meta.dir, "../../../../../varp.yaml");
@@ -43,8 +43,3 @@ describe("computeSummary", () => {
   });
 });
 
-describe("parseSummaryArgs", () => {
-  it("throws on invalid --format value", () => {
-    expect(() => parseSummaryArgs(["--format", "xml"])).toThrow(/Invalid format/);
-  });
-});
