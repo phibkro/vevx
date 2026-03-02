@@ -10,26 +10,12 @@
         ]
       }
     ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/subagent-context.sh\""
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-stop.sh\""
-          },
-          {
-            "type": "prompt",
-            "prompt": "If source files were modified during this turn, call varp_lint to check for stale docs, broken links, and missing deps. Fix any issues found."
           }
         ]
       }

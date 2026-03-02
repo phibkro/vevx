@@ -426,7 +426,7 @@ export const kart_workspace_symbol = {
 export const kart_restart = {
   name: "kart_restart",
   description:
-    "Restart the TypeScript language server. Use when the LSP gets into a bad state (stale diagnostics, unresponsive, or after large refactors). Disposes the current runtime and re-creates it fresh.",
+    "Restart all language server runtimes. Use when the LSP gets into a bad state (stale diagnostics, unresponsive, or after large refactors). Disposes current runtimes and re-creates them fresh.",
   annotations: {
     readOnlyHint: false,
     destructiveHint: false,

@@ -31,7 +31,7 @@ export function createServer(opts: ServerOptions): McpServer {
 
   const run: RunEffect = (effect) => Effect.runPromise(Effect.provide(effect, layer));
 
-  const server = new McpServer({ name: "kiste", version: "0.1.0" });
+  const server = new McpServer({ name: "kiste", version: "0.2.0" });
   registerTools(server, makeTools(run, repoDir));
   return server;
 }

@@ -38,7 +38,6 @@ Current state of Varp relative to the design documents. Updated February 2026.
 | Hook                     | Trigger              | Type    | Purpose                                                             |
 | ------------------------ | -------------------- | ------- | ------------------------------------------------------------------- |
 | SessionStart             | Session start        | command | Load manifest, display project state and cost tracking status       |
-| SubagentStart            | Subagent dispatch    | command | Inject conventions from `.claude/rules/subagent-conventions.md`     |
 | PostToolUse (Write/Edit) | File modification    | command | Flag component docs for freshness review                            |
 | PostToolUse (Write/Edit) | File modification    | command | Auto-format modified files with oxfmt                               |
 | Stop                     | Claude finishes turn | prompt  | Run `varp_lint` to check for stale docs, broken links, missing deps |

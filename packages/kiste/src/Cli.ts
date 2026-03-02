@@ -242,6 +242,6 @@ const rootCmd = Command.make("kiste").pipe(
   Command.withSubcommands([initCmd, indexCmd, statusCmd, queryCmd, snapshotCmd]),
 );
 
-const cli = rootCmd.pipe(Command.run({ name: "kiste", version: "0.1.0" }));
+const cli = rootCmd.pipe(Command.run({ name: "kiste", version: "0.2.0" }));
 
 cli(process.argv).pipe(Effect.provide(BunContext.layer), BunRuntime.runMain);

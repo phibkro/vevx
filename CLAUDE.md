@@ -23,7 +23,7 @@ Graph-aware project analysis and manifest-driven agent orchestration. Provides s
 
 - **Runtime**: Bun (install, test, run)
 - **Build**: Turborepo (task orchestration across packages)
-- **Language**: TypeScript (ES2022, ESM only, bundler moduleResolution). Never use `require()` or CJS patterns.
+- **Language**: TypeScript (ES2022, ESM only, bundler moduleResolution). Use `.js` extensions in import specifiers. Never use `require()` or CJS patterns.
 - **MCP SDK**: `@modelcontextprotocol/sdk` (see `docs/reference-urls.md` for current SDK docs)
 - **Validation**: Zod (schemas are single source of truth for types)
 - **XML**: fast-xml-parser (plan.xml parsing)
@@ -51,7 +51,7 @@ packages/
       lib.ts                Library entry point for external consumers (@vevx/varp/lib)
     lib.d.ts                Hand-maintained declarations for @vevx/varp/lib
     skills/                 6 prompt-based skills (init, status, plan, execute, review, coupling)
-    hooks/                  4 lifecycle hooks (session-start, subagent-context, freshness-track, stop)
+    hooks/                  3 lifecycle hooks (session-start, freshness-track, stop)
     .claude-plugin/         Plugin manifest (plugin.json, marketplace.json)
   audit/                    Compliance audit engine + CLI (@vevx/audit, varp-audit binary)
     src/                    Orchestrator, agents, planner, report
@@ -61,6 +61,7 @@ packages/
   kart/                     Progressive code disclosure (@vevx/kart, Effect TS)
     src/pure/               Pure functions (export detection, signatures, types)
     src/                    Effectful services (LSP, SQLite, MCP)
+                            Plugin architecture: AstPlugin + LspPlugin + PluginRegistry (routes by extension)
 docs/                       Design docs, getting started, reference URLs
 ```
 
@@ -84,5 +85,7 @@ Import alias `#shared/*` maps to `packages/varp/src/shared/*`. One library entry
 - **Hooks**: No runtime dependencies (no jq/python). Parse with grep/sed/awk. Exit 0 when not applicable. Spec changes frequently — check `docs/reference-urls.md` before modifying.
 - **Tests**: Co-located with source (`*.test.ts`). Run concurrently (`--concurrent`). Use `bun-testing` skill for patterns. Integration tests use `InMemoryTransport` + `Client`.
 - **Subprocesses**: Use `Bun.spawn`/`Bun.spawnSync` instead of `child_process`. Never use `require("child_process")`.
-- **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (varp package). oxlint runs with `--type-aware` in all packages; varp also uses `--type-check` to replace `tsc --noEmit`.
+- **Lint/Format**: Run `turbo check` before committing (runs format + lint + build in all packages). Use `bunx oxfmt` (not bare `oxfmt`) to match the lockfile version. oxfmt handles formatting — don't manually adjust style. Shellcheck enforces shell script quality (varp package). oxlint runs with `--type-aware` in all packages; varp also uses `--type-check` to replace `tsc --noEmit`.
+- **GitHub API**: Use `gh api` CLI for PR/issue operations — the MCP GitHub plugin may lack required token permissions.
 - **Volatile specs**: Skills, hooks, MCP, plugin.json, and Bun APIs change frequently. Search the web for current docs before modifying (see `.claude/rules/volatile-specs.md`).
+- **Component tracking**: If you modify component files, note which components were affected in your response.
