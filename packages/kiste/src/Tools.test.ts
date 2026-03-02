@@ -22,6 +22,8 @@ function git(cwd: string, ...args: string[]) {
   return result.stdout.toString().trim();
 }
 
+mkdirSync("/tmp/claude", { recursive: true });
+
 function makeTempDir(): string {
   return mkdtempSync("/tmp/claude/kiste-mcp-test-");
 }
