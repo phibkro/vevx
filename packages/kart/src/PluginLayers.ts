@@ -25,6 +25,10 @@ export class LspRuntimes extends Context.Tag("kart/LspRuntimes")<
     readonly runtimeFor: (
       path: string,
     ) => Effect.Effect<ManagedRuntime.ManagedRuntime<SymbolIndex, never>, PluginUnavailableError>;
+    readonly allRuntimes: () => Effect.Effect<
+      ManagedRuntime.ManagedRuntime<SymbolIndex, never>[],
+      never
+    >;
     readonly disposeAll: () => Promise<void>;
     readonly recreate: (path?: string) => void;
   }
@@ -33,9 +37,12 @@ export class LspRuntimes extends Context.Tag("kart/LspRuntimes")<
 /**
  * Create LspRuntimes that lazily spawns per-language ManagedRuntimes.
  * Each unique file extension maps to one LspPlugin, one runtime.
+ *
+ * Accepts a registry getter so changes to the registry (e.g. async plugin
+ * init) are reflected in subsequent calls without recreating the runtimes.
  */
 export function makeLspRuntimes(
-  registry: PluginRegistry["Type"],
+  getRegistry: () => PluginRegistry["Type"],
   rootDir: string,
 ): LspRuntimes["Type"] {
   const runtimes = new Map<string, ManagedRuntime.ManagedRuntime<SymbolIndex, never>>();
@@ -45,23 +52,27 @@ export function makeLspRuntimes(
       SymbolIndexLive({ rootDir }).pipe(Layer.provide(LspClientLive({ rootDir, plugin }))),
     );
 
+  const getOrCreate = (plugin: LspPlugin["Type"]) => {
+    const key = plugin.binary;
+    const existing = runtimes.get(key);
+    if (existing) return existing;
+    const runtime = buildRuntime(plugin);
+    runtimes.set(key, runtime);
+    return runtime;
+  };
+
   return {
     runtimeFor: (path) =>
       Effect.gen(function* () {
-        const plugin = registry.lspFor(path);
+        const plugin = getRegistry().lspFor(path);
         if (plugin._tag === "None") {
           return yield* Effect.fail(new PluginUnavailableError({ path, capability: "lsp" }));
         }
-
-        // Key by plugin binary — all extensions sharing a plugin share one runtime
-        const key = plugin.value.binary;
-        const existing = runtimes.get(key);
-        if (existing) return existing;
-
-        const runtime = buildRuntime(plugin.value);
-        runtimes.set(key, runtime);
-        return runtime;
+        return getOrCreate(plugin.value);
       }),
+
+    allRuntimes: () =>
+      Effect.sync(() => getRegistry().allLspPlugins().map((plugin) => getOrCreate(plugin))),
 
     disposeAll: async () => {
       for (const rt of runtimes.values()) {
@@ -72,7 +83,7 @@ export function makeLspRuntimes(
 
     recreate: (path?: string) => {
       if (path) {
-        const plugin = registry.lspFor(path);
+        const plugin = getRegistry().lspFor(path);
         if (plugin._tag === "None") return;
         const key = plugin.value.binary;
         const old = runtimes.get(key);

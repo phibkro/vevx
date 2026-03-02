@@ -175,8 +175,16 @@ function compactDeps(result: DepsResult, rootDir: string) {
 
 // ── Plugin error helpers ──
 
-const isPluginUnavailable = (e: unknown): e is PluginUnavailableError =>
-  e instanceof Error && (e as Record<string, unknown>)._tag === "PluginUnavailableError";
+const isPluginUnavailable = (e: unknown): e is PluginUnavailableError => {
+  if (!(e instanceof Error)) return false;
+  // Direct check (Effect.runPromise with Effect.either, or unwrapped errors)
+  if ((e as Record<string, unknown>)._tag === "PluginUnavailableError") return true;
+  // FiberFailure: Effect runtime wraps errors in a FiberFailure with the cause at a symbol key
+  const cause = (e as Record<symbol, unknown>)[FiberFailureCauseSymbol] as
+    | { _tag?: string; error?: Record<string, unknown> }
+    | undefined;
+  return cause?._tag === "Fail" && cause.error?.["_tag"] === "PluginUnavailableError";
+};
 
 function pluginUnavailableResponse(err: PluginUnavailableError) {
   const ext = extname(err.path);
@@ -228,8 +236,9 @@ function createServer(config: ServerConfig = {}): McpServer {
       // tree-sitter init failed — .rs files won't have AST support
     });
 
-  // LSP runtimes — lazily spawns per-language ManagedRuntimes
-  const lspRuntimes = makeLspRuntimes(registry, rootDir);
+  // LSP runtimes — lazily spawns per-language ManagedRuntimes.
+  // Pass a getter so async registry updates (Rust AST plugin) are reflected.
+  const lspRuntimes = makeLspRuntimes(() => registry, rootDir);
 
   // Note: Rust parser (tree-sitter) is initialized by makeRustAstPlugin() above.
   // kart_find fallback path also calls initRustParser() lazily if needed.
@@ -908,7 +917,7 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
   );
 
-  // Register kart_workspace_symbol (LSP-backed, uses TS runtime)
+  // Register kart_workspace_symbol (LSP-backed, queries all available runtimes)
   server.registerTool(
     kart_workspace_symbol.name,
     {
@@ -919,10 +928,28 @@ function createServer(config: ServerConfig = {}): McpServer {
     async (args) => {
       try {
         const typedArgs = args as { query: string };
-        const runtime = await Effect.runPromise(lspRuntimes.runtimeFor("workspace.ts"));
-        const result = await runtime.runPromise(
-          kart_workspace_symbol.handler(typedArgs) as Effect.Effect<unknown>,
+        const runtimeList = await Effect.runPromise(lspRuntimes.allRuntimes());
+        if (runtimeList.length === 0) {
+          const result = { available: false, reason: "No LSP runtimes available" };
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+            structuredContent: result,
+          };
+        }
+        // Query all runtimes in parallel and merge symbols
+        const results = await Promise.allSettled(
+          runtimeList.map((rt) =>
+            rt.runPromise(kart_workspace_symbol.handler(typedArgs) as Effect.Effect<unknown>),
+          ),
         );
+        const allSymbols: unknown[] = [];
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            const value = r.value as { symbols?: unknown[] };
+            if (Array.isArray(value?.symbols)) allSymbols.push(...value.symbols);
+          }
+        }
+        const result = { query: typedArgs.query, symbols: allSymbols, totalSymbols: allSymbols.length };
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           structuredContent: result as Record<string, unknown>,

@@ -88,7 +88,7 @@ describe("makeRegistryFromPlugins", () => {
 describe("makeLspRuntimes", () => {
   it("returns PluginUnavailableError for unknown extension", async () => {
     const registry = makeRegistryFromPlugins({ ast: [], lsp: [fakeLsp] });
-    const runtimes = makeLspRuntimes(registry, "/tmp/claude/test-root");
+    const runtimes = makeLspRuntimes(() => registry, "/tmp/claude/test-root");
 
     const result = await Effect.runPromise(Effect.either(runtimes.runtimeFor("main.go")));
 
@@ -102,7 +102,7 @@ describe("makeLspRuntimes", () => {
 
   it("returns PluginUnavailableError with the correct path in the error", async () => {
     const registry = makeRegistryFromPlugins({ ast: [], lsp: [] });
-    const runtimes = makeLspRuntimes(registry, "/tmp/claude/test-root");
+    const runtimes = makeLspRuntimes(() => registry, "/tmp/claude/test-root");
 
     const result = await Effect.runPromise(
       Effect.either(runtimes.runtimeFor("/some/deep/path/file.py")),
@@ -117,7 +117,7 @@ describe("makeLspRuntimes", () => {
 
   it("recreate() clears all runtimes when called without extension", () => {
     const registry = makeRegistryFromPlugins({ ast: [], lsp: [fakeLsp] });
-    const runtimes = makeLspRuntimes(registry, "/tmp/claude/test-root");
+    const runtimes = makeLspRuntimes(() => registry, "/tmp/claude/test-root");
 
     // recreate with no args should not throw
     expect(() => runtimes.recreate()).not.toThrow();
@@ -125,7 +125,7 @@ describe("makeLspRuntimes", () => {
 
   it("recreate(path) targets only the runtime for that file's language", () => {
     const registry = makeRegistryFromPlugins({ ast: [], lsp: [fakeLsp, fakeRustLsp] });
-    const runtimes = makeLspRuntimes(registry, "/tmp/claude/test-root");
+    const runtimes = makeLspRuntimes(() => registry, "/tmp/claude/test-root");
 
     // Recreate by file path — resolves to the correct plugin's runtime
     expect(() => runtimes.recreate("index.ts")).not.toThrow();
@@ -133,7 +133,7 @@ describe("makeLspRuntimes", () => {
 
   it("disposeAll() resolves without error when no runtimes are active", async () => {
     const registry = makeRegistryFromPlugins({ ast: [], lsp: [fakeLsp] });
-    const runtimes = makeLspRuntimes(registry, "/tmp/claude/test-root");
+    const runtimes = makeLspRuntimes(() => registry, "/tmp/claude/test-root");
 
     await runtimes.disposeAll();
   });
