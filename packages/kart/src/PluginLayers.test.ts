@@ -115,20 +115,32 @@ describe("makeLspRuntimes", () => {
     }
   });
 
-  it("recreate() clears all runtimes when called without extension", () => {
-    const registry = makeRegistryFromPlugins({ ast: [], lsp: [fakeLsp] });
-    const runtimes = makeLspRuntimes(() => registry, "/tmp/claude/test-root");
-
-    // recreate with no args should not throw
-    expect(() => runtimes.recreate()).not.toThrow();
-  });
-
-  it("recreate(path) targets only the runtime for that file's language", () => {
+  it("recreate() replaces all runtimes with fresh instances", async () => {
     const registry = makeRegistryFromPlugins({ ast: [], lsp: [fakeLsp, fakeRustLsp] });
     const runtimes = makeLspRuntimes(() => registry, "/tmp/claude/test-root");
 
-    // Recreate by file path — resolves to the correct plugin's runtime
-    expect(() => runtimes.recreate("index.ts")).not.toThrow();
+    const tsBefore = await Effect.runPromise(runtimes.runtimeFor("index.ts"));
+    const rsBefore = await Effect.runPromise(runtimes.runtimeFor("lib.rs"));
+    runtimes.recreate();
+    const tsAfter = await Effect.runPromise(runtimes.runtimeFor("index.ts"));
+    const rsAfter = await Effect.runPromise(runtimes.runtimeFor("lib.rs"));
+
+    expect(tsAfter).not.toBe(tsBefore);
+    expect(rsAfter).not.toBe(rsBefore);
+  });
+
+  it("recreate(path) only replaces the runtime for that file's language", async () => {
+    const registry = makeRegistryFromPlugins({ ast: [], lsp: [fakeLsp, fakeRustLsp] });
+    const runtimes = makeLspRuntimes(() => registry, "/tmp/claude/test-root");
+
+    const tsBefore = await Effect.runPromise(runtimes.runtimeFor("index.ts"));
+    const rsBefore = await Effect.runPromise(runtimes.runtimeFor("lib.rs"));
+    runtimes.recreate("index.ts");
+    const tsAfter = await Effect.runPromise(runtimes.runtimeFor("index.ts"));
+    const rsAfter = await Effect.runPromise(runtimes.runtimeFor("lib.rs"));
+
+    expect(tsAfter).not.toBe(tsBefore);
+    expect(rsAfter).toBe(rsBefore);
   });
 
   it("disposeAll() resolves without error when no runtimes are active", async () => {
