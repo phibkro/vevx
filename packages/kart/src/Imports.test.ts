@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "nod
 import { join } from "node:path";
 
 import { getImporters, getImports, getUnusedExports } from "./Imports.js";
-import { initRustParser } from "./pure/RustSymbols.js";
+import { initTreeSitterParser } from "./pure/TreeSitterPlugin.js";
+import { RustGrammar } from "./RustPlugin.js";
 
 mkdirSync("/tmp/claude", { recursive: true });
 
@@ -126,7 +127,7 @@ describe("Rust imports", () => {
   let rustDir: string;
 
   beforeAll(async () => {
-    await initRustParser();
+    await initTreeSitterParser(RustGrammar);
   });
 
   beforeEach(() => {

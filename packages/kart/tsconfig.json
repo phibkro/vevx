@@ -2,7 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "plugins": [{ "name": "@effect/language-service" }]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

@@ -1,9 +1,8 @@
 /**
- * Workspace-wide symbol search for TypeScript and Rust.
+ * Workspace-wide symbol search across all plugin-supported languages.
  *
- * Recursively collects .ts/.tsx/.rs files, parses each with the appropriate
- * parser (oxc for TS, tree-sitter for Rust), and filters by name, kind,
- * and export status.
+ * Recursively collects source files, parses each with the appropriate
+ * parser via plugin registry, and filters by name, kind, and export status.
  *
  * Parsed symbols are cached in memory keyed by path + mtime. First call
  * pays the full scan cost; subsequent calls only re-parse changed files.
@@ -16,7 +15,6 @@ import { Option } from "effect";
 
 import type { PluginRegistry } from "./Plugin.js";
 import { parseSymbols, type OxcSymbol } from "./pure/OxcSymbols.js";
-import { initRustParser, isRustParserReady, parseRustSymbols } from "./pure/RustSymbols.js";
 
 // ── Types ──
 
@@ -51,7 +49,7 @@ export type FindResult = {
 // ── Constants ──
 
 const EXCLUDED_DIRS = new Set(["node_modules", ".git", "dist", "build", ".varp", "target"]);
-const SUPPORTED_EXTENSIONS = new Set([".ts", ".tsx", ".rs"]);
+const SUPPORTED_EXTENSIONS = new Set([".ts", ".tsx", ".rs", ".php"]);
 
 // ── Symbol cache ──
 
@@ -142,14 +140,12 @@ async function parseFile(
   if (registry) {
     const plugin = registry.astFor(path);
     if (Option.isSome(plugin)) return plugin.value.parseSymbols(source, path);
-    return []; // No plugin for this extension
   }
-  // Fallback for backward compat
-  if (path.endsWith(".rs")) {
-    if (!isRustParserReady()) await initRustParser();
-    return parseRustSymbols(source, path);
+  // Fallback: oxc-parser for TypeScript/TSX
+  if (path.endsWith(".ts") || path.endsWith(".tsx")) {
+    return parseSymbols(source, path);
   }
-  return parseSymbols(source, path);
+  return [];
 }
 
 // ── File collection ──

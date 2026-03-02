@@ -1,14 +1,16 @@
 /**
- * AST-aware editing primitives for TypeScript/TSX/Rust source.
+ * AST-aware editing primitives for TypeScript/TSX source.
  *
  * Provides symbol location, syntax validation, and byte-range splicing.
  * Pure functions — no LSP or Effect dependency.
+ *
+ * Non-TS languages (Rust, PHP, etc.) are handled by plugins via the
+ * AstPlugin interface — this module only covers the oxc-parser fallback.
  */
 
 import { parseSync } from "oxc-parser";
 
 import { parseSymbols } from "./OxcSymbols.js";
-import { isRustParserReady, parseRustSymbols, validateRustSyntax } from "./RustSymbols.js";
 
 // ── Types ──
 
@@ -16,13 +18,9 @@ export type SymbolRange = { readonly start: number; readonly end: number };
 
 // ── Symbol location ──
 
-/** Locate a top-level symbol by name. Returns byte range or null. */
+/** Locate a top-level symbol by name in TypeScript/TSX. Returns byte range or null. */
 export function locateSymbol(source: string, name: string, filename: string): SymbolRange | null {
-  const symbols = filename.endsWith(".rs")
-    ? isRustParserReady()
-      ? parseRustSymbols(source, filename)
-      : []
-    : parseSymbols(source, filename);
+  const symbols = parseSymbols(source, filename);
   const match = symbols.find((s) => s.name === name);
   if (!match) return null;
   return match.range;
@@ -30,9 +28,8 @@ export function locateSymbol(source: string, name: string, filename: string): Sy
 
 // ── Validation ──
 
-/** Validate syntax. Returns null if valid, error message string if invalid. */
+/** Validate TypeScript/TSX syntax. Returns null if valid, error message string if invalid. */
 export function validateSyntax(source: string, filename: string): string | null {
-  if (filename.endsWith(".rs")) return validateRustSyntax(source);
   const lang = filename.endsWith(".tsx") ? "tsx" : "ts";
   const result = parseSync(filename, source, { lang, sourceType: "module" });
   const errors: any[] = (result as any).errors;

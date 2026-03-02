@@ -49,9 +49,9 @@ import {
   type ImportsArgs,
 } from "./Imports.js";
 import { listDirectory, type ListArgs } from "./List.js";
+import { makePhpAstPlugin, PhpLspPluginImpl } from "./PhpPlugin.js";
 import { PluginUnavailableError } from "./Plugin.js";
 import { makeRegistryFromPlugins, makeLspRuntimes } from "./PluginLayers.js";
-import { initRustParser } from "./pure/RustSymbols.js";
 import type { DepsResult, ImpactResult } from "./pure/types.js";
 import { makeRustAstPlugin, RustLspPluginImpl } from "./RustPlugin.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
@@ -211,34 +211,28 @@ function createServer(config: ServerConfig = {}): McpServer {
   const cochangeRuntime = ManagedRuntime.make(CochangeDbLive(dbPath));
 
   // Plugin registry — routes file extensions to the right plugin.
-  // Rust AST plugin is added lazily once tree-sitter initializes.
+  // Tree-sitter AST plugins (Rust, PHP) are added lazily once WASM initializes.
   let registry = makeRegistryFromPlugins({
     ast: [TsAstPluginImpl],
-    lsp: [TsLspPluginImpl, RustLspPluginImpl],
+    lsp: [TsLspPluginImpl, RustLspPluginImpl, PhpLspPluginImpl],
   });
 
-  makeRustAstPlugin()
-    .then((rustAst) => {
+  Promise.all([makeRustAstPlugin(), makePhpAstPlugin()])
+    .then(([rustAst, phpAst]) => {
       registry = makeRegistryFromPlugins({
-        ast: [TsAstPluginImpl, rustAst],
-        lsp: [TsLspPluginImpl, RustLspPluginImpl],
+        ast: [TsAstPluginImpl, rustAst, phpAst],
+        lsp: [TsLspPluginImpl, RustLspPluginImpl, PhpLspPluginImpl],
       });
     })
     .catch(() => {
-      // tree-sitter init failed — .rs files won't have AST support
+      // tree-sitter init failed — some AST plugins won't be available
     });
 
   // LSP runtimes — lazily spawns per-language ManagedRuntimes
   const lspRuntimes = makeLspRuntimes(registry, rootDir);
 
-  // Note: Rust parser (tree-sitter) is initialized by makeRustAstPlugin() above.
-  // kart_find fallback path also calls initRustParser() lazily if needed.
-  initRustParser().catch(() => {
-    // tree-sitter init failed — .rs files won't work in kart_find
-  });
-
   // File watcher for incremental symbol cache invalidation
-  const SOURCE_EXTS = new Set([".ts", ".tsx", ".rs"]);
+  const SOURCE_EXTS = new Set([".ts", ".tsx", ".rs", ".php"]);
   const startWatcher = (): FSWatcher => {
     const w = watch(rootDir, { recursive: true }, (_eventType, filename) => {
       if (!filename) return;

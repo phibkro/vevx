@@ -5,8 +5,9 @@ import { join } from "node:path";
 
 import type Parser from "web-tree-sitter";
 
+import { RustGrammar } from "../RustPlugin.js";
 import { extractRustFileImports, rustResolve } from "./RustImports.js";
-import { initRustParser } from "./RustSymbols.js";
+import { initTreeSitterParser } from "./TreeSitterPlugin.js";
 
 mkdirSync("/tmp/claude", { recursive: true });
 
@@ -15,21 +16,8 @@ mkdirSync("/tmp/claude", { recursive: true });
 let parser: Parser;
 
 beforeAll(async () => {
-  const { resolve } = await import("node:path");
-  const TreeSitter = (await import("web-tree-sitter")).default;
-  await TreeSitter.init();
-
-  const wasmPath = resolve(
-    import.meta.dir,
-    "../../node_modules/tree-sitter-wasms/out/tree-sitter-rust.wasm",
-  );
-  const lang = await TreeSitter.Language.load(wasmPath);
-  const p = new TreeSitter();
-  p.setLanguage(lang);
-  parser = p;
-
-  // Also init the RustSymbols parser (extractRustFileImports uses parseRustSymbols internally)
-  await initRustParser();
+  const cached = await initTreeSitterParser(RustGrammar);
+  parser = cached.parser;
 });
 
 // ── Extraction tests ──

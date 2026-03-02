@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { editInsertAfter, editInsertBefore, editReplace } from "./Editor.js";
 import type { AstPlugin } from "./Plugin.js";
+import { makeRustAstPlugin } from "./RustPlugin.js";
 import { TsAstPluginImpl } from "./TsPlugin.js";
 
 mkdirSync("/tmp/claude", { recursive: true });
@@ -319,6 +320,12 @@ pub const MAX: i32 = 100;
 `;
 
 describe("Rust editReplace", () => {
+  let rustPlugin: AstPlugin["Type"];
+
+  test("init Rust plugin", async () => {
+    rustPlugin = await makeRustAstPlugin();
+  });
+
   test(
     "replaces a Rust function body",
     withRustTempFile(RUST_FIXTURE, async (filePath) => {
@@ -326,6 +333,9 @@ describe("Rust editReplace", () => {
         filePath,
         "greet",
         'pub fn greet(name: &str) -> String {\n    format!("Hi {}", name)\n}',
+        undefined,
+        false,
+        rustPlugin,
       );
       expect(result.success).toBe(true);
       expect(result.symbol).toBe("greet");
@@ -340,7 +350,14 @@ describe("Rust editReplace", () => {
     "rejects Rust syntax errors without modifying file",
     withRustTempFile(RUST_FIXTURE, async (filePath) => {
       const before = readFileSync(filePath, "utf-8");
-      const result = await editReplace(filePath, "greet", "pub fn greet( {{{");
+      const result = await editReplace(
+        filePath,
+        "greet",
+        "pub fn greet( {{{",
+        undefined,
+        false,
+        rustPlugin,
+      );
       expect(result.success).toBe(false);
       expect(result.syntaxError).toBe(true);
       const after = readFileSync(filePath, "utf-8");
@@ -351,7 +368,14 @@ describe("Rust editReplace", () => {
   test(
     "returns error for unknown Rust symbol",
     withRustTempFile(RUST_FIXTURE, async (filePath) => {
-      const result = await editReplace(filePath, "nonexistent", "pub fn nonexistent() {}");
+      const result = await editReplace(
+        filePath,
+        "nonexistent",
+        "pub fn nonexistent() {}",
+        undefined,
+        false,
+        rustPlugin,
+      );
       expect(result.success).toBe(false);
       expect(result.syntaxErrorMessage).toContain("nonexistent");
     }),
@@ -359,6 +383,12 @@ describe("Rust editReplace", () => {
 });
 
 describe("Rust editInsertAfter", () => {
+  let rustPlugin: AstPlugin["Type"];
+
+  test("init Rust plugin", async () => {
+    rustPlugin = await makeRustAstPlugin();
+  });
+
   test(
     "inserts content after a Rust symbol",
     withRustTempFile(RUST_FIXTURE, async (filePath) => {
@@ -366,6 +396,9 @@ describe("Rust editInsertAfter", () => {
         filePath,
         "greet",
         '\npub fn farewell() -> String {\n    String::from("Goodbye")\n}\n',
+        undefined,
+        false,
+        rustPlugin,
       );
       expect(result.success).toBe(true);
       const content = readFileSync(filePath, "utf-8");

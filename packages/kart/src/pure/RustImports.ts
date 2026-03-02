@@ -9,39 +9,30 @@
  */
 
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 
 import type Parser from "web-tree-sitter";
 
-import { initRustParser, isRustParserReady, parseRustSymbols } from "./RustSymbols.js";
+import { RustGrammar, RustHooks } from "../RustPlugin.js";
+import { extractSymbols, initTreeSitterParser, isParserReady } from "./TreeSitterPlugin.js";
 import type { FileImports, ImportEntry } from "./types.js";
 
 // Re-export for convenience
-export { initRustParser, isRustParserReady };
+export const initRustParser = () => initTreeSitterParser(RustGrammar).then(() => {});
+export const isRustParserReady = () => isParserReady(RustGrammar);
 
 // ── Parser access ──
 
 let rustParser: Parser | null = null;
+let rustQuery: Parser.Query | null = null;
 
 /** Initialize the parser (async). Must be called before sync extraction. */
 export async function ensureRustImportParser(): Promise<void> {
   if (rustParser) return;
 
-  const TreeSitter = (await import("web-tree-sitter")).default;
-  await TreeSitter.init();
-
-  const wasmPath = resolve(
-    import.meta.dir,
-    "../../node_modules/tree-sitter-wasms/out/tree-sitter-rust.wasm",
-  );
-  const lang = await TreeSitter.Language.load(wasmPath);
-
-  const parser = new TreeSitter();
-  parser.setLanguage(lang);
-  rustParser = parser;
-
-  // Also init the RustSymbols parser (used for exported names)
-  await initRustParser();
+  const cached = await initTreeSitterParser(RustGrammar);
+  rustParser = cached.parser;
+  rustQuery = cached.query;
 }
 
 // ── Core extraction ──
@@ -71,8 +62,8 @@ export function extractRustFileImports(
     }
   }
 
-  // Exported names from pub items (reuse parseRustSymbols)
-  const symbols = parseRustSymbols(source, filename);
+  // Exported names from pub items (reuse factory extractSymbols)
+  const symbols = rustQuery ? extractSymbols(parser, rustQuery, source, filename, RustHooks) : [];
   const exportedNames = symbols.filter((s) => s.exported).map((s) => s.name);
 
   // isBarrel: all top-level items are `pub use`, no local declarations
