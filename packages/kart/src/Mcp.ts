@@ -175,15 +175,22 @@ function compactDeps(result: DepsResult, rootDir: string) {
 
 // ── Plugin error helpers ──
 
-const isPluginUnavailable = (e: unknown): e is PluginUnavailableError => {
-  if (!(e instanceof Error)) return false;
-  // Direct check (Effect.runPromise with Effect.either, or unwrapped errors)
-  if ((e as unknown as Record<string, unknown>)._tag === "PluginUnavailableError") return true;
+/** Extract the PluginUnavailableError from a possibly-wrapped error, or return undefined. */
+const getPluginUnavailableError = (e: unknown): PluginUnavailableError | undefined => {
+  if (!e || typeof e !== "object") return undefined;
+  // Direct check — TaggedError instances have _tag directly
+  if ((e as Record<string, unknown>)._tag === "PluginUnavailableError")
+    return e as PluginUnavailableError;
   // FiberFailure: Effect runtime wraps errors in a FiberFailure with the cause at a symbol key
-  const cause = (e as unknown as Record<symbol, unknown>)[FiberFailureCauseSymbol] as
-    | { _tag?: string; error?: Record<string, unknown> }
-    | undefined;
-  return cause?._tag === "Fail" && cause.error?.["_tag"] === "PluginUnavailableError";
+  if (e instanceof Error) {
+    const cause = (e as unknown as Record<symbol, unknown>)[FiberFailureCauseSymbol] as
+      | { _tag?: string; error?: Record<string, unknown> }
+      | undefined;
+    if (cause?._tag === "Fail" && cause.error?.["_tag"] === "PluginUnavailableError") {
+      return cause.error as unknown as PluginUnavailableError;
+    }
+  }
+  return undefined;
 };
 
 function pluginUnavailableResponse(err: PluginUnavailableError) {
@@ -296,7 +303,8 @@ function createServer(config: ServerConfig = {}): McpServer {
             structuredContent: result as Record<string, unknown>,
           };
         } catch (e) {
-          if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
+          const unavailable = getPluginUnavailableError(e);
+          if (unavailable) return pluginUnavailableResponse(unavailable);
           return {
             isError: true,
             content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
@@ -723,7 +731,8 @@ function createServer(config: ServerConfig = {}): McpServer {
           structuredContent: result as Record<string, unknown>,
         };
       } catch (e) {
-        if (isPluginUnavailable(e)) return pluginUnavailableResponse(e);
+        const unavailable = getPluginUnavailableError(e);
+        if (unavailable) return pluginUnavailableResponse(unavailable);
         return {
           content: [{ type: "text" as const, text: `Error: ${errorMessage(e)}` }],
           isError: true,

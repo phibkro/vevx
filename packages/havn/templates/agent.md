@@ -14,6 +14,8 @@ hooks:                                  # optional lifecycle hooks
     - command: ./notify.sh
 ---
 
+# Agent Name
+
 You are a [role]. When invoked:
 1. Do X
 2. Do Y

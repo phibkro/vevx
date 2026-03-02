@@ -41,7 +41,7 @@ export class PluginRegistry extends Context.Tag("kart/PluginRegistry")<
   {
     readonly astFor: (path: string) => Option.Option<AstPlugin["Type"]>;
     readonly lspFor: (path: string) => Option.Option<LspPlugin["Type"]>;
-    readonly allLspPlugins: () => LspPlugin["Type"][];
+    readonly allLspPlugins: () => readonly LspPlugin["Type"][];
   }
 >() {}
 
