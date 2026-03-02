@@ -94,15 +94,19 @@ function enrichWithResolvedTypes(
 
 // ── Symbol conversion ──
 
-function toZoomSymbol(symbol: DocumentSymbol, lines: string[]): ZoomSymbol {
+function toZoomSymbol(
+  symbol: DocumentSymbol,
+  lines: string[],
+  maxChildDepth = Infinity,
+): ZoomSymbol {
   const kind = symbolKindName(symbol.kind);
   const signature = extractSignature(symbol, lines);
   const doc = extractDocComment(symbol, lines);
   const exported = isExported(symbol, lines);
 
   const children =
-    symbol.children && symbol.children.length > 0
-      ? symbol.children.map((c) => toZoomSymbol(c, lines))
+    maxChildDepth > 0 && symbol.children && symbol.children.length > 0
+      ? symbol.children.map((c) => toZoomSymbol(c, lines, maxChildDepth - 1))
       : undefined;
 
   return { name: symbol.name, kind, signature, doc, exported, ...(children ? { children } : {}) };
@@ -252,9 +256,10 @@ export const SymbolIndexLive = (config?: {
             const fileContent = readFileSync(absPath, "utf-8");
             const lines = fileContent.split("\n");
 
-            let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines));
+            // Level 0: exported only, no children. Level 1: all symbols, direct children only.
+            const maxChildDepth = level === 0 ? 0 : 1;
+            let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines, maxChildDepth));
 
-            // Level 0: filter to exported only
             if (level === 0) {
               zoomSymbols = zoomSymbols.filter((s) => s.exported);
             }
@@ -906,7 +911,7 @@ function zoomDirectory(
       const lines = fileContent.split("\n");
 
       const symbols = yield* lsp.documentSymbol(uri);
-      let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines)).filter((s) => s.exported);
+      let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines, 1)).filter((s) => s.exported);
 
       // Omit files with no exports
       if (zoomSymbols.length === 0) continue;
@@ -930,4 +935,51 @@ function zoomDirectory(
       files: fileResults,
     };
   });
+}
+
+// ── Plaintext formatting ──
+
+/** Format a ZoomResult as compact plaintext for agent consumption. */
+export function formatZoomPlaintext(result: ZoomResult, rootDir?: string): string {
+  const relPath = rootDir ? result.path.replace(rootDir + "/", "") : result.path;
+
+  // Directory zoom: list files with export counts
+  if (result.files && result.files.length > 0) {
+    const lines = [`// ${relPath}/`];
+    for (const f of result.files) {
+      const fRel = rootDir ? f.path.replace(rootDir + "/", "") : f.path;
+      if (f.symbols.length === 1 && f.symbols[0].kind === "file") {
+        lines.push(`  ${fRel}  ${f.symbols[0].signature}`);
+      } else {
+        lines.push(`  ${fRel}  ${f.symbols.length} exports`);
+        for (const s of f.symbols) {
+          lines.push(`    ${formatSymbolLine(s)}`);
+        }
+      }
+    }
+    return lines.join("\n");
+  }
+
+  // File zoom level 2: raw content
+  if (result.level === 2 && result.symbols.length === 1 && result.symbols[0].kind === "file") {
+    return result.symbols[0].signature;
+  }
+
+  // File zoom level 0/1: signatures
+  const lines = [`// ${relPath} (${result.symbols.length} symbols)`];
+  for (const s of result.symbols) {
+    if (s.doc) lines.push(s.doc);
+    lines.push(formatSymbolLine(s));
+    if (s.children) {
+      for (const c of s.children) {
+        lines.push(`  ${formatSymbolLine(c)}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+function formatSymbolLine(s: ZoomSymbol): string {
+  const type = s.resolvedType ? `: ${s.resolvedType}` : "";
+  return s.signature ? s.signature + type : `${s.kind} ${s.name}${type}`;
 }

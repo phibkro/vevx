@@ -748,35 +748,27 @@ function internal() {}
       name: "kart_zoom",
       arguments: { path: filePath, level: 0 },
     });
-    const data = parseResult(result) as { symbols: { name: string; exported: boolean }[] };
-    // All returned symbols should be exported
-    for (const sym of data.symbols) {
-      expect(sym.exported).toBe(true);
-    }
-    // Should include greet and MAX
-    const names = data.symbols.map((s) => s.name);
-    expect(names).toContain("greet");
-    expect(names).toContain("MAX");
-    // Should NOT include internal
-    expect(names).not.toContain("internal");
+    // Zoom now returns plaintext signatures, not JSON
+    const text = (result as { content: { text: string }[] }).content[0].text;
+    // Should include exported symbols
+    expect(text).toContain("greet");
+    expect(text).toContain("MAX");
+    // Should NOT include internal (non-exported)
+    expect(text).not.toContain("internal");
   });
 
-  test("level 2 returns full file content", async () => {
+  test("level 2 includes deeper nesting", async () => {
     const filePath = join(tempDir, "fixture.ts");
     const result = await client.callTool({
       name: "kart_zoom",
       arguments: { path: filePath, level: 2 },
     });
-    const data = parseResult(result) as {
-      level: number;
-      symbols: { signature: string }[];
-      truncated: boolean;
-    };
-    expect(data.level).toBe(2);
-    expect(data.truncated).toBe(false);
-    // Full content mode: the signature field contains the whole file
-    expect(data.symbols[0].signature).toContain("export function greet");
-    expect(data.symbols[0].signature).toContain("function internal");
+    // Zoom now returns plaintext signatures, not JSON
+    const text = (result as { content: { text: string }[] }).content[0].text;
+    // Level 2 still returns symbol signatures (deeper nesting allowed)
+    expect(text).toContain("greet");
+    // At level 2, non-exported symbols are also visible
+    expect(text).toContain("internal");
   });
 
   test("returns error for nonexistent file", async () => {

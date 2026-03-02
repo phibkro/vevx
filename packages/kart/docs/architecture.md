@@ -255,9 +255,21 @@ Three handler patterns:
 - **Stateless** (search, list, diagnostics, edit, imports, importers, unused_exports): handlers use `Effect.promise()` or `Effect.sync()` wrapping plain async/sync functions
 - **Cached** (find): `Effect.promise()` wrapping mtime-cached async function
 
-`Mcp.ts` registers tools individually. All responses include `structuredContent` for direct JSON access by callers. Effect errors are unwrapped via `errorMessage()` and become `{ isError: true, content: [{ text: "Error: ..." }] }`.
+`Mcp.ts` registers tools individually. Effect errors are unwrapped via `errorMessage()` and become `{ isError: true, content: [{ text: "Error: ..." }] }`.
 
-**Response compaction:** MCP responses pass through presentation-layer compact helpers in `Mcp.ts` before returning to agents, reducing context window cost. `compactFind` strips `durationMs`/`cachedFiles` debug metadata. `compactImpact`/`compactDeps` strip `range` from tree nodes and convert absolute `uri` to workspace-relative `path`. Domain functions remain unchanged — compaction happens at the MCP boundary.
+### output format convention
+
+Read-only tools return compact JSON (no indent) with `structuredContent` for programmatic access. Compaction helpers strip LSP noise (ranges, absolute URIs) at the MCP boundary — domain functions stay unchanged.
+
+| tool category | text format | structuredContent | compaction |
+|--------------|-------------|-------------------|------------|
+| **zoom** (level 0/1) | plaintext signatures | none | depth-filtered: L0 no children, L1 direct only |
+| **zoom** (level 2) | raw file content | none | size-capped at 100KB |
+| **find** | compact JSON | yes | `compactFind`: strips timing/cache stats |
+| **impact, deps** | compact JSON | yes | `compactImpact`/`compactDeps`: strips range, relativizes URI |
+| **references, definition, type_definition, implementation** | compact JSON | yes | `compactLocations`: strips range, relativizes URI |
+| **search, list, diagnostics, imports, importers, unused_exports, cochange, workspace_symbol, code_actions, inlay_hints, expand_macro** | compact JSON | yes | none needed |
+| **replace, insert_after, insert_before** | indented JSON | yes | none — agents parse edit results |
 
 Tool annotations: `READ_ONLY` for navigation tools, `READ_WRITE` for edit tools (`kart_replace`, `kart_insert_after`, `kart_insert_before`, `kart_rename`).
 
