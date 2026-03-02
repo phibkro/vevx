@@ -25,6 +25,7 @@ describe("parseManifest", () => {
       "scheduler",
       "enforcement",
       "analysis",
+      "execution",
     ]);
     expect(manifest.components.manifest).toBeDefined();
     expect(manifest.components.manifest.path).toBe(
