@@ -1,6 +1,17 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
-import { initRustParser, isRustParserReady, parseRustSymbols } from "./RustSymbols.js";
+import type Parser from "web-tree-sitter";
+
+import { RustGrammar, RustHooks } from "../RustPlugin.js";
+import {
+  extractSymbols,
+  initTreeSitterParser,
+  isParserReady,
+  validateTreeSitterSyntax,
+} from "./TreeSitterPlugin.js";
+
+let parser: Parser;
+let query: Parser.Query;
 
 const FIXTURE = `\
 use std::collections::HashMap;
@@ -52,10 +63,16 @@ macro_rules! my_macro {
 }`;
 
 beforeAll(async () => {
-  await initRustParser();
+  const cached = await initTreeSitterParser(RustGrammar);
+  parser = cached.parser;
+  query = cached.query;
 });
 
-describe("parseRustSymbols", () => {
+function parseRustSymbols(source: string, filename: string) {
+  return extractSymbols(parser, query, source, filename, RustHooks);
+}
+
+describe("parseRustSymbols (via factory)", () => {
   test("extracts all top-level declarations", () => {
     const symbols = parseRustSymbols(FIXTURE, "lib.rs");
     const names = symbols.map((s) => s.name);
@@ -78,7 +95,6 @@ describe("parseRustSymbols", () => {
 
   test("detects pub vs private correctly", () => {
     const symbols = parseRustSymbols(FIXTURE, "lib.rs");
-    // Use kind:name as key to avoid collisions (e.g. struct Config vs impl Config)
     const exportMap = Object.fromEntries(symbols.map((s) => [`${s.kind}:${s.name}`, s.exported]));
 
     expect(exportMap["function:greet"]).toBe(true);
@@ -86,7 +102,7 @@ describe("parseRustSymbols", () => {
     expect(exportMap["struct:Config"]).toBe(true);
     expect(exportMap["enum:Status"]).toBe(true);
     expect(exportMap["trait:Greetable"]).toBe(false);
-    expect(exportMap["impl:Config"]).toBe(false); // impl block without pub
+    expect(exportMap["impl:Config"]).toBe(false);
     expect(exportMap["impl:Greetable for Config"]).toBe(false);
     expect(exportMap["type:Alias"]).toBe(true);
     expect(exportMap["const:MAX"]).toBe(true);
@@ -129,7 +145,6 @@ describe("parseRustSymbols", () => {
     expect(greet.line).toBeGreaterThan(0);
     expect(greet.range.start).toBeLessThan(greet.range.end);
 
-    // Verify the range actually covers the source text
     const sliced = FIXTURE.slice(greet.range.start, greet.range.end);
     expect(sliced).toContain("pub fn greet");
   });
@@ -139,10 +154,21 @@ describe("parseRustSymbols", () => {
   });
 });
 
-describe("initRustParser", () => {
+describe("validateTreeSitterSyntax", () => {
+  test("returns null for valid Rust", () => {
+    expect(validateTreeSitterSyntax(parser, RustGrammar, "pub fn greet() {}")).toBeNull();
+  });
+
+  test("returns error for invalid Rust", () => {
+    const result = validateTreeSitterSyntax(parser, RustGrammar, "pub fn greet( {{{");
+    expect(result).toContain("Rust syntax error");
+  });
+});
+
+describe("initTreeSitterParser", () => {
   test("is idempotent", async () => {
-    expect(isRustParserReady()).toBe(true);
-    await initRustParser(); // second call — should not throw
-    expect(isRustParserReady()).toBe(true);
+    expect(isParserReady(RustGrammar)).toBe(true);
+    await initTreeSitterParser(RustGrammar); // second call — should not throw
+    expect(isParserReady(RustGrammar)).toBe(true);
   });
 });

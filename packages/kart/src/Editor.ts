@@ -19,7 +19,6 @@ import {
   spliceReplace,
   validateSyntax,
 } from "./pure/AstEdit.js";
-import { initRustParser, isRustParserReady } from "./pure/RustSymbols.js";
 import type { Diagnostic } from "./pure/types.js";
 
 // ── Types ──
@@ -130,11 +129,6 @@ async function edit(
   }
 
   const filename = filePath.split("/").pop() ?? "file.ts";
-
-  // Init Rust parser if needed (only when not using plugin)
-  if (!astPlugin && filename.endsWith(".rs") && !isRustParserReady()) {
-    await initRustParser();
-  }
 
   // Read
   let source: string;
