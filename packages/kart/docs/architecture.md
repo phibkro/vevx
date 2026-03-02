@@ -7,9 +7,9 @@
 kart is an MCP server providing progressive code disclosure, behavioral coupling, impact analysis, workspace navigation, AST-aware editing, import graph analysis, and reference-aware rename. Twenty-four tools across five categories:
 
 - **LSP-backed** (Effect runtime): `kart_zoom`, `kart_impact`, `kart_deps`, `kart_references`, `kart_rename`, `kart_definition`, `kart_type_definition`, `kart_implementation`, `kart_code_actions`, `kart_expand_macro`, `kart_inlay_hints`, `kart_workspace_symbol` — require `typescript-language-server` (TS) or `rust-analyzer` (Rust), routed by file extension
-- **Cached navigation**: `kart_find` (oxc-parser for TS, tree-sitter for Rust, mtime-cached symbols) — first call scans full workspace, subsequent calls near-instant
-- **Stateless navigation**: `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint for TS, cargo clippy for Rust), `kart_imports` (oxc-parser for TS, tree-sitter for Rust), `kart_importers` (oxc-parser for TS, tree-sitter for Rust), `kart_unused_exports` (oxc-parser for TS, tree-sitter for Rust)
-- **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser (TS) / tree-sitter (Rust) for symbol location + syntax validation, optional post-edit formatting (oxfmt/rustfmt), oxlint for diagnostics
+- **Cached navigation**: `kart_find` (oxc-parser for TS, tree-sitter for non-TS languages, mtime-cached symbols) — first call scans full workspace, subsequent calls near-instant
+- **Stateless navigation**: `kart_search` (ripgrep), `kart_list` (fs), `kart_cochange` (SQLite), `kart_diagnostics` (oxlint for TS, cargo clippy for Rust), `kart_imports` (oxc-parser for TS, tree-sitter via plugin registry), `kart_importers` (oxc-parser for TS, tree-sitter via plugin registry), `kart_unused_exports` (oxc-parser for TS, tree-sitter via plugin registry)
+- **Stateless editing**: `kart_replace`, `kart_insert_after`, `kart_insert_before` — oxc-parser (TS) / tree-sitter via plugin registry (Rust, PHP, ...) for symbol location + syntax validation, optional post-edit formatting (oxfmt/rustfmt), oxlint for diagnostics
 - **Server lifecycle**: `kart_restart` — disposes all LSP runtimes (TS + Rust) + clears symbol cache + restarts file watcher
 
 ```
@@ -39,22 +39,23 @@ src/
     ExportDetection.ts   — isExported() pure text scanner
     Signatures.ts        — extractSignature, extractDocComment, findBodyOpenBrace, symbolKindName
     OxcSymbols.ts        — parseSymbols() via oxc-parser — name, kind, exported, line, byte range
-    RustSymbols.ts       — parseRustSymbols() via tree-sitter — same OxcSymbol shape for Rust
-    AstEdit.ts           — locateSymbol, validateSyntax, spliceReplace, spliceInsertAfter, spliceInsertBefore (TS + Rust dispatch)
+    TreeSitterPlugin.ts  — generic tree-sitter AST plugin factory — query-based symbol extraction for any tree-sitter grammar
+    AstEdit.ts           — locateSymbol, validateSyntax, spliceReplace, spliceInsertAfter, spliceInsertBefore (TS only — Rust/PHP dispatched via plugin registry)
     Resolve.ts           — loadTsconfigPaths, resolveAlias, resolveSpecifier, bunResolve (tsconfig path resolution)
     ImportGraph.ts       — extractFileImports, buildImportGraph, transitiveImporters (oxc AST import graph)
     RustImports.ts       — extractRustFileImportsSync/Async, rustResolve (tree-sitter Rust use statement extraction + crate-relative path resolution)
   Plugin.ts              — AstPlugin, LspPlugin, PluginRegistry interfaces, makeRegistry, PluginUnavailableError
   TsPlugin.ts            — TsAstPluginImpl, TsLspPluginImpl (oxc + typescript-language-server)
-  RustPlugin.ts          — makeRustAstPlugin, RustLspPluginImpl (tree-sitter + rust-analyzer)
+  RustPlugin.ts          — RustGrammar + RustHooks config, makeRustAstPlugin, RustLspPluginImpl (tree-sitter factory + rust-analyzer)
+  PhpPlugin.ts           — PhpGrammar config, makePhpAstPlugin, PhpLspPluginImpl (tree-sitter factory + intelephense)
   PluginLayers.ts        — makeRegistryFromPlugins, LspRuntimes service, makeLspRuntimes
   Lsp.ts                 — LspClient service, JsonRpcTransport, LspClientLive layer
   Symbols.ts             — SymbolIndex service, toZoomSymbol, zoomDirectory, impact, deps, references, rename, definition, typeDefinition, implementation, codeActions, expandMacro, inlayHints
   Cochange.ts            — CochangeDb service, SQL query, graceful degradation
-  Find.ts                — findSymbols: workspace-wide symbol search via oxc-parser (TS) / tree-sitter (Rust)
+  Find.ts                — findSymbols: workspace-wide symbol search via oxc-parser (TS) / tree-sitter plugin registry (Rust, PHP, ...)
   Search.ts              — searchPattern: text search via ripgrep subprocess
   List.ts                — listDirectory: recursive directory listing with glob
-  Editor.ts              — editReplace, editInsertAfter, editInsertBefore: AST-aware edit pipeline with optional formatting (TS + Rust)
+  Editor.ts              — editReplace, editInsertAfter, editInsertBefore: AST-aware edit pipeline with optional formatting (TS + plugin registry)
   Diagnostics.ts         — runDiagnostics: oxlint (TS) + cargo clippy (Rust), auto-routed by extension
   Imports.ts             — getImports, getImporters: import graph queries with barrel expansion
   Tools.ts               — 24 tool definitions (Zod schemas + Effect/async handlers)
@@ -205,7 +206,7 @@ kart_find({ name: "validate", kind: "function", exported: true })
   ├─ collect .ts/.tsx/.rs files recursively (excludes node_modules/dist/build/.git/.varp/target)
   ├─ check mtime cache → parse only new/changed files
   │    ├─ .ts/.tsx → oxc-parser
-  │    └─ .rs → tree-sitter (lazy init on first .rs file)
+  │    └─ .rs/.php/… → tree-sitter via plugin registry
   ├─ evict cache entries for deleted files
   ├─ filter by name substring, kind, exported status
   └─ return FindResult { symbols[], fileCount }
@@ -228,11 +229,11 @@ kart_search({ pattern: "TODO", glob: "*.ts" })
 ```
 kart_replace({ file: "src/auth.ts", symbol: "validate", content: "function validate() { ... }" })
   │
-  ├─ [.rs file] → initRustParser() if not ready
+  ├─ resolve astPlugin from registry (TS: oxc-parser, Rust/PHP: tree-sitter)
   ├─ readFileSync(file)
-  ├─ locateSymbol(source, symbolName) via oxc-parser (TS) or tree-sitter (Rust)
+  ├─ locateSymbol(source, symbolName) via oxc-parser (TS) or tree-sitter plugin (Rust/PHP)
   │    └─ [not found] → error
-  ├─ validateSyntax(newContent) via oxc-parser (TS) or tree-sitter hasError (Rust)
+  ├─ validateSyntax(newContent) via oxc-parser (TS) or tree-sitter plugin hasError (Rust/PHP)
   │    └─ [syntax error] → error with message
   ├─ spliceReplace(source, range, content)
   ├─ validateSyntax(fullFile) — check the whole file after splice
@@ -273,35 +274,41 @@ All error types defined in `src/pure/Errors.ts`.
 
 ## testing
 
-301 tests across 20 files, split into pure (coverage-gated) and integration:
+357 tests across 26 files, split into pure (coverage-gated) and integration:
 
-**Pure tests** (`src/pure/`, 117 tests, `test:pure` with `--coverage`, 100% function / 99% line):
+**Pure tests** (`src/pure/`, 142 tests, `test:pure` with `--coverage`, 100% function / 99% line):
 
 | file | tests | what |
 |------|-------|------|
-| `pure/ExportDetection.test.ts` | 16 | isExported text scanning — TS fixture + Rust pub/pub(crate) |
-| `pure/Signatures.test.ts` | 12 | extractSignature, extractDocComment edge cases |
+| `pure/ExportDetection.test.ts` | 7 | isExported text scanning — TS fixture + Rust pub/pub(crate) |
+| `pure/Signatures.test.ts` | 19 | extractSignature, extractDocComment edge cases |
 | `pure/OxcSymbols.test.ts` | 14 | parseSymbols for all TS declaration kinds, exports, line numbers |
-| `pure/RustSymbols.test.ts` | 7 | parseRustSymbols — all Rust declaration kinds, pub detection, impl naming |
-| `pure/AstEdit.test.ts` | 21 | locateSymbol, validateSyntax, splice operations (TS + Rust) |
-| `pure/Resolve.test.ts` | 15 | loadTsconfigPaths, resolveAlias, resolveSpecifier, extends chain, node_modules, edge cases |
-| `pure/ImportGraph.test.ts` | 19 | extractFileImports, buildImportGraph, transitiveImporters, barrel expansion, local re-exports, default exports |
+| `pure/RustSymbols.test.ts` | 9 | Rust symbol extraction via tree-sitter factory — all declaration kinds, pub detection, impl naming |
+| `pure/TreeSitterPlugin.test.ts` | 18 | generic tree-sitter factory — parser init/caching, symbol extraction, validation, makeTreeSitterPlugin contract |
+| `pure/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations (TS + Rust) |
+| `pure/Resolve.test.ts` | 17 | loadTsconfigPaths, resolveAlias, resolveSpecifier, extends chain, node_modules, edge cases |
+| `pure/ImportGraph.test.ts` | 23 | extractFileImports, buildImportGraph, transitiveImporters, barrel expansion, local re-exports, default exports |
+| `pure/RustImports.test.ts` | 21 | tree-sitter Rust use extraction, crate-relative resolution, grouped imports |
 
-**Integration tests** (`src/*.test.ts`, 150 tests, `test:integration`):
+**Integration tests** (`src/*.test.ts`, 215 tests, `test:integration`):
 
 | file | tests | what |
 |------|-------|------|
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
-| `Lsp.test.ts` | 14 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, outgoingCalls, hover, definition (same-file + cross-file), typeDefinition, implementation, codeAction, shutdown |
-| `ExportDetection.integration.test.ts` | 3 | LSP spike — semantic tokens don't distinguish exports |
+| `Lsp.test.ts` | 16 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, outgoingCalls, hover, definition (same-file + cross-file), typeDefinition, implementation, codeAction, shutdown |
+| `ExportDetection.integration.test.ts` | 5 | LSP spike — semantic tokens don't distinguish exports |
 | `Symbols.test.ts` | 26 | zoom levels, directory zoom (compact + full), resolved types, resolveTypes opt-out, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS, references, rename |
-| `Find.test.ts` | 18 | symbol search by name/kind/export (TS + Rust), mtime cache, target/ exclusion |
+| `Find.test.ts` | 19 | symbol search by name/kind/export (TS + Rust + PHP), mtime cache, target/ exclusion |
 | `Search.test.ts` | 7 | pattern search, glob filtering, path restriction, workspace boundary |
 | `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |
 | `Diagnostics.test.ts` | 7 | oxlint + clippy integration, language routing, unavailable fallback, workspace boundary |
-| `Editor.test.ts` | 14 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths (TS + Rust) |
-| `Imports.test.ts` | 8 | getImports, getImporters, barrel expansion, workspace boundary |
-| `RustImports.test.ts` | 8 | tree-sitter Rust use extraction, crate-relative resolution, grouped imports |
+| `Editor.test.ts` | 23 | replace, insert after/before, syntax validation, symbol not found, workspace boundary, error paths (TS + Rust + plugin registry) |
+| `Imports.test.ts` | 16 | getImports, getImporters, barrel expansion, workspace boundary |
+| `Plugin.test.ts` | 5 | PluginRegistry makeRegistry, extension routing, PluginUnavailableError |
+| `PluginLayers.test.ts` | 11 | makeRegistryFromPlugins, LspRuntimes service, plugin layer composition |
+| `TsPlugin.test.ts` | 8 | TS AST+LSP plugin — parseSymbols, locateSymbol, validateSyntax, LSP config |
+| `RustPlugin.test.ts` | 9 | Rust AST+LSP plugin — parseSymbols, locateSymbol, validateSyntax, LSP config |
+| `PhpPlugin.test.ts` | 10 | PHP AST plugin — symbol extraction, locateSymbol, validateSyntax, LSP config |
 | `Mcp.test.ts` | 38 | MCP integration via InMemoryTransport (all 24 tools) |
 | `call-hierarchy-spike.test.ts` | 6 | BFS latency measurement across kart + varp symbols |
 
@@ -316,7 +323,7 @@ effect              — service layer (Context.Tag, Layer, ManagedRuntime, Data.
 @modelcontextprotocol/sdk — MCP server + InMemoryTransport for tests
 oxc-parser          — fast TS/TSX parsing for find + edit tools (symbol extraction, syntax validation)
 web-tree-sitter     — WASM-based tree-sitter runtime for Rust parsing
-tree-sitter-wasms   — prebuilt .wasm grammars (provides tree-sitter-rust.wasm)
+tree-sitter-wasms   — prebuilt .wasm grammars (provides tree-sitter-rust.wasm, tree-sitter-php.wasm, 36+ languages)
 zod                 — tool input schemas
 bun:sqlite          — read-only cochange queries
 ```

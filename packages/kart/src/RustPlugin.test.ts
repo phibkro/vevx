@@ -13,6 +13,10 @@ describe("RustLspPluginImpl", () => {
   it("returns rust languageId", () => {
     expect(RustLspPluginImpl.languageId("foo.rs")).toBe("rust");
   });
+
+  it("returns empty initializeParams", () => {
+    expect(RustLspPluginImpl.initializeParams()).toEqual({});
+  });
 });
 
 describe("makeRustAstPlugin", () => {

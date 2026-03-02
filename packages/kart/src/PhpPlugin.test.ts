@@ -13,6 +13,10 @@ describe("PhpLspPluginImpl", () => {
   it("returns php languageId", () => {
     expect(PhpLspPluginImpl.languageId("index.php")).toBe("php");
   });
+
+  it("returns empty initializeParams", () => {
+    expect(PhpLspPluginImpl.initializeParams()).toEqual({});
+  });
 });
 
 describe("makePhpAstPlugin", () => {
