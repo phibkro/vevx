@@ -49,7 +49,7 @@ Kart uses three backends depending on what's needed:
 
 **tree-sitter** — for Rust symbol extraction. WASM-based (`web-tree-sitter`), no native bindings. Parses `function_item`, `struct_item`, `enum_item`, `trait_item`, `impl_item`, `type_item`, `const_item`, `static_item`, `mod_item`, `macro_definition`. Returns the same `OxcSymbol` shape for compatibility.
 
-**LSP** — for cross-file type resolution. `typescript-language-server` for TS, `rust-analyzer` for Rust. Parameterized via `LspPlugin` (binary, args, languageId, watch patterns). LSP-backed tools route by file extension through `PluginRegistry`.
+**LSP** — for cross-file type resolution. `typescript-language-server` for TS, `rust-analyzer` for Rust. Parameterized via `LspPlugin` (extensions, binary, args, languageId, initializeParams, watchExtensions, watchFilenames). LSP-backed tools route by file extension through `PluginRegistry`.
 
 The split is clean: if a tool needs to cross file boundaries for type information, use LSP. For per-file parsing, use oxc (TS) or tree-sitter (Rust).
 

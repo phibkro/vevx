@@ -12,8 +12,8 @@ export async function makeRustAstPlugin(): Promise<AstPlugin["Type"]> {
   return {
     extensions: new Set([".rs"]),
     parseSymbols: (source, path) => parseRustSymbols(source, path),
-    locateSymbol: (source, name, _path) => {
-      const symbols = parseRustSymbols(source, "file.rs");
+    locateSymbol: (source, name, path) => {
+      const symbols = parseRustSymbols(source, path);
       const match = symbols.find((s) => s.name === name);
       return Option.fromNullable(match ? (match.range as SymbolRange) : null);
     },
@@ -25,6 +25,8 @@ export async function makeRustAstPlugin(): Promise<AstPlugin["Type"]> {
 
 export const RustLspPluginImpl: LspPlugin["Type"] = {
   extensions: new Set([".rs"]),
+  binary: "rust-analyzer",
+  args: [],
   languageId: () => "rust",
   initializeParams: () => ({}),
   watchExtensions: new Set([".rs"]),

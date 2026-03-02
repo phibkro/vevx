@@ -3,7 +3,7 @@ import { extname, resolve } from "node:path";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Effect, ManagedRuntime, Option } from "effect";
+import { Effect, ManagedRuntime } from "effect";
 
 /** Symbol used by Effect to store the Cause inside FiberFailure. */
 const FiberFailureCauseSymbol = Symbol.for("effect/Runtime/FiberFailure/Cause");
@@ -51,11 +51,10 @@ import {
 import { listDirectory, type ListArgs } from "./List.js";
 import { PluginUnavailableError } from "./Plugin.js";
 import { makeRegistryFromPlugins, makeLspRuntimes } from "./PluginLayers.js";
-import { RustLspPluginImpl } from "./RustPlugin.js";
 import { initRustParser } from "./pure/RustSymbols.js";
 import type { DepsResult, ImpactResult } from "./pure/types.js";
+import { RustLspPluginImpl } from "./RustPlugin.js";
 import { searchPattern, type SearchArgs } from "./Search.js";
-import { TsAstPluginImpl, TsLspPluginImpl } from "./TsPlugin.js";
 import {
   kart_code_actions,
   kart_cochange,
@@ -82,6 +81,7 @@ import {
   kart_workspace_symbol,
   kart_zoom,
 } from "./Tools.js";
+import { TsAstPluginImpl, TsLspPluginImpl } from "./TsPlugin.js";
 
 // ── Response compaction ──
 
@@ -711,14 +711,19 @@ function createServer(config: ServerConfig = {}): McpServer {
           content: string;
           format?: boolean;
         };
-        const astPlugin = Option.getOrUndefined(registry.astFor(typedArgs.file));
+        const astOpt = registry.astFor(typedArgs.file);
+        if (astOpt._tag === "None") {
+          return pluginUnavailableResponse(
+            new PluginUnavailableError({ path: typedArgs.file, capability: "ast" }),
+          );
+        }
         const result = await editReplace(
           typedArgs.file,
           typedArgs.symbol,
           typedArgs.content,
           rootDir,
           typedArgs.format,
-          astPlugin,
+          astOpt.value,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -749,14 +754,19 @@ function createServer(config: ServerConfig = {}): McpServer {
           content: string;
           format?: boolean;
         };
-        const astPlugin = Option.getOrUndefined(registry.astFor(typedArgs.file));
+        const astOpt = registry.astFor(typedArgs.file);
+        if (astOpt._tag === "None") {
+          return pluginUnavailableResponse(
+            new PluginUnavailableError({ path: typedArgs.file, capability: "ast" }),
+          );
+        }
         const result = await editInsertAfter(
           typedArgs.file,
           typedArgs.symbol,
           typedArgs.content,
           rootDir,
           typedArgs.format,
-          astPlugin,
+          astOpt.value,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -787,14 +797,19 @@ function createServer(config: ServerConfig = {}): McpServer {
           content: string;
           format?: boolean;
         };
-        const astPlugin = Option.getOrUndefined(registry.astFor(typedArgs.file));
+        const astOpt = registry.astFor(typedArgs.file);
+        if (astOpt._tag === "None") {
+          return pluginUnavailableResponse(
+            new PluginUnavailableError({ path: typedArgs.file, capability: "ast" }),
+          );
+        }
         const result = await editInsertBefore(
           typedArgs.file,
           typedArgs.symbol,
           typedArgs.content,
           rootDir,
           typedArgs.format,
-          astPlugin,
+          astOpt.value,
         );
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],

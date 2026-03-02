@@ -1,4 +1,4 @@
-DR-007: Kart Plugin Interface — LSP and AST Capability Split
+ADR-007: Kart Plugin Interface — LSP and AST Capability Split
 
 **Status:** Accepted
 **Date:** 2026-03-02
@@ -117,7 +117,7 @@ class LspRuntimes extends Context.Tag("LspRuntimes")<
   {
     readonly runtimeFor: (path: string) => Effect.Effect<
       ManagedRuntime.ManagedRuntime<SymbolIndex, never>,
-      LspUnavailableError
+      PluginUnavailableError
     >
   }
 >() {}
@@ -132,7 +132,7 @@ const LspRuntimesLive = Layer.effect(
       runtimeFor: (path) => Effect.gen(function*() {
         const ext = extname(path)
         const plugin = yield* registry.lspFor(path).pipe(
-          Effect.fromOption(() => new LspUnavailableError({ path }))
+          Effect.fromOption(() => new PluginUnavailableError({ path }))
         )
         const current = yield* Ref.get(runtimes)
         if (current.has(ext)) return current.get(ext)!
@@ -242,7 +242,7 @@ Plugins are registered in `RegistryLive` by adding layers. There's no runtime re
 
 ### LspClientLive becomes plugin-parameterized
 
-`LspClientLive` currently hardcodes `typescript-language-server`. It needs to accept an `LspPlugin` and use `plugin.spawnServer`, `plugin.languageId`, etc. This is a mechanical change with no behavioral impact on existing TypeScript tooling.
+`LspClientLive` now accepts an `LspPlugin` and uses `plugin.binary`, `plugin.languageId`, etc. This was a mechanical change with no behavioral impact on existing TypeScript tooling.
 
 ## Alternatives considered
 

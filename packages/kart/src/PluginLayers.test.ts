@@ -123,12 +123,12 @@ describe("makeLspRuntimes", () => {
     expect(() => runtimes.recreate()).not.toThrow();
   });
 
-  it("recreate(ext) targets only the specified extension", () => {
+  it("recreate(key) targets only the specified runtime by binary name", () => {
     const registry = makeRegistryFromPlugins({ ast: [], lsp: [fakeLsp, fakeRustLsp] });
     const runtimes = makeLspRuntimes(registry, "/tmp/claude/test-root");
 
-    // Recreate only .ts — should not throw even when no runtime exists yet for that ext
-    expect(() => runtimes.recreate(".ts")).not.toThrow();
+    // Recreate by binary name — should not throw even when no runtime exists yet
+    expect(() => runtimes.recreate("fake-ts-lsp")).not.toThrow();
   });
 
   it("disposeAll() resolves without error when no runtimes are active", async () => {

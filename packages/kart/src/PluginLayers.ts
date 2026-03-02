@@ -1,9 +1,13 @@
-import { extname } from "node:path";
-
-import { Context, Data, Effect, Layer, ManagedRuntime } from "effect";
+import { Context, Effect, Layer, ManagedRuntime } from "effect";
 
 import { LspClientLive } from "./Lsp.js";
-import { type AstPlugin, type LspPlugin, makeRegistry, PluginRegistry, PluginUnavailableError } from "./Plugin.js";
+import {
+  type AstPlugin,
+  type LspPlugin,
+  makeRegistry,
+  PluginRegistry,
+  PluginUnavailableError,
+} from "./Plugin.js";
 import { SymbolIndex, SymbolIndexLive } from "./Symbols.js";
 
 // ── Registry construction ──
@@ -38,25 +42,24 @@ export function makeLspRuntimes(
 
   const buildRuntime = (plugin: LspPlugin["Type"]) =>
     ManagedRuntime.make(
-      SymbolIndexLive({ rootDir }).pipe(
-        Layer.provide(LspClientLive({ rootDir, plugin })),
-      ),
+      SymbolIndexLive({ rootDir }).pipe(Layer.provide(LspClientLive({ rootDir, plugin }))),
     );
 
   return {
     runtimeFor: (path) =>
       Effect.gen(function* () {
-        const ext = extname(path);
-        const existing = runtimes.get(ext);
-        if (existing) return existing;
-
         const plugin = registry.lspFor(path);
         if (plugin._tag === "None") {
           return yield* Effect.fail(new PluginUnavailableError({ path, capability: "lsp" }));
         }
 
+        // Key by plugin binary — all extensions sharing a plugin share one runtime
+        const key = plugin.value.binary;
+        const existing = runtimes.get(key);
+        if (existing) return existing;
+
         const runtime = buildRuntime(plugin.value);
-        runtimes.set(ext, runtime);
+        runtimes.set(key, runtime);
         return runtime;
       }),
 
@@ -67,12 +70,12 @@ export function makeLspRuntimes(
       runtimes.clear();
     },
 
-    recreate: (ext?: string) => {
-      if (ext) {
-        const old = runtimes.get(ext);
+    recreate: (key?: string) => {
+      if (key) {
+        const old = runtimes.get(key);
         if (old) {
           old.dispose().catch(() => {});
-          runtimes.delete(ext);
+          runtimes.delete(key);
         }
       } else {
         for (const rt of runtimes.values()) {
