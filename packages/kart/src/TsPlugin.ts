@@ -1,9 +1,9 @@
 import { Option } from "effect";
 
 import type { AstPlugin, LspPlugin } from "./Plugin.js";
-import { parseSymbols } from "./pure/OxcSymbols.js";
 import type { SymbolRange } from "./pure/AstEdit.js";
 import { validateSyntax as validateTsSyntax } from "./pure/AstEdit.js";
+import { parseSymbols } from "./pure/OxcSymbols.js";
 
 // ── TypeScript AST Plugin ──
 
@@ -22,6 +22,8 @@ export const TsAstPluginImpl: AstPlugin["Type"] = {
 
 export const TsLspPluginImpl: LspPlugin["Type"] = {
   extensions: new Set([".ts", ".tsx"]),
+  binary: "typescript-language-server",
+  args: ["--stdio"],
   languageId: (path) => (path.endsWith(".tsx") ? "typescriptreact" : "typescript"),
   initializeParams: () => ({}),
   watchExtensions: new Set([".ts", ".tsx"]),

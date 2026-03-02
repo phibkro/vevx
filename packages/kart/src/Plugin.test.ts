@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { Option } from "effect";
+
 import { makeRegistry, PluginUnavailableError } from "./Plugin.js";
 import type { AstPlugin, LspPlugin } from "./Plugin.js";
 

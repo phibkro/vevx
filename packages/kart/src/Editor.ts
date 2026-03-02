@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 
 import { Option } from "effect";
 
+import type { AstPlugin } from "./Plugin.js";
 import {
   locateSymbol,
   spliceInsertAfter,
@@ -19,7 +20,6 @@ import {
   validateSyntax,
 } from "./pure/AstEdit.js";
 import { initRustParser, isRustParserReady } from "./pure/RustSymbols.js";
-import type { AstPlugin } from "./Plugin.js";
 import type { Diagnostic } from "./pure/types.js";
 
 // ── Types ──

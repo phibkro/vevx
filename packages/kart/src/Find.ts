@@ -14,9 +14,9 @@ import { join, relative } from "node:path";
 
 import { Option } from "effect";
 
+import type { PluginRegistry } from "./Plugin.js";
 import { parseSymbols, type OxcSymbol } from "./pure/OxcSymbols.js";
 import { initRustParser, isRustParserReady, parseRustSymbols } from "./pure/RustSymbols.js";
-import type { PluginRegistry } from "./Plugin.js";
 
 // ── Types ──
 
@@ -70,7 +70,10 @@ export function invalidateCacheEntry(absPath: string): void {
 
 // ── Implementation ──
 
-export async function findSymbols(args: FindArgs, registry?: PluginRegistry["Type"]): Promise<FindResult> {
+export async function findSymbols(
+  args: FindArgs,
+  registry?: PluginRegistry["Type"],
+): Promise<FindResult> {
   const start = performance.now();
   const rootDir = args.rootDir ?? process.cwd();
   const searchDir = args.path ? join(rootDir, args.path) : rootDir;
@@ -131,7 +134,11 @@ export async function findSymbols(args: FindArgs, registry?: PluginRegistry["Typ
 
 // ── Multi-language parse router ──
 
-async function parseFile(source: string, path: string, registry?: PluginRegistry["Type"]): Promise<OxcSymbol[]> {
+async function parseFile(
+  source: string,
+  path: string,
+  registry?: PluginRegistry["Type"],
+): Promise<OxcSymbol[]> {
   if (registry) {
     const plugin = registry.astFor(path);
     if (Option.isSome(plugin)) return plugin.value.parseSymbols(source, path);

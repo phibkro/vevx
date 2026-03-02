@@ -3,9 +3,9 @@ import { resolve } from "node:path";
 
 import { Context, Effect, Layer, Scope } from "effect";
 
+import type { LspPlugin } from "./Plugin.js";
 import { LspError, LspTimeoutError } from "./pure/Errors.js";
 import { TsLspPluginImpl } from "./TsPlugin.js";
-import type { LspPlugin } from "./Plugin.js";
 
 export type {
   CallHierarchyItem,
