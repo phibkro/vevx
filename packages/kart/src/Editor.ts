@@ -9,6 +9,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { Option } from "effect";
+
 import {
   locateSymbol,
   spliceInsertAfter,
@@ -17,6 +19,7 @@ import {
   validateSyntax,
 } from "./pure/AstEdit.js";
 import { initRustParser, isRustParserReady } from "./pure/RustSymbols.js";
+import type { AstPlugin } from "./Plugin.js";
 import type { Diagnostic } from "./pure/types.js";
 
 // ── Types ──
@@ -109,6 +112,7 @@ async function edit(
   op: SpliceOp,
   rootDir?: string,
   format?: boolean,
+  astPlugin?: AstPlugin["Type"],
 ): Promise<EditResult> {
   // Workspace boundary check
   if (rootDir) {
@@ -127,8 +131,8 @@ async function edit(
 
   const filename = filePath.split("/").pop() ?? "file.ts";
 
-  // Init Rust parser if needed
-  if (filename.endsWith(".rs") && !isRustParserReady()) {
+  // Init Rust parser if needed (only when not using plugin)
+  if (!astPlugin && filename.endsWith(".rs") && !isRustParserReady()) {
     await initRustParser();
   }
 
@@ -148,7 +152,9 @@ async function edit(
   }
 
   // Locate
-  const range = locateSymbol(source, symbolName, filename);
+  const range = astPlugin
+    ? Option.getOrNull(astPlugin.locateSymbol(source, symbolName, filename))
+    : locateSymbol(source, symbolName, filename);
   if (!range) {
     return {
       success: false,
@@ -162,7 +168,9 @@ async function edit(
 
   // For replace: validate the new content fragment syntax
   if (op === "replace") {
-    const contentError = validateSyntax(content, filename);
+    const contentError = astPlugin
+      ? Option.getOrNull(astPlugin.validateSyntax(content, filename))
+      : validateSyntax(content, filename);
     if (contentError) {
       return {
         success: false,
@@ -185,7 +193,9 @@ async function edit(
   const result = spliceFn(source, range, content);
 
   // Validate full file after edit
-  const fullFileError = validateSyntax(result, filename);
+  const fullFileError = astPlugin
+    ? Option.getOrNull(astPlugin.validateSyntax(result, filename))
+    : validateSyntax(result, filename);
   if (fullFileError) {
     return {
       success: false,
@@ -231,8 +241,9 @@ export async function editReplace(
   content: string,
   rootDir?: string,
   format?: boolean,
+  astPlugin?: AstPlugin["Type"],
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "replace", rootDir, format);
+  return edit(filePath, symbolName, content, "replace", rootDir, format, astPlugin);
 }
 
 export async function editInsertAfter(
@@ -241,8 +252,9 @@ export async function editInsertAfter(
   content: string,
   rootDir?: string,
   format?: boolean,
+  astPlugin?: AstPlugin["Type"],
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "insertAfter", rootDir, format);
+  return edit(filePath, symbolName, content, "insertAfter", rootDir, format, astPlugin);
 }
 
 export async function editInsertBefore(
@@ -251,6 +263,7 @@ export async function editInsertBefore(
   content: string,
   rootDir?: string,
   format?: boolean,
+  astPlugin?: AstPlugin["Type"],
 ): Promise<EditResult> {
-  return edit(filePath, symbolName, content, "insertBefore", rootDir, format);
+  return edit(filePath, symbolName, content, "insertBefore", rootDir, format, astPlugin);
 }
