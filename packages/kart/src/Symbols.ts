@@ -1,12 +1,14 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 import { Context, Effect, Layer } from "effect";
 
+import { buildDeclarations, isCacheStale, readDeclaration } from "./core/DeclCache.js";
 import { FileNotFoundError, LspError, LspTimeoutError } from "./core/Errors.js";
 import { isExported } from "./core/ExportDetection.js";
 import { parseSymbols } from "./core/OxcSymbols.js";
 import { extractDocComment, extractSignature, symbolKindName } from "./core/Signatures.js";
+import { extractTypeReferences, resolveTypeOrigins } from "./core/TypeRefs.js";
 import type {
   CallHierarchyItem,
   CodeActionsResult,
@@ -24,6 +26,7 @@ import type {
   TextEdit,
   TypeDefinitionResult,
   WorkspaceSymbolResult,
+  ZoomFileResult,
 } from "./core/types.js";
 import type { ZoomResult, ZoomSymbol } from "./core/types.js";
 import { LspClient } from "./Lsp.js";
@@ -46,51 +49,17 @@ export type {
 
 // ── Constants ──
 
-const MAX_LEVEL2_BYTES = 100 * 1024; // 100KB cap for level-2 full file content
 const MAX_IMPACT_DEPTH = 5; // Hard cap on BFS depth to prevent full-graph traversal
 const HIGH_FAN_OUT_THRESHOLD = 10; // Warn agents when fan-out exceeds this
 
-// ── Symbol conversion ──
+// ── Zoom options ──
 
-// ── Hover enrichment ──
-
-/** Strip markdown code fence wrapper from hover response. */
-function extractTypeFromHover(contents: string): string {
-  const match = contents.match(/```\w*\n([\s\S]*?)\n```/);
-  return match ? match[1].trim() : contents.trim();
-}
-
-/** Batch hover calls for zoom symbols, zip resolved types onto results. */
-function enrichWithResolvedTypes(
-  lsp: Context.Tag.Service<typeof LspClient>,
-  uri: string,
-  docSymbols: readonly DocumentSymbol[],
-  zoomSymbols: ZoomSymbol[],
-): Effect.Effect<ZoomSymbol[], LspError | LspTimeoutError> {
-  return Effect.gen(function* () {
-    const symbolNames = new Set(zoomSymbols.map((s) => s.name));
-    const positions = docSymbols
-      .filter((s) => symbolNames.has(s.name))
-      .map((s) => ({
-        name: s.name,
-        line: s.selectionRange.start.line,
-        char: s.selectionRange.start.character,
-      }));
-
-    const hoverMap = new Map<string, string>();
-    for (const pos of positions) {
-      const result = yield* lsp.hover(uri, pos.line, pos.char);
-      if (result) {
-        hoverMap.set(pos.name, extractTypeFromHover(result.contents));
-      }
-    }
-
-    return zoomSymbols.map((s) => {
-      const resolved = hoverMap.get(s.name);
-      return resolved ? { ...s, resolvedType: resolved } : s;
-    });
-  });
-}
+type ZoomOptions = {
+  depth: number;
+  visibility: "exported" | "all";
+  kind?: string[];
+  deep: boolean;
+};
 
 // ── Symbol conversion ──
 
@@ -135,8 +104,7 @@ export class SymbolIndex extends Context.Tag("kart/SymbolIndex")<
   {
     readonly zoom: (
       path: string,
-      level: 0 | 1 | 2,
-      resolveTypes?: boolean,
+      opts: ZoomOptions,
     ) => Effect.Effect<ZoomResult, LspError | LspTimeoutError | FileNotFoundError>;
     readonly impact: (
       path: string,
@@ -205,9 +173,10 @@ export const SymbolIndexLive = (config?: {
       const rootDir = resolve(config?.rootDir ?? process.cwd());
 
       return SymbolIndex.of({
-        zoom: (path, level, resolveTypes = true) =>
+        zoom: (path, opts) =>
           Effect.gen(function* () {
             const absPath = resolve(path);
+            const { depth, visibility, kind, deep } = opts;
 
             // Path traversal guard: reject paths outside workspace root
             if (!absPath.startsWith(rootDir + "/") && absPath !== rootDir) {
@@ -224,57 +193,122 @@ export const SymbolIndexLive = (config?: {
             // Directory zoom
             const stat = statSync(absPath);
             if (stat.isDirectory()) {
-              return yield* zoomDirectory(lsp, absPath, level);
+              return yield* zoomDirectory(lsp, absPath, opts, rootDir);
             }
 
-            // Level 2: full file content (with size cap)
-            if (level === 2) {
-              const fileStat = statSync(absPath);
-              const truncated = fileStat.size > MAX_LEVEL2_BYTES;
-              const content = truncated
-                ? readFileSync(absPath, "utf-8").slice(0, MAX_LEVEL2_BYTES)
-                : readFileSync(absPath, "utf-8");
-              return {
-                path: absPath,
-                level: 2 as const,
-                symbols: [
-                  {
-                    name: absPath.split("/").pop() ?? absPath,
-                    kind: "file",
-                    signature: content,
-                    doc: null,
-                    exported: false,
-                  },
-                ],
-                truncated,
-              };
+            // Rust files: keep tree-sitter + LSP path
+            if (absPath.endsWith(".rs")) {
+              const uri = `file://${absPath}`;
+              const symbols = yield* lsp.documentSymbol(uri);
+              const fileContent = readFileSync(absPath, "utf-8");
+              const lines = fileContent.split("\n");
+
+              let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines, 1));
+              if (visibility === "exported") {
+                zoomSymbols = zoomSymbols.filter((s) => s.exported);
+              }
+              if (kind) {
+                zoomSymbols = zoomSymbols.filter((s) => kind.includes(s.kind));
+              }
+
+              return { path: absPath, depth, symbols: zoomSymbols };
             }
 
-            // Level 0 or 1: use LSP
+            // TypeScript files: DeclCache path for visibility=exported
+            if (visibility === "exported") {
+              // Ensure DeclCache is fresh
+              if (isCacheStale(rootDir)) {
+                yield* Effect.promise(() => buildDeclarations(rootDir));
+              }
+
+              let primaryDts = readDeclaration(rootDir, absPath);
+              if (!primaryDts) {
+                // Cache miss — build and retry
+                yield* Effect.promise(() => buildDeclarations(rootDir));
+                primaryDts = readDeclaration(rootDir, absPath);
+              }
+
+              if (primaryDts) {
+                // Apply kind filter by stripping non-matching declarations
+                if (kind) {
+                  primaryDts = filterDtsByKind(primaryDts, kind);
+                }
+
+                // BFS for referenced files at depth > 0
+                const referencedFiles: ZoomFileResult[] = [];
+                if (depth > 0) {
+                  const visited = new Set<string>([absPath]);
+                  let frontier: Array<{ path: string; content: string }> = [
+                    { path: absPath, content: primaryDts },
+                  ];
+
+                  for (let hop = 0; hop < depth; hop++) {
+                    const nextFrontier: Array<{ path: string; content: string }> = [];
+                    for (const { path: originPath, content: dtsContent } of frontier) {
+                      const refs = extractTypeReferences(dtsContent, deep);
+                      const origins = resolveTypeOrigins(dtsContent);
+                      for (const ref of refs) {
+                        const specifier = origins.get(ref);
+                        if (!specifier) continue;
+                        // Skip external packages (no relative path)
+                        if (!specifier.startsWith(".")) continue;
+                        // Resolve specifier relative to the file it was imported from
+                        const refPath = resolveSpecifierToSource(originPath, specifier);
+                        // Workspace boundary guard for BFS-resolved paths
+                        if (!refPath.startsWith(rootDir + "/") && refPath !== rootDir) continue;
+                        if (visited.has(refPath)) continue;
+                        visited.add(refPath);
+                        let refDts = readDeclaration(rootDir, refPath);
+                        if (refDts) {
+                          if (kind) {
+                            refDts = filterDtsByKind(refDts, kind);
+                          }
+                          if (refDts.trim()) {
+                            referencedFiles.push({ path: refPath, content: refDts });
+                            nextFrontier.push({ path: refPath, content: refDts });
+                          }
+                        }
+                      }
+                    }
+                    frontier = nextFrontier;
+                  }
+                }
+
+                return {
+                  path: absPath,
+                  depth,
+                  symbols: [
+                    {
+                      name: absPath.split("/").pop() ?? absPath,
+                      kind: "declarations",
+                      signature: primaryDts,
+                      doc: null,
+                      exported: true,
+                    },
+                  ],
+                  ...(referencedFiles.length > 0 ? { referencedFiles } : {}),
+                };
+              }
+
+              // DeclCache unavailable (no tsc) — fall through to LSP path
+            }
+
+            // Fallback: LSP + documentSymbol path (visibility=all or DeclCache unavailable)
             const uri = `file://${absPath}`;
             const symbols = yield* lsp.documentSymbol(uri);
             const fileContent = readFileSync(absPath, "utf-8");
             const lines = fileContent.split("\n");
 
-            // Level 0: exported only, no children. Level 1: all symbols, direct children only.
-            const maxChildDepth = level === 0 ? 0 : 1;
+            const maxChildDepth = visibility === "exported" ? 0 : 1;
             let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines, maxChildDepth));
-
-            if (level === 0) {
+            if (visibility === "exported") {
               zoomSymbols = zoomSymbols.filter((s) => s.exported);
             }
-
-            // Enrich with LSP-resolved types
-            if (resolveTypes) {
-              zoomSymbols = yield* enrichWithResolvedTypes(lsp, uri, symbols, zoomSymbols);
+            if (kind) {
+              zoomSymbols = zoomSymbols.filter((s) => kind.includes(s.kind));
             }
 
-            return {
-              path: absPath,
-              level,
-              symbols: zoomSymbols,
-              truncated: true,
-            };
+            return { path: absPath, depth, symbols: zoomSymbols };
           }),
 
         impact: (path, symbolName, maxDepth = 3) =>
@@ -856,6 +890,30 @@ export const SymbolIndexLive = (config?: {
 
 // ── Helpers ──
 
+/** Resolve an import specifier to the source .ts/.tsx file path. */
+function resolveSpecifierToSource(originPath: string, specifier: string): string {
+  const dir = dirname(originPath);
+  // .js → .ts, .jsx → .tsx
+  if (specifier.endsWith(".js")) {
+    const tsPath = resolve(dir, specifier.replace(/\.js$/, ".ts"));
+    if (existsSync(tsPath)) return tsPath;
+    return resolve(dir, specifier.replace(/\.js$/, ".tsx"));
+  }
+  if (specifier.endsWith(".jsx")) {
+    const tsPath = resolve(dir, specifier.replace(/\.jsx$/, ".ts"));
+    if (existsSync(tsPath)) return tsPath;
+    return resolve(dir, specifier.replace(/\.jsx$/, ".tsx"));
+  }
+  // Extensionless — try .ts, .tsx, index.ts, index.tsx
+  const tsPath = resolve(dir, specifier + ".ts");
+  if (existsSync(tsPath)) return tsPath;
+  const tsxPath = resolve(dir, specifier + ".tsx");
+  if (existsSync(tsxPath)) return tsxPath;
+  const indexTsPath = resolve(dir, specifier, "index.ts");
+  if (existsSync(indexTsPath)) return indexTsPath;
+  return resolve(dir, specifier, "index.tsx");
+}
+
 /** Convert line:character to byte offset within file content. */
 function linesToOffset(lines: string[], line: number, character: number): number {
   let offset = 0;
@@ -870,17 +928,19 @@ function linesToOffset(lines: string[], line: number, character: number): number
 function zoomDirectory(
   lsp: Context.Tag.Service<typeof LspClient>,
   dirPath: string,
-  level: 0 | 1 | 2 = 0,
+  opts: ZoomOptions,
+  rootDir: string,
 ): Effect.Effect<ZoomResult, LspError | LspTimeoutError | FileNotFoundError> {
   return Effect.gen(function* () {
+    const { depth, visibility, kind } = opts;
     const entries = readdirSync(dirPath);
     const sourceFiles = entries
       .filter((e) => e.endsWith(".ts") || e.endsWith(".tsx") || e.endsWith(".rs"))
       .filter((e) => !e.endsWith(".test.ts") && !e.endsWith(".test.tsx") && !e.endsWith("_test.rs"))
       .sort();
 
-    // Level 0 compact mode: export counts via oxc-parser (no LSP needed)
-    if (level === 0) {
+    // Depth 0 compact mode: export counts via oxc-parser (no LSP needed)
+    if (depth === 0 && visibility === "exported") {
       const fileResults: ZoomResult[] = [];
       for (const file of sourceFiles) {
         const filePath = resolve(dirPath, file);
@@ -891,49 +951,75 @@ function zoomDirectory(
         if (exportCount === 0) continue;
         fileResults.push({
           path: filePath,
-          level: 0,
+          depth: 0,
           symbols: [
             { name: file, kind: "file", signature: `${exportCount} exports`, exported: true },
           ],
-          truncated: true,
         });
       }
-      return { path: dirPath, level: 0 as const, symbols: [], truncated: true, files: fileResults };
+      return { path: dirPath, depth: 0, symbols: [], files: fileResults };
     }
 
-    // Level 1+: full LSP-based zoom with symbol signatures
+    // Depth 1+: use DeclCache for TS files, LSP for Rust
     const fileResults: ZoomResult[] = [];
+
+    // Ensure DeclCache is fresh for TS files (only needed for exported visibility)
+    if (visibility === "exported" && sourceFiles.some((f) => !f.endsWith(".rs"))) {
+      if (isCacheStale(rootDir)) {
+        yield* Effect.promise(() => buildDeclarations(rootDir));
+      }
+    }
 
     for (const file of sourceFiles) {
       const filePath = resolve(dirPath, file);
+
+      // Try DeclCache for TS files with visibility=exported
+      if (!file.endsWith(".rs") && visibility === "exported") {
+        const dts = readDeclaration(rootDir, filePath);
+        if (dts) {
+          let filteredDts = kind ? filterDtsByKind(dts, kind) : dts;
+          if (filteredDts.trim()) {
+            fileResults.push({
+              path: filePath,
+              depth,
+              symbols: [
+                {
+                  name: file,
+                  kind: "declarations",
+                  signature: filteredDts,
+                  doc: null,
+                  exported: true,
+                },
+              ],
+            });
+          }
+          continue;
+        }
+      }
+
+      // LSP fallback (Rust files, visibility=all, or no DeclCache)
       const uri = `file://${filePath}`;
       const fileContent = readFileSync(filePath, "utf-8");
       const lines = fileContent.split("\n");
-
       const symbols = yield* lsp.documentSymbol(uri);
-      let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines, 1)).filter((s) => s.exported);
+      let zoomSymbols = symbols.map((s) => toZoomSymbol(s, lines, 1));
 
-      // Omit files with no exports
+      if (visibility === "exported") {
+        zoomSymbols = zoomSymbols.filter((s) => s.exported);
+      }
+      if (kind) {
+        zoomSymbols = zoomSymbols.filter((s) => kind.includes(s.kind));
+      }
       if (zoomSymbols.length === 0) continue;
-
-      // Enrich with LSP-resolved types
-      zoomSymbols = yield* enrichWithResolvedTypes(lsp, uri, symbols, zoomSymbols);
 
       fileResults.push({
         path: filePath,
-        level: 0,
+        depth,
         symbols: zoomSymbols,
-        truncated: true,
       });
     }
 
-    return {
-      path: dirPath,
-      level: 0 as const,
-      symbols: [],
-      truncated: true,
-      files: fileResults,
-    };
+    return { path: dirPath, depth, symbols: [], files: fileResults };
   });
 }
 
@@ -943,15 +1029,18 @@ function zoomDirectory(
 export function formatZoomPlaintext(result: ZoomResult, rootDir?: string): string {
   const relPath = rootDir ? result.path.replace(rootDir + "/", "") : result.path;
 
-  // Directory zoom: list files with export counts
+  // Directory zoom: list files with export counts or per-file declarations
   if (result.files && result.files.length > 0) {
     const lines = [`// ${relPath}/`];
     for (const f of result.files) {
       const fRel = rootDir ? f.path.replace(rootDir + "/", "") : f.path;
       if (f.symbols.length === 1 && f.symbols[0].kind === "file") {
         lines.push(`  ${fRel}  ${f.symbols[0].signature}`);
+      } else if (f.symbols.length === 1 && f.symbols[0].kind === "declarations") {
+        lines.push(`  // ${fRel}`);
+        lines.push(`  ${f.symbols[0].signature}`);
       } else {
-        lines.push(`  ${fRel}  ${f.symbols.length} exports`);
+        lines.push(`  ${fRel}`);
         for (const s of f.symbols) {
           lines.push(`    ${formatSymbolLine(s)}`);
         }
@@ -960,12 +1049,20 @@ export function formatZoomPlaintext(result: ZoomResult, rootDir?: string): strin
     return lines.join("\n");
   }
 
-  // File zoom level 2: raw content
-  if (result.level === 2 && result.symbols.length === 1 && result.symbols[0].kind === "file") {
-    return result.symbols[0].signature;
+  // File with .d.ts content (declarations kind)
+  if (result.symbols.length === 1 && result.symbols[0].kind === "declarations") {
+    let output = `// ${relPath}\n${result.symbols[0].signature}`;
+    // Append referenced files from BFS traversal
+    if (result.referencedFiles) {
+      for (const ref of result.referencedFiles) {
+        const refRel = rootDir ? ref.path.replace(rootDir + "/", "") : ref.path;
+        output += `\n\n// ${refRel}\n${ref.content}`;
+      }
+    }
+    return output;
   }
 
-  // File zoom level 0/1: signatures
+  // Fallback: symbol-based format (Rust, visibility=all, DeclCache unavailable)
   const lines = [`// ${relPath} (${result.symbols.length} symbols)`];
   for (const s of result.symbols) {
     if (s.doc) lines.push(s.doc);
@@ -980,6 +1077,74 @@ export function formatZoomPlaintext(result: ZoomResult, rootDir?: string): strin
 }
 
 function formatSymbolLine(s: ZoomSymbol): string {
-  const type = s.resolvedType ? `: ${s.resolvedType}` : "";
-  return s.signature ? s.signature + type : `${s.kind} ${s.name}${type}`;
+  return s.signature ? s.signature : `${s.kind} ${s.name}`;
+}
+
+// ── DeclCache helpers ──
+
+const KIND_PATTERNS: Record<string, RegExp> = {
+  function: /^\s*export\s+(declare\s+)?function\s/,
+  class: /^\s*export\s+(declare\s+)?class\s/,
+  interface: /^\s*export\s+(declare\s+)?interface\s/,
+  type: /^\s*export\s+(declare\s+)?type\s/,
+  enum: /^\s*export\s+(declare\s+)?(const\s+)?enum\s/,
+  const: /^\s*export\s+(declare\s+)?const\s/,
+};
+
+/** Filter .d.ts content to only include declarations matching the given kinds. */
+function filterDtsByKind(dts: string, kinds: string[]): string {
+  // Simple line-based filter: keep import lines + lines matching kind keywords
+  const kindPatterns = kinds
+    .map((k) => KIND_PATTERNS[k])
+    .filter((p): p is RegExp => p !== undefined);
+
+  const lines = dts.split("\n");
+  const result: string[] = [];
+  let inBlock = false;
+  let braceDepth = 0;
+  let inStatement = false; // braceless multi-line declaration (e.g. function signature)
+
+  for (const line of lines) {
+    // Always keep import lines
+    if (/^\s*import\s/.test(line)) {
+      result.push(line);
+      continue;
+    }
+
+    // If we're tracking a matched brace block, keep lines until braces balance
+    if (inBlock) {
+      result.push(line);
+      braceDepth += (line.match(/{/g) || []).length;
+      braceDepth -= (line.match(/}/g) || []).length;
+      if (braceDepth <= 0) {
+        inBlock = false;
+        braceDepth = 0;
+      }
+      continue;
+    }
+
+    // If we're in a braceless multi-line statement, keep lines until `;`
+    if (inStatement) {
+      result.push(line);
+      if (line.includes(";")) {
+        inStatement = false;
+      }
+      continue;
+    }
+
+    // Check if this line matches any of the requested kinds
+    if (kindPatterns.some((p) => p.test(line))) {
+      result.push(line);
+      // Track braces for multi-line declarations (class, interface, enum bodies)
+      braceDepth = (line.match(/{/g) || []).length - (line.match(/}/g) || []).length;
+      if (braceDepth > 0) {
+        inBlock = true;
+      } else if (!line.includes(";")) {
+        // No braces and no semicolon — multi-line braceless declaration
+        inStatement = true;
+      }
+    }
+  }
+
+  return result.join("\n");
 }

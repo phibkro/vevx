@@ -695,39 +695,37 @@ function internal() {}
     await cleanup();
   });
 
-  test("level 0 returns only exported symbols", async () => {
+  test("depth=0 exported returns .d.ts content", async () => {
     const filePath = join(tempDir, "fixture.ts");
     const result = await client.callTool({
       name: "kart_zoom",
-      arguments: { path: filePath, level: 0 },
+      arguments: { path: filePath, depth: 0 },
     });
-    // Zoom now returns plaintext signatures, not JSON
+    // Zoom returns plaintext .d.ts content
     const text = (result as { content: { text: string }[] }).content[0].text;
-    // Should include exported symbols
+    // Should include exported symbols in .d.ts format
     expect(text).toContain("greet");
     expect(text).toContain("MAX");
-    // Should NOT include internal (non-exported)
+    // Should NOT include internal (non-exported, .d.ts only shows exports)
     expect(text).not.toContain("internal");
   });
 
-  test("level 2 includes deeper nesting", async () => {
+  test("depth=0 visibility='all' returns all symbols via LSP", async () => {
     const filePath = join(tempDir, "fixture.ts");
     const result = await client.callTool({
       name: "kart_zoom",
-      arguments: { path: filePath, level: 2 },
+      arguments: { path: filePath, depth: 0, visibility: "all" },
     });
-    // Zoom now returns plaintext signatures, not JSON
     const text = (result as { content: { text: string }[] }).content[0].text;
-    // Level 2 still returns symbol signatures (deeper nesting allowed)
+    // visibility=all uses LSP fallback — includes non-exported symbols
     expect(text).toContain("greet");
-    // At level 2, non-exported symbols are also visible
     expect(text).toContain("internal");
   });
 
   test("returns error for nonexistent file", async () => {
     const result = await client.callTool({
       name: "kart_zoom",
-      arguments: { path: join(tempDir, "no-such-file.ts"), level: 0 },
+      arguments: { path: join(tempDir, "no-such-file.ts"), depth: 0 },
     });
     expect((result as { isError?: boolean }).isError).toBe(true);
     const text = (result as { content: { text: string }[] }).content[0].text;
@@ -748,7 +746,7 @@ function internal() {}
     // Open the caller file so LSP knows about it
     await client.callTool({
       name: "kart_zoom",
-      arguments: { path: join(tempDir, "caller.ts"), level: 0 },
+      arguments: { path: join(tempDir, "caller.ts"), depth: 0 },
     });
 
     // Wait for LSP to cross-reference
@@ -853,7 +851,7 @@ function internal() {}
     // Open the file first
     await client.callTool({
       name: "kart_zoom",
-      arguments: { path: join(tempDir, "iface.ts"), level: 0 },
+      arguments: { path: join(tempDir, "iface.ts"), depth: 0 },
     });
 
     const result = await client.callTool({

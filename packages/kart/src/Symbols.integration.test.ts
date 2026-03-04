@@ -58,49 +58,56 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });
   }, 15_000);
 
-  test("level 0: returns only exported symbols", async () => {
+  // ── depth=0, visibility="exported" (default): .d.ts via DeclCache ──
+
+  test("depth=0, exported: returns .d.ts content as single declarations symbol", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 0);
+        return yield* idx.zoom(join(tempDir, "exports.ts"), {
+          depth: 0,
+          visibility: "exported",
+          deep: false,
+        });
       }),
     );
 
-    expect(result.level).toBe(0);
-    expect(result.truncated).toBe(true);
+    expect(result.depth).toBe(0);
+    expect(result.symbols).toHaveLength(1);
+    expect(result.symbols[0].kind).toBe("declarations");
+    expect(result.symbols[0].exported).toBe(true);
 
-    const names = result.symbols.map((s) => s.name);
-    // Should contain exported symbols
-    expect(names).toContain("greet");
-    expect(names).toContain("MAX_COUNT");
-    expect(names).toContain("UserService");
-    expect(names).toContain("Config");
-    expect(names).toContain("ID");
-    expect(names).toContain("defaultFn");
+    // .d.ts content should contain exported declarations
+    const dts = result.symbols[0].signature;
+    expect(dts).toContain("greet");
+    expect(dts).toContain("MAX_COUNT");
+    expect(dts).toContain("UserService");
+    expect(dts).toContain("Config");
+    expect(dts).toContain("ID");
 
     // Should NOT contain non-exported symbols
-    expect(names).not.toContain("helper");
-    expect(names).not.toContain("INTERNAL");
-    expect(names).not.toContain("InternalService");
-    expect(names).not.toContain("InternalConfig");
-    expect(names).not.toContain("InternalId");
-
-    // All returned symbols should be marked exported
-    for (const sym of result.symbols) {
-      expect(sym.exported).toBe(true);
-    }
+    expect(dts).not.toContain("helper");
+    expect(dts).not.toContain("INTERNAL");
+    expect(dts).not.toContain("InternalService");
   }, 30_000);
 
-  test("level 1: returns all symbols including non-exported", async () => {
+  // ── depth=0, visibility="all": LSP fallback with all symbols ──
+
+  test("depth=0, visibility='all': returns all symbols via LSP fallback", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 1);
+        return yield* idx.zoom(join(tempDir, "exports.ts"), {
+          depth: 0,
+          visibility: "all",
+          deep: false,
+        });
       }),
     );
 
-    expect(result.level).toBe(1);
-    expect(result.truncated).toBe(true);
+    expect(result.depth).toBe(0);
+    // LSP path returns multiple ZoomSymbol entries (not a single declarations blob)
+    expect(result.symbols.length).toBeGreaterThan(1);
 
     const names = result.symbols.map((s) => s.name);
     // Should contain both exported and non-exported
@@ -110,87 +117,98 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     expect(names).toContain("InternalService");
   }, 30_000);
 
-  test("level 2: returns full file content", async () => {
-    const filePath = join(tempDir, "exports.ts");
+  // ── depth=1, exported: BFS type-graph pulls in referenced files ──
+
+  test("depth=1, exported: referencedFiles contains imported type declarations", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(filePath, 2);
+        return yield* idx.zoom(join(tempDir, "exports.ts"), {
+          depth: 1,
+          visibility: "exported",
+          deep: false,
+        });
       }),
     );
 
-    expect(result.level).toBe(2);
-    expect(result.truncated).toBe(false);
+    expect(result.depth).toBe(1);
     expect(result.symbols).toHaveLength(1);
-    expect(result.symbols[0].kind).toBe("file");
+    expect(result.symbols[0].kind).toBe("declarations");
 
-    // The signature should contain the full file content
-    const expectedContent = readFileSync(filePath, "utf-8");
-    expect(result.symbols[0].signature).toBe(expectedContent);
+    // exports.ts re-exports from ./other.js, so depth=1 should pull in other.ts
+    expect(result.referencedFiles).toBeDefined();
+    expect(result.referencedFiles!.length).toBeGreaterThanOrEqual(1);
+
+    const refPaths = result.referencedFiles!.map((f) => f.path);
+    expect(refPaths.some((p) => p.endsWith("other.ts"))).toBe(true);
+
+    // Referenced file content should be .d.ts declarations
+    const otherRef = result.referencedFiles!.find((f) => f.path.endsWith("other.ts"));
+    expect(otherRef).toBeDefined();
+    expect(otherRef!.content).toContain("something");
   }, 30_000);
 
-  test("level 0: includes resolvedType on exported symbols", async () => {
+  // ── visibility="all" includes non-exported symbols ──
+
+  test("visibility='all' includes non-exported symbols", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 0);
+        return yield* idx.zoom(join(tempDir, "exports.ts"), {
+          depth: 0,
+          visibility: "all",
+          deep: false,
+        });
       }),
     );
 
-    // Every exported symbol should have a resolvedType
-    for (const sym of result.symbols) {
-      expect(sym.resolvedType).toBeString();
-      expect(sym.resolvedType!.length).toBeGreaterThan(0);
-    }
-
-    // greet should have a function type
-    const greet = result.symbols.find((s) => s.name === "greet");
-    expect(greet?.resolvedType).toContain("greet");
+    const names = result.symbols.map((s) => s.name);
+    // Non-exported symbols should be present
+    expect(names).toContain("helper");
+    expect(names).toContain("INTERNAL");
+    // Exported symbols should also be present
+    expect(names).toContain("greet");
+    expect(names).toContain("MAX_COUNT");
   }, 30_000);
 
-  test("level 1: includes resolvedType on all symbols", async () => {
+  // ── kind filter ──
+
+  test("kind filter: depth=0 with kind=['function'] only returns functions", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 1);
+        return yield* idx.zoom(join(tempDir, "exports.ts"), {
+          depth: 0,
+          visibility: "exported",
+          kind: ["function"],
+          deep: false,
+        });
       }),
     );
 
-    const withType = result.symbols.filter((s) => s.resolvedType);
-    expect(withType.length).toBeGreaterThan(0);
+    expect(result.depth).toBe(0);
+    expect(result.symbols).toHaveLength(1);
+    expect(result.symbols[0].kind).toBe("declarations");
+
+    // .d.ts content should only contain function declarations
+    const dts = result.symbols[0].signature;
+    expect(dts).toContain("function");
+    // Should not contain class, interface, type, or const declarations
+    expect(dts).not.toContain("class UserService");
+    expect(dts).not.toContain("interface Config");
   }, 30_000);
 
-  test("level 2: does not include resolvedType", async () => {
+  // ── directory zoom depth=0 ──
+
+  test("directory zoom depth=0: returns file list with export counts", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 2);
-      }),
-    );
-
-    for (const sym of result.symbols) {
-      expect(sym.resolvedType).toBeUndefined();
-    }
-  }, 30_000);
-
-  test("resolveTypes: false omits resolvedType", async () => {
-    const result = await runtime.runPromise(
-      Effect.gen(function* () {
-        const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 0, false);
-      }),
-    );
-
-    for (const sym of result.symbols) {
-      expect(sym.resolvedType).toBeUndefined();
-    }
-  }, 30_000);
-
-  test("directory zoom level 0: returns compact export counts, omits files with no exports", async () => {
-    const result = await runtime.runPromise(
-      Effect.gen(function* () {
-        const idx = yield* SymbolIndex;
-        return yield* idx.zoom(tempDir, 0);
+        return yield* idx.zoom(tempDir, {
+          depth: 0,
+          visibility: "exported",
+          deep: false,
+        });
       }),
     );
 
@@ -214,28 +232,45 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     expect(filePaths.some((p) => p.endsWith("other.ts"))).toBe(true);
   }, 30_000);
 
-  test("directory zoom level 1: includes resolvedType on file symbols", async () => {
+  // ── directory zoom depth=1 ──
+
+  test("directory zoom depth=1: returns per-file declarations", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(tempDir, 1);
+        return yield* idx.zoom(tempDir, {
+          depth: 1,
+          visibility: "exported",
+          deep: false,
+        });
       }),
     );
 
+    expect(result.depth).toBe(1);
     expect(result.files).toBeDefined();
     expect(result.files!.length).toBeGreaterThan(0);
 
-    // Level 1+: full symbol signatures with resolved types
-    const allSymbols = result.files!.flatMap((f) => f.symbols);
-    const withType = allSymbols.filter((s) => s.resolvedType);
-    expect(withType.length).toBeGreaterThan(0);
+    // Depth 1+: each file should have declarations content
+    const exportsFile = result.files!.find((f) => f.path.endsWith("exports.ts"));
+    expect(exportsFile).toBeDefined();
+    expect(exportsFile!.symbols).toHaveLength(1);
+    expect(exportsFile!.symbols[0].kind).toBe("declarations");
+    expect(exportsFile!.symbols[0].signature).toContain("greet");
   }, 30_000);
+
+  // ── file not found ──
 
   test("file not found: fails with FileNotFoundError", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* Effect.either(idx.zoom(join(tempDir, "nonexistent.ts"), 0));
+        return yield* Effect.either(
+          idx.zoom(join(tempDir, "nonexistent.ts"), {
+            depth: 0,
+            visibility: "exported",
+            deep: false,
+          }),
+        );
       }),
     );
 
@@ -243,34 +278,6 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     if (Either.isLeft(result)) {
       expect(result.left).toBeInstanceOf(FileNotFoundError);
     }
-  }, 30_000);
-
-  test("signature extraction: function signatures include parameter types and return type", async () => {
-    const result = await runtime.runPromise(
-      Effect.gen(function* () {
-        const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 0);
-      }),
-    );
-
-    const greet = result.symbols.find((s) => s.name === "greet");
-    expect(greet).toBeDefined();
-    expect(greet!.signature).toContain("name: string");
-    expect(greet!.signature).toContain(": string");
-    expect(greet!.kind).toBe("function");
-  }, 30_000);
-
-  test("doc comments: JSDoc comment is extracted", async () => {
-    const result = await runtime.runPromise(
-      Effect.gen(function* () {
-        const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 0);
-      }),
-    );
-
-    const greet = result.symbols.find((s) => s.name === "greet");
-    expect(greet).toBeDefined();
-    expect(greet!.doc).toBe("/** Greet a user by name. */");
   }, 30_000);
 
   // ── impact tests ──
@@ -494,11 +501,15 @@ describe.skipIf(!hasLsp)("SymbolIndex (LSP integration)", () => {
     }
   }, 30_000);
 
-  test("human-readable kind names", async () => {
+  test("human-readable kind names via visibility='all' (LSP fallback)", async () => {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const idx = yield* SymbolIndex;
-        return yield* idx.zoom(join(tempDir, "exports.ts"), 1);
+        return yield* idx.zoom(join(tempDir, "exports.ts"), {
+          depth: 0,
+          visibility: "all",
+          deep: false,
+        });
       }),
     );
 

@@ -7,5 +7,6 @@ dist/
 test-results.xml
 coverage/
 .varp/
+.kart/
 .kiste/
 .kiste.yaml

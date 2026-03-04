@@ -373,7 +373,7 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
   );
 
-  // Register kart_zoom — plaintext output for levels 0/1, raw content for level 2
+  // Register kart_zoom — plaintext .d.ts output via DeclCache, LSP fallback
   server.registerTool(
     kart_zoom.name,
     {
@@ -383,7 +383,13 @@ function createServer(config: ServerConfig = {}): McpServer {
     },
     async (args: Record<string, unknown>) => {
       try {
-        const typedArgs = args as { path: string; level?: number; resolveTypes?: boolean };
+        const typedArgs = args as {
+          path: string;
+          depth?: number;
+          visibility?: "exported" | "all";
+          kind?: string[];
+          deep?: boolean;
+        };
         const runtime = await Effect.runPromise(lspRuntimes.runtimeFor(typedArgs.path));
         const result = (await runtime.runPromise(
           kart_zoom.handler(typedArgs) as Effect.Effect<ZoomResult, never, never>,

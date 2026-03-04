@@ -31,13 +31,15 @@ LSP-backed tools route by file extension via `PluginRegistry`. `lspRuntimes.runt
 
 ## module structure
 
-Code is split into `src/pure/` (deterministic, no IO) and `src/` (effectful services):
+Code is split into `src/core/` (deterministic, no IO except DeclCache) and `src/` (effectful services):
 
 ```
 src/
-  pure/
-    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult, DefinitionResult, TypeDefinitionResult, ImplementationResult, CodeActionsResult, ExpandMacroResult, InlayHint, InlayHintsResult
+  core/
+    types.ts             — DocumentSymbol, LspRange, ZoomSymbol, ZoomResult, ZoomFileResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult, DefinitionResult, TypeDefinitionResult, ImplementationResult, CodeActionsResult, ExpandMacroResult, InlayHint, InlayHintsResult
     Errors.ts            — 3 Data.TaggedError types
+    DeclCache.ts         — .kart/decls/ tsc declaration cache — buildDeclarations, isCacheStale, readDeclaration
+    TypeRefs.ts          — extractTypeReferences, resolveTypeOrigins — BFS type ref extraction from .d.ts
     ExportDetection.ts   — isExported() pure text scanner
     Signatures.ts        — extractSignature, extractDocComment, findBodyOpenBrace, symbolKindName
     OxcSymbols.ts        — parseSymbols() via oxc-parser — name, kind, exported, line, byte range
@@ -65,7 +67,7 @@ src/
   __fixtures__/          — test fixtures (exports.ts, other.ts, tsconfig.json)
 ```
 
-The `pure/` boundary is the testing contract: pure modules get coverage thresholds enforced, effectful modules get integration tests without coverage gates.
+The `core/` boundary is the testing contract: pure modules get coverage thresholds enforced, effectful modules get integration tests without coverage gates.
 
 ## services
 
@@ -100,31 +102,36 @@ Manages a persistent language server process over JSON-RPC/stdio. Parameterized 
 
 ### SymbolIndex (`src/Symbols.ts`)
 
-Depends on `LspClient`. Transforms raw LSP responses into structured zoom results. Delegates pure computation to `src/pure/`:
+Depends on `LspClient`. Transforms raw LSP responses into structured zoom results. Delegates pure computation to `src/core/`:
 
-- **Signature extraction** via `extractSignature` from `pure/Signatures.ts`
-- **Doc comment extraction** via `extractDocComment` from `pure/Signatures.ts`
-- **Export detection** via `isExported` from `pure/ExportDetection.ts`
+- **Signature extraction** via `extractSignature` from `core/Signatures.ts`
+- **Doc comment extraction** via `extractDocComment` from `core/Signatures.ts`
+- **Export detection** via `isExported` from `core/ExportDetection.ts`
 
 **Inlay Hints:** `inlayHints(path, range?)` returns compiler-inferred type hints and parameter names for a file or range via LSP `textDocument/inlayHint`. Defaults to the full file when range is omitted.
 
 **Factory:** `SymbolIndexLive(config?: { rootDir?: string })` returns a `Layer<SymbolIndex, never, LspClient>`. The `rootDir` parameter (defaults to `process.cwd()`) defines the workspace boundary — all path requests are validated against it. Paths outside the boundary yield `FileNotFoundError`.
 
-**Zoom levels:**
+**Zoom API:**
 
-| level | source | content |
-|-------|--------|---------|
-| 0 | LSP `documentSymbol` + text scan | exported symbols only, signatures, doc comments |
-| 1 | LSP `documentSymbol` | all symbols, signatures, doc comments |
-| 2 | `readFileSync` | full file content, capped at 100KB |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `depth` | 0 | BFS hops through type dependencies (0 = this file, 1+ = follow imports) |
+| `visibility` | `"exported"` | `"exported"` uses DeclCache (.d.ts), `"all"` uses LSP documentSymbol |
+| `kind` | all | Filter by declaration kind (function, class, interface, type, const, enum) |
+| `deep` | false | Include non-imported type refs in BFS |
 
-Level-2 reads are capped at `MAX_LEVEL2_BYTES` (100KB). Files exceeding this return a structured message with the file size instead of the content.
+**TypeScript (visibility=exported):** Uses `DeclCache` — runs `tsc --declaration --emitDeclarationOnly --incremental` into `.kart/decls/`. Cached with staleness detection via `.built` timestamp marker. At `depth > 0`, BFS follows type imports via `TypeRefs.extractTypeReferences()` and `resolveTypeOrigins()`, resolving specifiers relative to each origin file.
 
-**Directory zoom:** when path is a directory, behavior depends on level:
-- **Level 0** (default): compact summary — file name + export count via `parseSymbols` from `pure/OxcSymbols.ts` (no LSP needed, fast). Each file is represented as a single symbol `{ name: filename, kind: "file", signature: "N exports" }`.
-- **Level 1+**: full LSP-based zoom with exported symbol signatures and resolved types.
+**TypeScript (visibility=all):** Falls back to LSP `documentSymbol` for all symbols.
 
-Non-recursive, test files excluded. Files with no exports are omitted in both modes.
+**Rust:** Uses LSP `documentSymbol` + tree-sitter (no declaration cache).
+
+**Directory zoom:** when path is a directory:
+- `depth=0, visibility=exported`: compact summary — file name + export count via `parseSymbols` from `core/OxcSymbols.ts` (no LSP needed, fast).
+- Otherwise: per-file declarations from DeclCache or LSP.
+
+Non-recursive, test files excluded. Files with no exports are omitted.
 
 **Impact analysis:** `impact(path, symbolName, maxDepth?)` computes the blast radius of changing a symbol. Uses `documentSymbol` to locate the target by name, `prepareCallHierarchy` to get a call hierarchy item, then BFS over `incomingCalls` up to `maxDepth` (default 3, hard cap `MAX_IMPACT_DEPTH` = 5). A `visited` set prevents cycles. Returns an `ImpactResult` tree with `totalNodes`, `highFanOut` flag (triggered when any node exceeds `HIGH_FAN_OUT_THRESHOLD` = 10 callers), and the caller tree rooted at the target symbol.
 
@@ -151,21 +158,26 @@ Read-only SQLite client for `.varp/cochange.db` (owned by kiste).
 ### kart_zoom request
 
 ```
-kart_zoom({ path: "src/auth.ts", level: 0, resolveTypes: true })
+kart_zoom({ path: "src/auth.ts", depth: 1, visibility: "exported" })
   │
   ├─ resolve absolute path
   ├─ check existence (FileNotFoundError if missing)
   ├─ stat: file or directory?
   │
-  ├─ [directory, level 0] → iterate .ts files → oxc-parser export count → compact summary (no LSP)
-  ├─ [directory, level 1+] → iterate .ts files → LSP documentSymbol per file → enrich with hover
-  ├─ [file, level 2] → readFileSync → return full content (no hover)
-  └─ [file, level 0/1] →
-       ├─ LspClient.documentSymbol(uri) → DocumentSymbol[]
-       ├─ readFileSync → lines
-       ├─ toZoomSymbol: extractSignature + extractDocComment + isExported (pure/)
-       ├─ [level 0] → filter to exported only
-       └─ [resolveTypes] → batch LspClient.hover() per symbol → zip resolvedType onto ZoomSymbol
+  ├─ [directory, depth=0, exported] → iterate .ts files → oxc-parser export count → compact summary
+  ├─ [directory, other] → iterate files → DeclCache or LSP per file
+  ├─ [Rust file] → LSP documentSymbol → toZoomSymbol → filter by visibility/kind
+  ├─ [TS file, visibility=exported] →
+  │    ├─ isCacheStale(rootDir)? → buildDeclarations(rootDir) (tsc --declaration)
+  │    ├─ readDeclaration(rootDir, absPath) → .d.ts content
+  │    ├─ [kind filter] → filterDtsByKind(dts, kinds)
+  │    ├─ [depth > 0] → BFS:
+  │    │    ├─ extractTypeReferences(dts, deep) → type names
+  │    │    ├─ resolveTypeOrigins(dts) → specifier map
+  │    │    ├─ resolveSpecifierToSource(originPath, specifier) → source path
+  │    │    └─ readDeclaration(rootDir, refPath) → referenced .d.ts → referencedFiles[]
+  │    └─ return ZoomResult { symbols: [declarations], referencedFiles }
+  └─ [TS file, visibility=all] → LSP documentSymbol → toZoomSymbol (all symbols)
 ```
 
 ### kart_impact request
@@ -263,8 +275,8 @@ Read-only tools return compact JSON (no indent) with `structuredContent` for pro
 
 | tool category | text format | structuredContent | compaction |
 |--------------|-------------|-------------------|------------|
-| **zoom** (level 0/1) | plaintext signatures | none | depth-filtered: L0 no children, L1 direct only |
-| **zoom** (level 2) | raw file content | none | size-capped at 100KB |
+| **zoom** (exported) | plaintext .d.ts declarations + BFS refs | none | kind-filtered, depth-bounded |
+| **zoom** (all) | plaintext symbol signatures | none | LSP documentSymbol |
 | **find** | compact JSON | yes | `compactFind`: strips timing/cache stats |
 | **impact, deps** | compact JSON | yes | `compactImpact`/`compactDeps`: strips range, relativizes URI |
 | **references, definition, type_definition, implementation** | compact JSON | yes | `compactLocations`: strips range, relativizes URI |
@@ -288,7 +300,7 @@ Targeted tools (`kart_zoom`, `kart_definition`, `kart_rename`) throw `PluginUnav
 | `FileNotFoundError` | `Data.TaggedError` | requested path doesn't exist, symbol not found, or call hierarchy unavailable |
 | `CochangeUnavailable` | plain object | `.varp/cochange.db` absent — structured return, not error |
 
-All error types defined in `src/pure/Errors.ts`.
+All error types defined in `src/core/Errors.ts`.
 
 **Error message extraction:** Effect's `ManagedRuntime.runPromise` throws `FiberFailureImpl` which wraps the actual error under `Symbol.for("effect/Runtime/FiberFailure/Cause")`. The `errorMessage()` helper in `Mcp.ts` extracts `cause.error._tag` and `cause.error.path` to surface useful messages (e.g. `"FileNotFoundError: Symbol 'foo' not found in src/bar.ts"`) instead of the default `"An error has occurred"`.
 
@@ -296,19 +308,21 @@ All error types defined in `src/pure/Errors.ts`.
 
 357 tests across 26 files, split into pure (coverage-gated) and integration:
 
-**Pure tests** (`src/pure/`, 142 tests, `test:pure` with `--coverage`, 100% function / 99% line):
+**Pure tests** (`src/core/`, 142 tests, `test:pure` with `--coverage`, 100% function / 99% line):
 
 | file | tests | what |
 |------|-------|------|
-| `pure/ExportDetection.test.ts` | 7 | isExported text scanning — TS fixture + Rust pub/pub(crate) |
-| `pure/Signatures.test.ts` | 19 | extractSignature, extractDocComment edge cases |
-| `pure/OxcSymbols.test.ts` | 14 | parseSymbols for all TS declaration kinds, exports, line numbers |
-| `pure/RustSymbols.test.ts` | 9 | Rust symbol extraction via tree-sitter factory — all declaration kinds, pub detection, impl naming |
-| `pure/TreeSitterPlugin.test.ts` | 18 | generic tree-sitter factory — parser init/caching, symbol extraction, validation, makeTreeSitterPlugin contract |
-| `pure/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations (TS only) |
-| `pure/Resolve.test.ts` | 17 | loadTsconfigPaths, resolveAlias, resolveSpecifier, extends chain, node_modules, edge cases |
-| `pure/ImportGraph.test.ts` | 23 | extractFileImports, buildImportGraph, transitiveImporters, barrel expansion, local re-exports, default exports |
-| `pure/RustImports.test.ts` | 21 | tree-sitter Rust use extraction, crate-relative resolution, grouped imports |
+| `core/DeclCache.test.ts` | 6 | tsc declaration cache — build, read (relative + absolute paths), staleness, JSDoc |
+| `core/TypeRefs.test.ts` | 15 | type reference extraction — shallow/deep, imports, aliases, builtins, origins |
+| `core/ExportDetection.test.ts` | 7 | isExported text scanning — TS fixture + Rust pub/pub(crate) |
+| `core/Signatures.test.ts` | 19 | extractSignature, extractDocComment edge cases |
+| `core/OxcSymbols.test.ts` | 14 | parseSymbols for all TS declaration kinds, exports, line numbers |
+| `core/RustSymbols.test.ts` | 9 | Rust symbol extraction via tree-sitter factory — all declaration kinds, pub detection, impl naming |
+| `core/TreeSitterPlugin.test.ts` | 18 | generic tree-sitter factory — parser init/caching, symbol extraction, validation, makeTreeSitterPlugin contract |
+| `core/AstEdit.test.ts` | 14 | locateSymbol, validateSyntax, splice operations (TS only) |
+| `core/Resolve.test.ts` | 17 | loadTsconfigPaths, resolveAlias, resolveSpecifier, extends chain, node_modules, edge cases |
+| `core/ImportGraph.test.ts` | 23 | extractFileImports, buildImportGraph, transitiveImporters, barrel expansion, local re-exports, default exports |
+| `core/RustImports.test.ts` | 21 | tree-sitter Rust use extraction, crate-relative resolution, grouped imports |
 
 **Integration tests** (`src/*.test.ts`, 215 tests, `test:integration`):
 
@@ -317,7 +331,7 @@ All error types defined in `src/pure/Errors.ts`.
 | `Cochange.test.ts` | 3 | ranked neighbors, empty result, db missing |
 | `Lsp.test.ts` | 16 | documentSymbol, hierarchical children, semanticTokens, updateOpenDocument, prepareCallHierarchy, incomingCalls, outgoingCalls, hover, definition (same-file + cross-file), typeDefinition, implementation, codeAction, shutdown |
 | `ExportDetection.integration.test.ts` | 5 | LSP spike — semantic tokens don't distinguish exports |
-| `Symbols.test.ts` | 26 | zoom levels, directory zoom (compact + full), resolved types, resolveTypes opt-out, FileNotFoundError, signatures, workspace boundary, size cap, deps BFS, references, rename |
+| `Symbols.integration.test.ts` | 9 | depth-based zoom (DeclCache + LSP fallback), BFS type refs, directory zoom, kind filter, visibility, deps BFS, references, rename |
 | `Find.test.ts` | 19 | symbol search by name/kind/export (TS + Rust + PHP), mtime cache, target/ exclusion |
 | `Search.test.ts` | 7 | pattern search, glob filtering, path restriction, workspace boundary |
 | `List.test.ts` | 6 | directory listing, recursive mode, glob filtering |

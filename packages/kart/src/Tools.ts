@@ -47,25 +47,46 @@ export const kart_cochange = {
 export const kart_zoom = {
   name: "kart_zoom",
   description:
-    "Progressive disclosure of a file or directory's structure. Level 0 (default): exported symbols + signatures. Level 1: all symbols. Level 2: full file content.",
+    "Progressive disclosure of a file or directory via type declarations. Returns .d.ts content for TypeScript (tsc-generated with full type inference). Depth controls BFS traversal of the type dependency graph.",
   annotations: READ_ONLY,
   inputSchema: {
     path: z.string().describe("File or directory path"),
-    level: z
+    depth: z
       .number()
       .min(0)
       .max(2)
       .optional()
-      .describe("Zoom level: 0 (exports), 1 (all symbols), 2 (full file). Default: 0"),
-    resolveTypes: z
+      .describe(
+        "BFS hops through type dependency graph. 0 = this file, 1 = + referenced types, 2 = two hops. Default: 0",
+      ),
+    visibility: z
+      .enum(["exported", "all"])
+      .optional()
+      .describe('Filter by symbol visibility. Default: "exported"'),
+    kind: z
+      .array(z.string())
+      .optional()
+      .describe('Filter by symbol kind: "function", "class", "interface", "type", etc.'),
+    deep: z
       .boolean()
       .optional()
-      .describe("Resolve types via LSP hover. Default: true. Set false for faster scanning."),
+      .describe("Follow full type graph including generics and constraints. Default: false"),
   },
-  handler: (args: { path: string; level?: number; resolveTypes?: boolean }) =>
+  handler: (args: {
+    path: string;
+    depth?: number;
+    visibility?: "exported" | "all";
+    kind?: string[];
+    deep?: boolean;
+  }) =>
     Effect.gen(function* () {
       const idx = yield* SymbolIndex;
-      return yield* idx.zoom(args.path, (args.level ?? 0) as 0 | 1 | 2, args.resolveTypes);
+      return yield* idx.zoom(args.path, {
+        depth: args.depth ?? 0,
+        visibility: args.visibility ?? "exported",
+        kind: args.kind,
+        deep: args.deep ?? false,
+      });
     }),
 } as const;
 

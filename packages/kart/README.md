@@ -68,24 +68,28 @@ Or install via the vevx marketplace:
 ### kart_zoom
 
 ```
-kart_zoom(path, level?, resolveTypes?)
+kart_zoom(path, depth?, visibility?, kind?, deep?)
 ```
 
-| Level | Content | When to use |
-|-------|---------|-------------|
-| 0 (default) | Exported symbols + signatures + doc comments + resolved types | "What does this module expose?" |
-| 1 | All symbols + signatures + doc comments + resolved types | "How does this module work?" |
-| 2 | Full file content (capped at 100KB) | "I need to read the implementation" |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `path` | required | File or directory to zoom |
+| `depth` | 0 | BFS hops through type dependencies (0 = this file only, 1+ = follow imports) |
+| `visibility` | `"exported"` | `"exported"` = public API via `.d.ts`, `"all"` = all symbols via LSP |
+| `kind` | all | Filter to specific declaration kinds (`function`, `class`, `interface`, `type`, `const`, `enum`) |
+| `deep` | false | Include non-imported type references in BFS (generic constraints, conditional types) |
 
-Levels 0 and 1 include `resolvedType` on each symbol — the LSP-resolved type from hover (e.g. inferred return types, expanded type aliases). Set `resolveTypes: false` to skip hover calls for faster scanning.
+**TypeScript (visibility=exported):** Uses `tsc --declaration --emitDeclarationOnly --incremental` to generate `.d.ts` files in `.kart/decls/`. Cached with staleness detection — rebuilds only when source files are newer than the cache. At `depth > 0`, BFS follows type imports across files, returning referenced declarations.
 
-When `path` is a directory, behavior depends on level:
-- **Level 0** (default): compact summary — file name + export count via oxc-parser (no LSP needed, fast)
-- **Level 1+**: full symbol signatures with LSP-resolved types (same as file zoom)
+**TypeScript (visibility=all):** Falls back to LSP `documentSymbol` for all symbols including unexported internals.
 
-Files with no exports are omitted in both modes.
+**Rust:** Uses LSP `documentSymbol` + tree-sitter (no declaration cache).
 
-Paths are validated against the workspace root — requests outside the workspace boundary are rejected.
+**Directory zoom:** When `path` is a directory:
+- `depth=0, visibility=exported`: compact summary — file name + export count via oxc-parser (no LSP needed, fast)
+- Otherwise: per-file declarations from DeclCache or LSP
+
+Files with no exports are omitted. Paths are validated against the workspace root — requests outside the workspace boundary are rejected.
 
 ### kart_impact
 
@@ -278,8 +282,10 @@ LSP `workspace/symbol` search — returns symbols matching the query across the 
 
 | Module | File | Purpose |
 |---|---|---|
-| Types | `src/core/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult, DefinitionResult, TypeDefinitionResult, ImplementationResult, CodeActionsResult, ExpandMacroResult, InlayHint, InlayHintsResult |
+| Types | `src/core/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, ZoomFileResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult, DefinitionResult, TypeDefinitionResult, ImplementationResult, CodeActionsResult, ExpandMacroResult, InlayHint, InlayHintsResult |
 | Errors | `src/core/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
+| DeclCache | `src/core/DeclCache.ts` | `buildDeclarations`, `isCacheStale`, `readDeclaration` — `.kart/decls/` tsc declaration cache |
+| TypeRefs | `src/core/TypeRefs.ts` | `extractTypeReferences`, `resolveTypeOrigins` — BFS type reference extraction from `.d.ts` |
 | ExportDetection | `src/core/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
 | Signatures | `src/core/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
 | OxcSymbols | `src/core/OxcSymbols.ts` | Fast TypeScript symbol extraction via oxc-parser (LSP-free) |
