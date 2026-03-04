@@ -1,8 +1,8 @@
-# Audit
+# @vevx/audit
 
-Multi-agent code audit engine. Two modes: generic quality review (weighted agents) and ruleset-based compliance auditing (3-wave planner/executor).
+Multi-agent compliance audit engine for AI-assisted code review. Two modes: generic quality review (7 weighted agents) and ruleset-based compliance auditing (3-wave planner/executor). Backend-agnostic — consumers inject a `ModelCaller`.
 
-Depends on `@vevx/varp/lib` for manifest types, chunking, and concurrency primitives. Backend-agnostic -- consumers inject a `ModelCaller` implementation.
+Depends on `@vevx/varp` for manifest types, chunking, and concurrency primitives.
 
 ## Architecture
 

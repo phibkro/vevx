@@ -1,6 +1,8 @@
 # @vevx/kiste
 
-Semantic artifact index over git history. Tags, provenance, and full-text search — no content duplication, no migration.
+Git-backed artifact index for AI agents. Tags, provenance, co-change analysis, and full-text search over commit history — no content duplication, no migration. SQLite metadata index, content read from git on demand.
+
+Standalone — no dependencies on other vevx packages. Provides shared Zod schemas (`@vevx/kiste/schema`) consumed by @vevx/varp for cross-package type safety.
 
 ## Quick Start
 
@@ -71,6 +73,7 @@ Tags come from two sources:
 | Mcp | `src/Mcp.ts` | MCP server factory + stdio entry point |
 | Cli | `src/Cli.ts` | CLI commands via @effect/cli |
 | Errors | `src/Errors.ts` | Typed error hierarchy (ConfigError, GitError, IndexError, DbError) |
+| Schema | `src/schema.ts` | Shared Zod schemas (ArtifactRow, ArtifactCommitRow, CoChangeRow) exported via `@vevx/kiste/schema` |
 
 ## Stack
 

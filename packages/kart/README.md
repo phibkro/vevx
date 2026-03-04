@@ -1,6 +1,6 @@
 # @vevx/kart
 
-Progressive code disclosure and behavioral coupling for agents. Zoom into modules at the right depth — from public contract to full implementation — without loading everything.
+IDE interface for AI coding agents. Progressive code disclosure, LSP-backed navigation, AST-aware editing. 24 MCP tools spanning zoom, search, impact analysis, imports, diagnostics, and structural editing. TypeScript (oxc-parser + typescript-language-server) and Rust (tree-sitter + rust-analyzer). Standalone — no dependencies on other vevx packages.
 
 ## Quick Start
 
@@ -278,15 +278,15 @@ LSP `workspace/symbol` search — returns symbols matching the query across the 
 
 | Module | File | Purpose |
 |---|---|---|
-| Types | `src/pure/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult, DefinitionResult, TypeDefinitionResult, ImplementationResult, CodeActionsResult, ExpandMacroResult, InlayHint, InlayHintsResult |
-| Errors | `src/pure/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
-| ExportDetection | `src/pure/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
-| Signatures | `src/pure/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
-| OxcSymbols | `src/pure/OxcSymbols.ts` | Fast TypeScript symbol extraction via oxc-parser (LSP-free) |
-| RustSymbols | `src/pure/RustSymbols.ts` | Rust symbol extraction via tree-sitter (LSP-free) |
-| AstEdit | `src/pure/AstEdit.ts` | Symbol location, syntax validation, byte-range splicing (TS + Rust dispatch) |
-| Resolve | `src/pure/Resolve.ts` | tsconfig path alias resolution (`loadTsconfigPaths`, `resolveAlias`, `resolveSpecifier`, `bunResolve`) |
-| ImportGraph | `src/pure/ImportGraph.ts` | oxc-based import extraction, import graph construction, barrel-aware transitive importers |
+| Types | `src/core/types.ts` | DocumentSymbol, ZoomSymbol, ZoomResult, CallHierarchyItem, ImpactNode, ImpactResult, DepsNode, DepsResult, ImportEntry, FileImports, ImportGraph, ImportsResult, ImportersResult, DefinitionResult, TypeDefinitionResult, ImplementationResult, CodeActionsResult, ExpandMacroResult, InlayHint, InlayHintsResult |
+| Errors | `src/core/Errors.ts` | LspError, LspTimeoutError, FileNotFoundError |
+| ExportDetection | `src/core/ExportDetection.ts` | `isExported(symbol, lines)` text scanner |
+| Signatures | `src/core/Signatures.ts` | `extractSignature`, `extractDocComment`, `symbolKindName` |
+| OxcSymbols | `src/core/OxcSymbols.ts` | Fast TypeScript symbol extraction via oxc-parser (LSP-free) |
+| RustSymbols | `src/core/RustSymbols.ts` | Rust symbol extraction via tree-sitter (LSP-free) |
+| AstEdit | `src/core/AstEdit.ts` | Symbol location, syntax validation, byte-range splicing (TS + Rust dispatch) |
+| Resolve | `src/core/Resolve.ts` | tsconfig path alias resolution (`loadTsconfigPaths`, `resolveAlias`, `resolveSpecifier`, `bunResolve`) |
+| ImportGraph | `src/core/ImportGraph.ts` | oxc-based import extraction, import graph construction, barrel-aware transitive importers |
 | Plugin | `src/Plugin.ts` | `AstPlugin`, `LspPlugin`, `PluginRegistry` interfaces, `makeRegistry`, `PluginUnavailableError` |
 | TsPlugin | `src/TsPlugin.ts` | TypeScript plugins — `TsAstPluginImpl` (oxc), `TsLspPluginImpl` (typescript-language-server) |
 | RustPlugin | `src/RustPlugin.ts` | Rust plugins — `makeRustAstPlugin` (tree-sitter), `RustLspPluginImpl` (rust-analyzer) |
@@ -303,17 +303,15 @@ LSP `workspace/symbol` search — returns symbols matching the query across the 
 | Tools | `src/Tools.ts` | 24 MCP tool definitions (Zod schemas + Effect/async handlers) |
 | Mcp | `src/Mcp.ts` | Server entrypoint, `PluginRegistry` + `LspRuntimes` wiring |
 
-`src/pure/` contains deterministic modules with no IO — 100% function coverage, 99% line coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates. Stateless modules (`Search.ts`, `List.ts`, `Editor.ts`, `Diagnostics.ts`, `Imports.ts`) and cached modules (`Find.ts` — mtime-based symbol cache) are tested without Effect runtime.
+`src/core/` contains deterministic modules with no IO — 100% function coverage, 99% line coverage enforced. Effectful modules (`Lsp.ts`, `Symbols.ts`, `Cochange.ts`) have integration tests without coverage gates. Stateless modules (`Search.ts`, `List.ts`, `Editor.ts`, `Diagnostics.ts`, `Imports.ts`) and cached modules (`Find.ts` — mtime-based symbol cache) are tested without Effect runtime.
 
-## Relationship to Other Tools
-
-**serena** — symbol search, references, type hierarchies. Heavyweight LSP integration with cross-language support.
-
-**kart** — context management, navigation, and editing. TypeScript (oxc-parser + typescript-language-server) and Rust (tree-sitter + rust-analyzer). Fast parser-based scanning for navigation + LSP for cross-reference tools.
-
-**varp** — architectural manifest, dependency graph, agent orchestration. Independent of kart.
+## Relationship to Other vevx Packages
 
 **kiste** — git-backed artifact index. Builds the co-change database that `kart_cochange` queries. Integration is file-based (`.varp/cochange.db`) — no package dependency.
+
+**varp** — architectural awareness via manifest, dependency graph, and agent orchestration. Independent of kart.
+
+**havn** — default plugin setup and agent configuration templates. Provides scaffolding that wires kart into projects.
 
 ## Stack
 

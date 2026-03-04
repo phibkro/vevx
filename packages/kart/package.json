@@ -1,7 +1,7 @@
 {
   "name": "@vevx/kart",
   "version": "0.5.0",
-  "description": "Progressive code disclosure and behavioral coupling analysis",
+  "description": "IDE interface for AI coding agents — progressive code disclosure, LSP navigation, AST editing",
   "type": "module",
   "license": "MIT",
   "repository": {

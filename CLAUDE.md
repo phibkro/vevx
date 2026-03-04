@@ -1,6 +1,6 @@
-# Varp
+# Vevx
 
-Graph-aware project analysis and manifest-driven agent orchestration. Provides structural awareness (coupling diagnostics, scope enforcement, contract verification) as a companion to workflow plugins like superpowers. See ADR-003.
+Agent toolkit monorepo of Claude Code plugins (kiste, varp, kart, audit, havn) that give AI coding agents structural awareness of codebases. Each package is a standalone plugin or library; see the root README for the dependency graph.
 
 ## Quick Reference
 

@@ -1,6 +1,8 @@
 # @vevx/varp
 
-Consolidated varp package: MCP server, CLI, skills, hooks, and shared library.
+Dependency analysis and agent orchestration for AI coding agents. Manifest-driven (`varp.yaml`): structural, behavioral, and semantic component grouping. Doc freshness tracking, coupling diagnostics, import analysis, plan validation, task scheduling. Ships as a Claude Code plugin with 6 skills, 4 hooks, CLI, and MCP server.
+
+Depends on `@vevx/kiste` for co-change data. Consumed by `@vevx/audit` for manifest types and chunking.
 
 ## Entry Points
 
