@@ -1,6 +1,17 @@
 {
-  "description": "Havn plugin hooks — project-aware plugin sync on session end",
+  "description": "Havn plugin hooks — git hook install on session start, plugin sync on session end",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/install-hooks.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [
