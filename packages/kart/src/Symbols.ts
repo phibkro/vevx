@@ -254,12 +254,19 @@ export const SymbolIndexLive = (config?: {
                         if (!specifier.startsWith(".")) continue;
                         // Resolve specifier relative to the file it was imported from
                         const refPath = resolveSpecifierToSource(originPath, specifier);
+                        // Workspace boundary guard for BFS-resolved paths
+                        if (!refPath.startsWith(rootDir + "/") && refPath !== rootDir) continue;
                         if (visited.has(refPath)) continue;
                         visited.add(refPath);
-                        const refDts = readDeclaration(rootDir, refPath);
+                        let refDts = readDeclaration(rootDir, refPath);
                         if (refDts) {
-                          referencedFiles.push({ path: refPath, content: refDts });
-                          nextFrontier.push({ path: refPath, content: refDts });
+                          if (kind) {
+                            refDts = filterDtsByKind(refDts, kind);
+                          }
+                          if (refDts.trim()) {
+                            referencedFiles.push({ path: refPath, content: refDts });
+                            nextFrontier.push({ path: refPath, content: refDts });
+                          }
                         }
                       }
                     }
@@ -897,10 +904,14 @@ function resolveSpecifierToSource(originPath: string, specifier: string): string
     if (existsSync(tsPath)) return tsPath;
     return resolve(dir, specifier.replace(/\.jsx$/, ".tsx"));
   }
-  // Extensionless — try .ts then .tsx
+  // Extensionless — try .ts, .tsx, index.ts, index.tsx
   const tsPath = resolve(dir, specifier + ".ts");
   if (existsSync(tsPath)) return tsPath;
-  return resolve(dir, specifier + ".tsx");
+  const tsxPath = resolve(dir, specifier + ".tsx");
+  if (existsSync(tsxPath)) return tsxPath;
+  const indexTsPath = resolve(dir, specifier, "index.ts");
+  if (existsSync(indexTsPath)) return indexTsPath;
+  return resolve(dir, specifier, "index.tsx");
 }
 
 /** Convert line:character to byte offset within file content. */
@@ -952,9 +963,11 @@ function zoomDirectory(
     // Depth 1+: use DeclCache for TS files, LSP for Rust
     const fileResults: ZoomResult[] = [];
 
-    // Ensure DeclCache is fresh for TS files
-    if (isCacheStale(rootDir)) {
-      yield* Effect.promise(() => buildDeclarations(rootDir));
+    // Ensure DeclCache is fresh for TS files (only needed for exported visibility)
+    if (visibility === "exported" && sourceFiles.some((f) => !f.endsWith(".rs"))) {
+      if (isCacheStale(rootDir)) {
+        yield* Effect.promise(() => buildDeclarations(rootDir));
+      }
     }
 
     for (const file of sourceFiles) {
@@ -1001,7 +1014,7 @@ function zoomDirectory(
 
       fileResults.push({
         path: filePath,
-        depth: 0,
+        depth,
         symbols: zoomSymbols,
       });
     }
@@ -1069,27 +1082,21 @@ function formatSymbolLine(s: ZoomSymbol): string {
 
 // ── DeclCache helpers ──
 
+const KIND_PATTERNS: Record<string, RegExp> = {
+  function: /^\s*export\s+(declare\s+)?function\s/,
+  class: /^\s*export\s+(declare\s+)?class\s/,
+  interface: /^\s*export\s+(declare\s+)?interface\s/,
+  type: /^\s*export\s+(declare\s+)?type\s/,
+  enum: /^\s*export\s+(declare\s+)?(const\s+)?enum\s/,
+  const: /^\s*export\s+(declare\s+)?const\s/,
+};
+
 /** Filter .d.ts content to only include declarations matching the given kinds. */
 function filterDtsByKind(dts: string, kinds: string[]): string {
   // Simple line-based filter: keep import lines + lines matching kind keywords
-  const kindPatterns = kinds.map((k) => {
-    switch (k) {
-      case "function":
-        return /^\s*export\s+(declare\s+)?function\s/;
-      case "class":
-        return /^\s*export\s+(declare\s+)?class\s/;
-      case "interface":
-        return /^\s*export\s+(declare\s+)?interface\s/;
-      case "type":
-        return /^\s*export\s+(declare\s+)?type\s/;
-      case "enum":
-        return /^\s*export\s+(declare\s+)?(const\s+)?enum\s/;
-      case "const":
-        return /^\s*export\s+(declare\s+)?const\s/;
-      default:
-        return new RegExp(`^\\s*export\\s+(declare\\s+)?${k}\\s`);
-    }
-  });
+  const kindPatterns = kinds
+    .map((k) => KIND_PATTERNS[k])
+    .filter((p): p is RegExp => p !== undefined);
 
   const lines = dts.split("\n");
   const result: string[] = [];

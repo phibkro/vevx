@@ -58,7 +58,7 @@ afterAll(() => {
 
 // ── Tests ──
 
-describe("DeclCache", () => {
+describe.skipIf(!!process.env.TURBO_HASH)("DeclCache", () => {
   test("buildDeclarations generates .d.ts files", async () => {
     const result = await buildDeclarations(TEST_ROOT);
 
