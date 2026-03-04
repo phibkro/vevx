@@ -17,13 +17,14 @@
     "README.md"
   ],
   "exports": {
-    "./mcp": "./dist/Mcp.js"
+    "./mcp": "./dist/Mcp.js",
+    "./schema": "./dist/schema.js"
   },
   "bin": {
     "kiste": "./dist/Cli.js"
   },
   "scripts": {
-    "build": "bun build ./src/Cli.ts ./src/Mcp.ts --outdir ./dist --target bun",
+    "build": "bun build ./src/Cli.ts ./src/Mcp.ts ./src/schema.ts --outdir ./dist --target bun",
     "test": "bun run test:strict && bun run test:integration",
     "test:strict": "files=$(find src -name '*.test.ts' ! -name '*.integration.test.ts'); [ -n \"$files\" ] && bun test --concurrent --coverage $files || echo 'No strict tests found'",
     "test:integration": "files=$(find src -name '*.integration.test.ts'); [ -n \"$files\" ] && bun test --concurrent --coverage --bunfig bunfig.integration.toml $files || echo 'No integration tests found'",
