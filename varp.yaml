@@ -1,19 +1,9 @@
 varp: 0.1.0
 
+# --- Core: what exists, how it connects ---
+
 shared:
   path: ./packages/varp/src/shared
-  tags: [core]
-  stability: stable
-
-analysis:
-  path: ./packages/varp/src/analysis
-  deps: [shared, manifest]
-  tags: [core]
-  stability: stable
-
-mcp:
-  path: ./packages/varp/src/mcp
-  deps: [shared, manifest, plan, scheduler, enforcement, analysis, execution]
   tags: [core]
   stability: stable
 
@@ -23,29 +13,47 @@ manifest:
   tags: [core]
   stability: stable
 
-plan:
-  path: ./packages/varp/src/plan
-  deps: [shared]
+analysis:
+  path: ./packages/varp/src/analysis
+  deps: [shared, manifest]
   tags: [core]
   stability: stable
+
+# --- Orchestration: tasks in, dependency graph out ---
 
 scheduler:
   path: ./packages/varp/src/scheduler
   deps: [shared]
-  tags: [core]
+  tags: [orchestration]
   stability: stable
+
+# --- Deprecated: plan lifecycle (to be removed) ---
+
+plan:
+  path: ./packages/varp/src/plan
+  deps: [shared]
+  tags: [deprecated]
+  stability: experimental
 
 enforcement:
   path: ./packages/varp/src/enforcement
   deps: [shared]
-  tags: [core]
-  stability: stable
+  tags: [deprecated]
+  stability: experimental
 
 execution:
   path: ./packages/varp/src/execution
   deps: [shared]
-  tags: [core]
+  tags: [deprecated]
   stability: experimental
+
+# --- Surface: MCP server, CLI ---
+
+mcp:
+  path: ./packages/varp/src/mcp
+  deps: [shared, manifest, plan, scheduler, enforcement, analysis, execution]
+  tags: [surface]
+  stability: stable
 
 skills:
   path: ./packages/varp/skills
@@ -70,6 +78,7 @@ audit:
 cli:
   path: ./packages/varp/src/cli
   deps: [shared, manifest, plan, scheduler, enforcement, analysis, execution, mcp]
+  tags: [surface]
   stability: experimental
 
 kart:
