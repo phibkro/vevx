@@ -1,22 +1,28 @@
 #!/bin/bash
-# Pre-commit hook: CI checks on main only.
-# Auto-installed via: "prepare": "git config core.hooksPath .githooks"
+# Pre-commit hook. Auto-installed via: "prepare": "git config core.hooksPath .githooks"
+# Three concerns: formatting (always), code quality (always), changesets (main only).
 
 branch=$(git rev-parse --abbrev-ref HEAD)
 
-if [ "$branch" != "main" ]; then
-  exit 0
-fi
+# --- Formatting: auto-fix and stage (all branches) ---
+echo "→ Formatting..."
+turbo format || exit 1
+git add -u
 
-echo "Committing to main — running checks..."
+# --- Code quality: lint + build (all branches) ---
+echo "→ Lint + build..."
+turbo lint && turbo build || exit 1
 
-echo "→ turbo check && turbo test"
-turbo check && turbo test || exit 1
+# --- Main-only: tests + changeset verification ---
+if [ "$branch" = "main" ]; then
+  echo "→ Tests..."
+  turbo test || exit 1
 
-if [ -d ".changeset" ]; then
-  echo "→ changeset status"
-  bunx changeset status --since=HEAD~1 || {
-    echo "Missing changeset. Run 'bunx changeset' to add one."
-    exit 1
-  }
+  if [ -d ".changeset" ]; then
+    echo "→ Changeset status..."
+    bunx changeset status --since=HEAD~1 || {
+      echo "Missing changeset. Run 'bunx changeset' to add one."
+      exit 1
+    }
+  fi
 fi
