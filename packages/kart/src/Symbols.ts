@@ -238,11 +238,13 @@ export const SymbolIndexLive = (config?: {
                 const referencedFiles: ZoomFileResult[] = [];
                 if (depth > 0) {
                   const visited = new Set<string>([absPath]);
-                  let frontier = [primaryDts];
+                  let frontier: Array<{ path: string; content: string }> = [
+                    { path: absPath, content: primaryDts },
+                  ];
 
                   for (let hop = 0; hop < depth; hop++) {
-                    const nextFrontier: string[] = [];
-                    for (const dtsContent of frontier) {
+                    const nextFrontier: Array<{ path: string; content: string }> = [];
+                    for (const { path: originPath, content: dtsContent } of frontier) {
                       const refs = extractTypeReferences(dtsContent, deep);
                       const origins = resolveTypeOrigins(dtsContent);
                       for (const ref of refs) {
@@ -250,9 +252,9 @@ export const SymbolIndexLive = (config?: {
                         if (!specifier) continue;
                         // Skip external packages (no relative path)
                         if (!specifier.startsWith(".")) continue;
-                        // Resolve specifier to absolute path
+                        // Resolve specifier relative to the file it was imported from
                         const refPath = resolve(
-                          dirname(absPath),
+                          dirname(originPath),
                           specifier.replace(/\.js$/, ".ts"),
                         );
                         if (visited.has(refPath)) continue;
@@ -260,7 +262,7 @@ export const SymbolIndexLive = (config?: {
                         const refDts = readDeclaration(rootDir, refPath);
                         if (refDts) {
                           referencedFiles.push({ path: refPath, content: refDts });
-                          nextFrontier.push(refDts);
+                          nextFrontier.push({ path: refPath, content: refDts });
                         }
                       }
                     }
