@@ -205,19 +205,21 @@ export type ZoomSymbol = {
   readonly signature: string;
   readonly doc: string | null;
   readonly exported: boolean;
-  readonly resolvedType?: string;
   readonly children?: ZoomSymbol[];
+};
+
+export type ZoomFileResult = {
+  readonly path: string;
+  readonly content: string;
 };
 
 export type ZoomResult = {
   readonly path: string;
-  readonly level: 0 | 1 | 2;
+  readonly depth: number;
   readonly symbols: ZoomSymbol[];
-  /**
-   * Whether implementation bodies were omitted from signatures.
-   * true for levels 0 and 1 (signatures only), false for level 2 (full content).
-   */
-  readonly truncated: boolean;
+  /** Additional files pulled in by BFS type-graph traversal (depth > 0). */
+  readonly referencedFiles?: ZoomFileResult[];
+  /** Directory zoom: per-file results. */
   readonly files?: ZoomResult[];
 };
 
