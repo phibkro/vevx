@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { Option } from "effect";
 
-import { RustGrammar, RustHooks } from "../RustPlugin.js";
+import { RustGrammar, RustHooks } from "./RustGrammar.js";
 import {
   extractSymbols,
   initTreeSitterParser,
