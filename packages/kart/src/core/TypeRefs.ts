@@ -61,8 +61,11 @@ function parseTypeImports(dts: string): Map<string, string> {
     const names = m[1];
     const source = m[2];
     for (const raw of names.split(",")) {
-      const name = raw.trim();
-      if (name) result.set(name, source);
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      // Handle `Foo as Bar` — use the local alias (Bar) as the key
+      const asMatch = /^(\w+)\s+as\s+(\w+)$/.exec(trimmed);
+      result.set(asMatch ? asMatch[2] : trimmed, source);
     }
   }
 

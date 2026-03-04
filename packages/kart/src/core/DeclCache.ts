@@ -6,7 +6,7 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 // ── Types ──
 
@@ -51,7 +51,7 @@ export async function buildDeclarations(rootDir: string): Promise<BuildResult> {
       tsBuildInfoFile: join(declsDir, "tsconfig.tsbuildinfo"),
       skipLibCheck: true,
     },
-    include: [join(absRoot, "**/*.ts")],
+    include: [join(absRoot, "**/*.ts"), join(absRoot, "**/*.tsx")],
     exclude: [
       join(absRoot, "node_modules"),
       join(absRoot, ".kart"),
@@ -117,7 +117,8 @@ export function isCacheStale(rootDir: string): boolean {
  */
 export function readDeclaration(rootDir: string, sourcePath: string): string | null {
   const absRoot = resolve(rootDir);
-  const rel = relative(absRoot, join(absRoot, sourcePath));
+  const absSource = isAbsolute(sourcePath) ? sourcePath : join(absRoot, sourcePath);
+  const rel = relative(absRoot, absSource);
   const dtsPath = join(absRoot, DECLS_DIR, rel.replace(/\.tsx?$/, ".d.ts"));
 
   if (!existsSync(dtsPath)) return null;
@@ -171,8 +172,9 @@ function findNewestSourceMtime(dir: string): number {
       if (sub > newest) newest = sub;
     } else if (
       entry.isFile() &&
-      entry.name.endsWith(".ts") &&
+      (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) &&
       !entry.name.endsWith(".test.ts") &&
+      !entry.name.endsWith(".test.tsx") &&
       !entry.name.endsWith(".integration.test.ts") &&
       !entry.name.endsWith(".d.ts")
     ) {

@@ -104,6 +104,17 @@ describe("DeclCache", () => {
     expect(content!).toContain("export interface Point");
   });
 
+  test("readDeclaration works with absolute source path", async () => {
+    await buildDeclarations(TEST_ROOT);
+
+    const absPath = join(TEST_ROOT, "src", "math.ts");
+    const content = readDeclaration(TEST_ROOT, absPath);
+
+    expect(content).not.toBeNull();
+    expect(content!).toContain("export declare function add");
+    expect(content!).toContain("export interface Point");
+  });
+
   test("readDeclaration returns null for nonexistent source file", () => {
     const content = readDeclaration(TEST_ROOT, "src/nonexistent.ts");
 

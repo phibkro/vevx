@@ -147,6 +147,14 @@ describe("resolveTypeOrigins", () => {
     expect(origins.get("Bar")).toBe("./types.js");
   });
 
+  test("handles as aliases in import type", () => {
+    const dts = 'import type { Foo as Bar } from "./foo.js";';
+
+    const origins = resolveTypeOrigins(dts);
+    expect(origins.get("Bar")).toBe("./foo.js");
+    expect(origins.has("Foo")).toBe(false);
+  });
+
   test("returns empty map for no imports", () => {
     const dts = "export declare function foo(): void;";
     const origins = resolveTypeOrigins(dts);

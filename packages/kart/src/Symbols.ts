@@ -253,10 +253,7 @@ export const SymbolIndexLive = (config?: {
                         // Skip external packages (no relative path)
                         if (!specifier.startsWith(".")) continue;
                         // Resolve specifier relative to the file it was imported from
-                        const refPath = resolve(
-                          dirname(originPath),
-                          specifier.replace(/\.js$/, ".ts"),
-                        );
+                        const refPath = resolveSpecifierToSource(originPath, specifier);
                         if (visited.has(refPath)) continue;
                         visited.add(refPath);
                         const refDts = readDeclaration(rootDir, refPath);
@@ -885,6 +882,24 @@ export const SymbolIndexLive = (config?: {
   );
 
 // ── Helpers ──
+
+/** Resolve an import specifier to the source .ts/.tsx file path. */
+function resolveSpecifierToSource(originPath: string, specifier: string): string {
+  const dir = dirname(originPath);
+  // .js → .ts, .jsx → .tsx
+  if (specifier.endsWith(".js")) {
+    const tsPath = resolve(dir, specifier.replace(/\.js$/, ".ts"));
+    if (existsSync(tsPath)) return tsPath;
+    return resolve(dir, specifier.replace(/\.js$/, ".tsx"));
+  }
+  if (specifier.endsWith(".jsx")) {
+    return resolve(dir, specifier.replace(/\.jsx$/, ".tsx"));
+  }
+  // Extensionless — try .ts then .tsx
+  const tsPath = resolve(dir, specifier + ".ts");
+  if (existsSync(tsPath)) return tsPath;
+  return resolve(dir, specifier + ".tsx");
+}
 
 /** Convert line:character to byte offset within file content. */
 function linesToOffset(lines: string[], line: number, character: number): number {
